@@ -470,3 +470,48 @@ class CriticLog(Base):
             f"<CriticLog(id={self.id}, session_id='{self.session_id[:8]}...', "
             f"iteration={self.iteration}/{self.total_iterations}, score={self.quality_score:.1f})>"
         )
+
+
+class ApprovedOutput(Base):
+    """
+    Approved output stored for learning and reference.
+
+    Stores user-approved generations (bullets, paragraphs, summaries)
+    with embeddings for semantic retrieval. Used to guide future
+    generation by providing successful examples.
+    """
+    __tablename__ = "approved_outputs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    application_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("applications.id"), index=True)
+    job_profile_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("job_profiles.id"), index=True)
+
+    # Output content
+    output_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)  # 'resume_bullet', 'cover_letter_paragraph', 'professional_summary', 'full_resume', 'full_cover_letter'
+    original_text: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Metadata and scoring
+    context_metadata: Mapped[Optional[dict]] = mapped_column(JSON)  # {job_title, requirements_snippet, tags, seniority}
+    quality_score: Mapped[Optional[float]] = mapped_column(Float)  # 0.0-1.0, from critic or manual
+
+    # Vector embedding for similarity search
+    embedding: Mapped[Optional[List[float]]] = mapped_column(JSON)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False, index=True)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, onupdate=func.now())
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", backref="approved_outputs")
+    application: Mapped[Optional["Application"]] = relationship("Application", backref="approved_outputs")
+    job_profile: Mapped[Optional["JobProfile"]] = relationship("JobProfile", backref="approved_outputs")
+
+    # Indexes
+    __table_args__ = (
+        Index("ix_approved_outputs_user_type", "user_id", "output_type"),
+        Index("ix_approved_outputs_quality", "quality_score"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<ApprovedOutput(id={self.id}, type='{self.output_type}', quality={self.quality_score})>"

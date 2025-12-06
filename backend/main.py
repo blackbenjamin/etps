@@ -8,7 +8,7 @@ This is the main FastAPI application entry point.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import job_router, resume_router, cover_letter_router, critic_router
+from routers import job_router, resume_router, cover_letter_router, critic_router, outputs_router
 
 app = FastAPI(
     title="ETPS API",
@@ -37,6 +37,7 @@ app.include_router(job_router, prefix="/api/v1/job", tags=["job"])
 app.include_router(resume_router, prefix="/api/v1/resume", tags=["resume"])
 app.include_router(cover_letter_router, prefix="/api/v1/cover-letter", tags=["cover_letter"])
 app.include_router(critic_router, prefix="/api/v1/critic", tags=["critic"])
+app.include_router(outputs_router, prefix="/api/v1/outputs", tags=["outputs"])
 
 # TODO: Include additional routers when implemented
 # app.include_router(company.router, prefix="/api/v1/company", tags=["company"])

@@ -27,6 +27,11 @@ from schemas.skill_gap import SkillGapResponse
 from services.llm.base import BaseLLM
 from services.llm.mock_llm import MockLLM
 from services.skill_gap import analyze_skill_gap, find_skill_match, normalize_skill
+# Sprint 8: Learning from approved outputs (available for future integration)
+from services.output_retrieval import (
+    retrieve_similar_cover_letter_paragraphs,
+    format_examples_for_prompt,
+)
 
 
 def smart_truncate(text: Optional[str], max_length: int = 100) -> str:

@@ -30,6 +30,12 @@ from services.skill_gap import (
 from services.llm.base import BaseLLM
 from services.bullet_rewriter import rewrite_bullets_for_job
 from services.summary_rewrite import rewrite_summary_for_job
+# Sprint 8: Learning from approved outputs (available for future integration)
+from services.output_retrieval import (
+    retrieve_similar_bullets,
+    retrieve_similar_summaries,
+    format_examples_for_prompt,
+)
 
 
 logger = logging.getLogger(__name__)

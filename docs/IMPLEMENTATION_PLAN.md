@@ -35,7 +35,7 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 5B: Summary Rewrite Engine | ✅ COMPLETE | Dec 2025 | Summary rewrite with candidate_profile, 60-word limit, critic validation |
 | Sprint 6: Version History & Plain Text | ✅ COMPLETE | Dec 2025 | Plain text output, format param, version history API, DOCX refinements |
 | Sprint 7: Qdrant Integration | ✅ COMPLETE | Dec 2025 | Vector store service, MockVectorStore, bullet/job indexing, semantic search |
-| Sprint 8: Learning from Approved Outputs | 🔲 NOT STARTED | - | |
+| Sprint 8: Learning from Approved Outputs | ✅ COMPLETE | Dec 2025 | ApprovedOutput model, output approval API, similarity retrieval, vector indexing |
 | Sprint 9-10: Frontend MVP | 🔲 NOT STARTED | - | Next.js + Job Intake UI |
 | Sprint 11-14: Company Intelligence | 🔲 NOT STARTED | - | Phase 2 |
 | Sprint 15-17: Application Tracking | 🔲 NOT STARTED | - | Phase 3 |
@@ -43,9 +43,9 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 19: Deployment | 🔲 NOT STARTED | - | Railway + Vercel |
 
 ### Test Coverage
-- **Total Tests:** 251 passing
-- **Test Files:** test_resume_critic.py, test_skill_gap.py, test_cover_letter_critic.py, test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py
-- **Coverage:** All Sprint 1-7 functionality tested
+- **Total Tests:** 342 passing
+- **Test Files:** test_resume_critic.py, test_skill_gap.py, test_cover_letter_critic.py, test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py
+- **Coverage:** All Sprint 1-8 functionality tested
 
 ### Git Workflow & Commit Checkpoints
 

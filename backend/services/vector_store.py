@@ -1018,6 +1018,50 @@ async def search_bullets_for_job(
     return results
 
 
+async def index_approved_output(
+    approved_output: Any,  # ApprovedOutput model instance
+    embedding_service: Any,
+    vector_store: BaseVectorStore
+) -> None:
+    """
+    Index an approved output in vector store for similarity search.
+
+    Args:
+        approved_output: ApprovedOutput model instance
+        embedding_service: Embedding service instance
+        vector_store: Vector store instance
+
+    Raises:
+        RuntimeError: If indexing fails
+    """
+    # Generate embedding if not present
+    if approved_output.embedding:
+        embedding = approved_output.embedding
+    else:
+        embedding = await embedding_service.generate_embedding(approved_output.original_text)
+
+    # Build payload matching COLLECTION_SCHEMAS['approved_outputs']
+    payload = {
+        'output_id': approved_output.id,
+        'user_id': approved_output.user_id,
+        'application_id': approved_output.application_id,
+        'output_type': approved_output.output_type,
+        'text': approved_output.original_text,
+        'quality_score': approved_output.quality_score,
+        'created_at': approved_output.created_at.isoformat() if approved_output.created_at else None
+    }
+
+    # Upsert to vector store
+    await vector_store.upsert_points(
+        collection_name=COLLECTION_APPROVED_OUTPUTS,
+        points=[{
+            'id': approved_output.id,
+            'vector': embedding,
+            'payload': payload
+        }]
+    )
+
+
 # Factory function
 def create_vector_store(use_mock: bool = False) -> BaseVectorStore:
     """
