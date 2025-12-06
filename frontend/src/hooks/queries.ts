@@ -5,6 +5,7 @@ import type {
   SkillGapRequest,
   ResumeGenerateRequest,
   CoverLetterGenerateRequest,
+  TailoredResume,
 } from '@/types'
 
 // Query keys for cache management
