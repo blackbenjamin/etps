@@ -40,7 +40,7 @@ vector_store:
 
 # Embeddings configuration
 embeddings:
-  similarity_threshold: 0.75  # Minimum cosine similarity for semantic matches
+  similarity_threshold: 0.60  # Minimum cosine similarity for semantic matches (tuned for OpenAI text-embedding-3-small)
   batch_size: 100             # Maximum batch size for embedding generation
 
 # Feature flags
