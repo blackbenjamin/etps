@@ -1,0 +1,549 @@
+{
+  "user": {
+    "full_name": "Benjamin Black",
+    "email": "benjamin.black@sloan.mit.edu",
+    "phone": "617-504-5529",
+    "linkedin": "linkedin.com/in/benjaminblack",
+    "summary": "Data-centric leader with extensive experience managing teams and game-changing projects in complex companies. Excellent at designing and implementing data management, governance and reporting initiatives in financial services organizations. Deep experience in change management, finance, and asset managers / broker dealers. Active security clearance. MBA from MIT Sloan School of Management."
+  },
+  "experiences": [
+    {
+      "id": "exp_001",
+      "job_title": "Deputy Project Leader - Data Governance, Architecture & Modeling, CDO Office",
+      "employer_name": "KeyLogic Associates (assigned to Kessel Run)",
+      "location": "Bedford, MA",
+      "start_date": "2024-09",
+      "end_date": null,
+      "order": 1,
+      "bullets": [
+        {
+          "id": "blt_001",
+          "text": "Lead research on data governance frameworks, AI capabilities, and ZT (zero-trust) frameworks for CIO and CDO.",
+          "tags": ["defense", "data_governance", "ai_governance", "security", "zero_trust"],
+          "seniority_level": "director",
+          "bullet_type": "responsibility",
+          "relevance_scores": {
+            "ai_governance": 0.95,
+            "data_governance": 0.95,
+            "defense": 0.90,
+            "consulting": 0.60
+          },
+          "star_notes": null,
+          "extracted_skills": ["data governance", "AI", "zero-trust"]
+        },
+        {
+          "id": "blt_002",
+          "text": "Coordinated workstreams and managed priorities across two ten-member teams delivering expertise to DoD stakeholders.",
+          "tags": ["defense", "team_leadership", "project_management", "dod_contracting"],
+          "seniority_level": "director",
+          "bullet_type": "responsibility",
+          "relevance_scores": {
+            "team_leadership": 0.95,
+            "project_management": 0.90,
+            "defense": 0.85,
+            "consulting": 0.70
+          },
+          "star_notes": "Situation: DoD stakeholder needs. Action: Coordinated two 10-person teams. Result: Delivered expertise.",
+          "extracted_skills": ["project management", "team leadership"]
+        }
+      ]
+    },
+    {
+      "id": "exp_002",
+      "job_title": "Financial Services Data and Analytics Consultant",
+      "employer_name": "Benjamin Black Consulting",
+      "location": "Boston",
+      "start_date": "2016-08",
+      "end_date": "2024-09",
+      "order": 2,
+      "sub_engagements": [
+        {
+          "id": "sub_001",
+          "client_name": "Edward Jones",
+          "start_date": "2023-02",
+          "end_date": "2023-11",
+          "bullets": [
+            {
+              "id": "blt_003",
+              "text": "Designed & implemented strategy to create & foster firm-wide data culture, data literacy & data governance.",
+              "tags": ["financial_services", "data_governance", "data_strategy", "consulting", "change_management"],
+              "seniority_level": "senior_ic",
+              "bullet_type": "achievement",
+              "relevance_scores": {
+                "data_governance": 0.95,
+                "data_strategy": 0.90,
+                "consulting": 0.90,
+                "financial_services": 0.85
+              },
+              "star_notes": "Situation: Firm lacked data culture. Action: Designed strategy. Result: Fostered firm-wide adoption.",
+              "extracted_skills": ["data governance", "data literacy", "data culture", "strategy"]
+            }
+          ]
+        },
+        {
+          "id": "sub_002",
+          "client_name": "Darling Consulting Group",
+          "start_date": "2022-09",
+          "end_date": "2023-01",
+          "bullets": [
+            {
+              "id": "blt_004",
+              "text": "Reviewed and analyzed current data strategy and governance and presented recommendations for improvements. Project manager for new client-facing data portal.",
+              "tags": ["financial_services", "data_governance", "data_strategy", "consulting", "project_management", "product_management"],
+              "seniority_level": "senior_ic",
+              "bullet_type": "achievement",
+              "relevance_scores": {
+                "data_strategy": 0.90,
+                "consulting": 0.90,
+                "project_management": 0.85,
+                "financial_services": 0.80
+              },
+              "star_notes": null,
+              "extracted_skills": ["data strategy", "data governance", "project management"]
+            }
+          ]
+        },
+        {
+          "id": "sub_003",
+          "client_name": "Squark (Machine Learning / AI Startup)",
+          "start_date": "2018-05",
+          "end_date": "2020-07",
+          "bullets": [
+            {
+              "id": "blt_005",
+              "text": "Created a go-to-market strategy for a machine learning / AI startup to create and customize products to sell into asset management companies.",
+              "tags": ["ai_ml", "fintech", "product_management", "consulting", "asset_management", "startup"],
+              "seniority_level": "senior_ic",
+              "bullet_type": "achievement",
+              "relevance_scores": {
+                "ai_ml": 0.90,
+                "product_management": 0.85,
+                "consulting": 0.85,
+                "financial_services": 0.75
+              },
+              "star_notes": "Situation: AI startup needed market entry strategy. Action: Created GTM strategy. Result: Products tailored for asset managers.",
+              "extracted_skills": ["machine learning", "AI", "go-to-market strategy", "product strategy"]
+            }
+          ]
+        },
+        {
+          "id": "sub_004",
+          "client_name": "Vestmark, Inc.",
+          "start_date": "2017-07",
+          "end_date": "2018-03",
+          "bullets": [
+            {
+              "id": "blt_006",
+              "text": "Coordinated agile development of customizations, integrations, and feature buildouts for the three largest customers of a financial software company's flagship product for broker dealers and wealth managers.",
+              "tags": ["fintech", "agile_development", "project_management", "api_integration", "financial_services"],
+              "seniority_level": "senior_ic",
+              "bullet_type": "responsibility",
+              "relevance_scores": {
+                "agile_development": 0.90,
+                "project_management": 0.85,
+                "financial_services": 0.85,
+                "consulting": 0.80
+              },
+              "star_notes": null,
+              "extracted_skills": ["agile development", "integrations", "customizations"]
+            }
+          ]
+        },
+        {
+          "id": "sub_005",
+          "client_name": "John Hancock Investments (through Olmstead Associates)",
+          "start_date": "2016-11",
+          "end_date": "2017-01",
+          "bullets": [
+            {
+              "id": "blt_007",
+              "text": "Designed and proposed a target architecture, data model, data governance model for asset manager / broker dealer to comply with new SEC modernization requirements.",
+              "tags": ["financial_services", "data_architecture", "data_modeling", "data_governance", "consulting", "sec_compliance", "asset_management"],
+              "seniority_level": "senior_ic",
+              "bullet_type": "achievement",
+              "relevance_scores": {
+                "data_architecture": 0.95,
+                "data_governance": 0.90,
+                "consulting": 0.90,
+                "financial_services": 0.90
+              },
+              "star_notes": "Situation: SEC modernization requirements. Action: Designed target architecture. Result: Compliance roadmap delivered.",
+              "extracted_skills": ["data architecture", "data modeling", "data governance", "SEC compliance"]
+            },
+            {
+              "id": "blt_008",
+              "text": "Created a comprehensive map of all systems, data flows, and interfaces that produce & consume fund data (holdings, transactions, G/L). Identified all required data from custodian banks, 30 sub-advisers, MSCI Risk Metrics, and IBOR provider.",
+              "tags": ["financial_services", "data_architecture", "data_modeling", "systems_analysis", "asset_management"],
+              "seniority_level": "senior_ic",
+              "bullet_type": "achievement",
+              "relevance_scores": {
+                "data_architecture": 0.95,
+                "systems_analysis": 0.90,
+                "financial_services": 0.90,
+                "consulting": 0.85
+              },
+              "star_notes": null,
+              "extracted_skills": ["data flows", "systems mapping", "fund data", "IBOR"]
+            },
+            {
+              "id": "blt_009",
+              "text": "Created a project timeline and implementation plan to minimize risk and streamline operations. Located, cataloged, queried (SQL) and documented data lineage.",
+              "tags": ["financial_services", "project_management", "data_lineage", "sql", "consulting"],
+              "seniority_level": "senior_ic",
+              "bullet_type": "achievement",
+              "relevance_scores": {
+                "project_management": 0.85,
+                "data_architecture": 0.80,
+                "consulting": 0.85,
+                "financial_services": 0.80
+              },
+              "star_notes": null,
+              "extracted_skills": ["SQL", "data lineage", "project planning"]
+            }
+          ]
+        },
+        {
+          "id": "sub_006",
+          "client_name": "Olmstead Associates",
+          "start_date": "2017-01",
+          "end_date": "2017-05",
+          "bullets": [
+            {
+              "id": "blt_010",
+              "text": "Created comprehensive tools and models for a financial data consulting company to assess and recommend improvements for clients; data migration capabilities & compliance with SEC modernization requirements.",
+              "tags": ["financial_services", "consulting", "data_strategy", "sec_compliance", "tools_development"],
+              "seniority_level": "senior_ic",
+              "bullet_type": "achievement",
+              "relevance_scores": {
+                "consulting": 0.95,
+                "financial_services": 0.85,
+                "data_strategy": 0.80
+              },
+              "star_notes": null,
+              "extracted_skills": ["data migration", "SEC compliance", "consulting tools"]
+            }
+          ]
+        },
+        {
+          "id": "sub_007",
+          "client_name": "Fidelity Investments",
+          "start_date": "2016-08",
+          "end_date": "2016-11",
+          "bullets": [
+            {
+              "id": "blt_011",
+              "text": "Developed a data strategy for Finance IT team to minimize storage costs and compute-power while delivering reliable and verifiable data to advanced analytics tools for business intelligence and insights.",
+              "tags": ["financial_services", "data_strategy", "cloud_architecture", "business_intelligence", "consulting"],
+              "seniority_level": "senior_ic",
+              "bullet_type": "achievement",
+              "relevance_scores": {
+                "data_strategy": 0.95,
+                "financial_services": 0.90,
+                "business_intelligence": 0.85,
+                "consulting": 0.85
+              },
+              "star_notes": "Situation: High storage costs. Action: Developed data strategy. Result: Optimized costs while ensuring reliability.",
+              "extracted_skills": ["data strategy", "cost optimization", "analytics"]
+            },
+            {
+              "id": "blt_012",
+              "text": "Evaluated current technologies, architecture, and governance against an existing strategic plan and raised awareness of key stakeholders' conflicting views and other strategic obstacles.",
+              "tags": ["financial_services", "data_architecture", "data_governance", "consulting", "stakeholder_management"],
+              "seniority_level": "senior_ic",
+              "bullet_type": "responsibility",
+              "relevance_scores": {
+                "consulting": 0.90,
+                "data_architecture": 0.85,
+                "data_governance": 0.80,
+                "financial_services": 0.85
+              },
+              "star_notes": null,
+              "extracted_skills": ["architecture evaluation", "stakeholder management"]
+            }
+          ]
+        }
+      ],
+      "bullets": []
+    },
+    {
+      "id": "exp_003",
+      "job_title": "Principal Systems Analyst - Activations",
+      "employer_name": "MANTL",
+      "location": "Remote",
+      "start_date": "2021-02",
+      "end_date": "2022-06",
+      "description": "Capital G-funded industry-leading omnichannel account-opening platform",
+      "order": 3,
+      "bullets": [
+        {
+          "id": "blt_013",
+          "text": "Collaborated with client bank, core banking providers (Fiserv Premier SOA & Signature, Jack Henry) and MANTL engineers to connect omnichannel account-opening technology via APIs.",
+          "tags": ["fintech", "banking", "api_integration", "systems_analysis", "vendor_management"],
+          "seniority_level": "senior_ic",
+          "bullet_type": "responsibility",
+          "relevance_scores": {
+            "api_integration": 0.95,
+            "fintech": 0.90,
+            "systems_analysis": 0.90,
+            "financial_services": 0.85
+          },
+          "star_notes": null,
+          "extracted_skills": ["APIs", "Fiserv", "Jack Henry", "core banking", "integrations"]
+        },
+        {
+          "id": "blt_014",
+          "text": "Collaborated tested and refined XML transactions using Postman, GitHub, VS Code in an agile environment.",
+          "tags": ["fintech", "agile_development", "api_integration", "testing"],
+          "seniority_level": "senior_ic",
+          "bullet_type": "responsibility",
+          "relevance_scores": {
+            "api_integration": 0.90,
+            "agile_development": 0.85,
+            "fintech": 0.80
+          },
+          "star_notes": null,
+          "extracted_skills": ["XML", "Postman", "GitHub", "VS Code", "agile"]
+        }
+      ]
+    },
+    {
+      "id": "exp_004",
+      "job_title": "Senior Strategy Consultant",
+      "employer_name": "Knowledgent Group, Inc. (acquired by Accenture)",
+      "location": "Boston",
+      "start_date": "2014-12",
+      "end_date": "2016-06",
+      "order": 4,
+      "bullets": [
+        {
+          "id": "blt_015",
+          "text": "Designed, built, and launched cloud-based (Microsoft Azure) Hadoop enterprise data lake & big data shared service at John Hancock Financial Services across all business units, including life insurance and LTC insurance.",
+          "tags": ["financial_services", "big_data", "data_lakes", "cloud_architecture", "hadoop", "consulting", "insurance"],
+          "seniority_level": "senior_ic",
+          "bullet_type": "achievement",
+          "relevance_scores": {
+            "big_data": 0.95,
+            "data_architecture": 0.95,
+            "cloud_architecture": 0.90,
+            "consulting": 0.90,
+            "financial_services": 0.85
+          },
+          "star_notes": "Situation: Enterprise needed data lake. Action: Designed, built, launched on Azure. Result: Shared service across all business units.",
+          "extracted_skills": ["Microsoft Azure", "Hadoop", "data lake", "big data"]
+        },
+        {
+          "id": "blt_016",
+          "text": "Defined use cases and success criteria for Big Data analytics proof of-value projects with five business units.",
+          "tags": ["financial_services", "big_data", "consulting", "business_intelligence"],
+          "seniority_level": "senior_ic",
+          "bullet_type": "responsibility",
+          "relevance_scores": {
+            "big_data": 0.90,
+            "consulting": 0.90,
+            "business_intelligence": 0.85,
+            "financial_services": 0.80
+          },
+          "star_notes": null,
+          "extracted_skills": ["use case definition", "big data analytics", "POV projects"]
+        },
+        {
+          "id": "blt_017",
+          "text": "Defined, created and refined dynamic C-Level business intelligence analytics dashboards (QlikView/Tableau).",
+          "tags": ["financial_services", "business_intelligence", "consulting", "data_visualization"],
+          "seniority_level": "senior_ic",
+          "bullet_type": "achievement",
+          "relevance_scores": {
+            "business_intelligence": 0.95,
+            "consulting": 0.85,
+            "financial_services": 0.80
+          },
+          "star_notes": null,
+          "extracted_skills": ["QlikView", "Tableau", "dashboards", "C-level reporting"]
+        },
+        {
+          "id": "blt_018",
+          "text": "Queried existing and novel data sources using SQL, Python, R and PowerShell.",
+          "tags": ["data_engineering", "sql", "python", "consulting"],
+          "seniority_level": "senior_ic",
+          "bullet_type": "responsibility",
+          "relevance_scores": {
+            "data_engineering": 0.85,
+            "consulting": 0.70
+          },
+          "star_notes": null,
+          "extracted_skills": ["SQL", "Python", "R", "PowerShell"]
+        },
+        {
+          "id": "blt_019",
+          "text": "Designed, built, and ran operations including data model, architecture, flows, transformations, & processes.",
+          "tags": ["data_architecture", "data_modeling", "data_engineering", "etl_pipelines", "consulting"],
+          "seniority_level": "senior_ic",
+          "bullet_type": "achievement",
+          "relevance_scores": {
+            "data_architecture": 0.90,
+            "data_engineering": 0.90,
+            "consulting": 0.85
+          },
+          "star_notes": null,
+          "extracted_skills": ["data modeling", "architecture", "ETL", "data flows"]
+        }
+      ]
+    },
+    {
+      "id": "exp_005",
+      "job_title": "Intranet Senior Platform Manager - Business Process & Change Management",
+      "employer_name": "Santander Bank, N.A. (Sovereign Bank)",
+      "location": "Boston",
+      "start_date": "2010-02",
+      "end_date": "2014-12",
+      "order": 5,
+      "bullets": [
+        {
+          "id": "blt_020",
+          "text": "Product manager of the bank's primary transactional / content platform - a global competitive advantage (proprietary intranet portals that deliver personalized information & transactional capabilities to 10,000+ users).",
+          "tags": ["banking", "financial_services", "product_management", "platform_management"],
+          "seniority_level": "director",
+          "bullet_type": "metric_impact",
+          "relevance_scores": {
+            "product_management": 0.95,
+            "financial_services": 0.90,
+            "platform_management": 0.90
+          },
+          "star_notes": "Situation: Bank needed internal platform. Action: Managed as product. Result: Served 10,000+ users.",
+          "extracted_skills": ["product management", "platform management", "intranet"]
+        },
+        {
+          "id": "blt_021",
+          "text": "Responsible for bringing technology platform developed in Spain into the US. Led the team that designed, implemented, and managed systems and processes including; business requirements, security access, governance, controls, business process design, measurement & improvement, vendor management, content strategy & admin.",
+          "tags": ["banking", "financial_services", "project_management", "change_management", "team_leadership", "vendor_management", "data_governance"],
+          "seniority_level": "director",
+          "bullet_type": "achievement",
+          "relevance_scores": {
+            "project_management": 0.95,
+            "change_management": 0.95,
+            "team_leadership": 0.90,
+            "financial_services": 0.85
+          },
+          "star_notes": "Situation: Platform from Spain needed US deployment. Action: Led team through full implementation. Result: Successful US launch.",
+          "extracted_skills": ["international deployment", "team leadership", "vendor management", "governance"]
+        },
+        {
+          "id": "blt_022",
+          "text": "Delivered three CEO-driven software development projects on-time & on-budget (project and program manager).",
+          "tags": ["banking", "financial_services", "project_management", "program_management"],
+          "seniority_level": "director",
+          "bullet_type": "metric_impact",
+          "relevance_scores": {
+            "project_management": 0.95,
+            "program_management": 0.90,
+            "financial_services": 0.85
+          },
+          "star_notes": "Situation: CEO-mandated projects. Action: Managed as PM. Result: Three projects on-time and on-budget.",
+          "extracted_skills": ["project management", "program management", "executive stakeholder management"]
+        }
+      ]
+    },
+    {
+      "id": "exp_006",
+      "job_title": "Senior Analyst - Strategic Modeling & Analysis, Fidelity Technology Group",
+      "employer_name": "Fidelity Investments",
+      "location": "Boston",
+      "start_date": "2008-06",
+      "end_date": "2009-04",
+      "order": 6,
+      "bullets": [
+        {
+          "id": "blt_023",
+          "text": "Advised product managers on best practices for unified customer communication.",
+          "tags": ["financial_services", "consulting", "product_management"],
+          "seniority_level": "mid_level",
+          "bullet_type": "responsibility",
+          "relevance_scores": {
+            "consulting": 0.80,
+            "product_management": 0.75,
+            "financial_services": 0.85
+          },
+          "star_notes": null,
+          "extracted_skills": ["customer communication", "product advisory"]
+        },
+        {
+          "id": "blt_024",
+          "text": "Subject matter expert on digital consumer analytics - shared insights in widely distributed internal reports.",
+          "tags": ["financial_services", "business_intelligence", "analytics"],
+          "seniority_level": "mid_level",
+          "bullet_type": "responsibility",
+          "relevance_scores": {
+            "business_intelligence": 0.85,
+            "analytics": 0.85,
+            "financial_services": 0.85
+          },
+          "star_notes": null,
+          "extracted_skills": ["digital analytics", "consumer analytics", "reporting"]
+        },
+        {
+          "id": "blt_025",
+          "text": "Assessed feasibility of $300M business case through a systems dynamics model of contact center operations.",
+          "tags": ["financial_services", "business_intelligence", "analytics", "modeling"],
+          "seniority_level": "mid_level",
+          "bullet_type": "metric_impact",
+          "relevance_scores": {
+            "analytics": 0.90,
+            "business_intelligence": 0.85,
+            "financial_services": 0.85,
+            "consulting": 0.75
+          },
+          "star_notes": "Situation: $300M business case needed validation. Action: Built systems dynamics model. Result: Feasibility assessment.",
+          "extracted_skills": ["systems dynamics modeling", "business case analysis", "contact center operations"]
+        }
+      ]
+    }
+  ],
+  "education": [
+    {
+      "id": "edu_001",
+      "institution": "MIT Sloan School of Management",
+      "degree": "MBA",
+      "field_of_study": "Strategy, Finance & Innovation",
+      "location": "Cambridge",
+      "graduation_date": null,
+      "highlights": [
+        "Strategy consulting projects with Chilean software factory, Indian biotechnology company, Peruvian microfinance bank, German enterprise software company"
+      ]
+    },
+    {
+      "id": "edu_002",
+      "institution": "Tufts University",
+      "degree": "B.A.",
+      "field_of_study": "Triple-Major: Economics, International Relations, & German Studies",
+      "location": "Medford",
+      "graduation_date": null,
+      "highlights": [
+        "President, Tufts Beelzebubs (a cappella group), performed at MLB All-Star Game & David Letterman Show",
+        "Semester abroad in Berlin, Germany (fluent in German)"
+      ]
+    }
+  ],
+  "technical_skills": {
+    "ai_ml": ["RAG", "vector search", "embeddings", "prompt engineering", "LLM evaluation"],
+    "data": ["modeling", "lineage", "governance", "quality", "controls", "transformation"],
+    "tech": ["SQL", "Python", "R", "Spark", "Azure", "AWS", "GCP", "APIs", "Postman", "GitHub", "VS Code"],
+    "bi": ["Power BI", "Tableau", "QlikView"],
+    "tools": ["Jira", "XML", "Bloomberg", "MS Project", "Visio"]
+  },
+  "certifications": [],
+  "metadata": {
+    "last_updated": "2024-12-04T00:00:00Z",
+    "version": "1.0",
+    "source_document": "Benjamin_Black_Resume_20251126.docx",
+    "tagging_assumptions": [
+      "Industry tags assigned based on employer type (financial_services for FS companies, defense for DoD work)",
+      "Consulting tag applied to all Benjamin Black Consulting engagements and Knowledgent work",
+      "Seniority levels: director for leadership/management roles, senior_ic for individual contributor roles, mid_level for analyst roles",
+      "Bullet type classification: achievement for completed projects, responsibility for ongoing duties, metric_impact for quantified outcomes",
+      "Relevance scores are heuristic (0.0-1.0) based on keyword matching to job categories",
+      "STAR notes only added where situation and result clearly implied",
+      "Dates normalized to YYYY-MM format",
+      "Sub-engagements under Benjamin Black Consulting treated as separate entries for tagging"
+    ]
+  }
+}

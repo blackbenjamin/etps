@@ -1,0 +1,47 @@
+# ETPS Configuration
+# Enterprise-Grade Talent Positioning System
+
+# Application settings
+app:
+  name: "ETPS"
+  version: "0.1.0"
+  environment: "development"  # development | staging | production
+
+# Model configuration (API keys via environment variables)
+models:
+  premium_model: "claude-sonnet-4-20250514"
+  fallback_model: "gpt-4o"
+  embedding_model: "text-embedding-3-small"
+  scoring_model: "claude-haiku"
+
+# ATS and Critic settings
+critic:
+  max_iterations: 3
+  ats_score_threshold: 75
+  strictness: "high"  # low | medium | high
+
+# Cover letter defaults
+cover_letter:
+  default_style: "standard"  # standard | executive | ultra-tight | custom
+  word_counts:
+    standard: 300
+    executive: 250
+    ultra_tight: 175
+
+# Database settings
+database:
+  sqlite_path: "./etps.db"
+
+# Vector store settings (Qdrant)
+vector_store:
+  host: "localhost"
+  port: 6333
+  collection_prefix: "etps_"
+
+# Feature flags
+features:
+  multi_user: false
+  company_intelligence: false  # Phase 2
+  application_tracking: false  # Phase 3
+
+# TODO: Add additional configuration as needed
