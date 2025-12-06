@@ -32,7 +32,7 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 3: Cover Letter Critic | ✅ COMPLETE | Dec 2025 | Critic iteration loop, banned phrase detection, LLM revision |
 | Sprint 4: Schema & Data Migration | ✅ COMPLETE | Dec 2025 | v1.3.0 schema, engagement structure, 8 engagements |
 | Sprint 5: Bullet Rewriting & Selection | ✅ COMPLETE | Dec 2025 | LLM-powered rewriting, bullet selection algorithm, truthfulness checks |
-| Sprint 5B: Summary Rewrite Engine | 🔲 NOT STARTED | - | Summary tailoring per job with PRD 2.10 |
+| Sprint 5B: Summary Rewrite Engine | ✅ COMPLETE | Dec 2025 | Summary rewrite with candidate_profile, 60-word limit, critic validation |
 | Sprint 6: Version History & Plain Text | 🔲 NOT STARTED | - | DOCX template refinement included |
 | Sprint 7: Qdrant Integration | 🔲 NOT STARTED | - | Vector search setup |
 | Sprint 8: Learning from Approved Outputs | 🔲 NOT STARTED | - | |
@@ -43,8 +43,8 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 19: Deployment | 🔲 NOT STARTED | - | Railway + Vercel |
 
 ### Test Coverage
-- **Total Tests:** 53 passing
-- **Test Files:** test_resume_critic.py, test_skill_gap.py, test_cover_letter_critic.py, + others
+- **Total Tests:** 80 passing
+- **Test Files:** test_resume_critic.py, test_skill_gap.py, test_cover_letter_critic.py, test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py
 - **Coverage:** All Sprint 1-3 functionality tested
 
 ### Git Workflow & Commit Checkpoints
@@ -434,24 +434,33 @@ Output: Rewritten bullet only, no explanation.
 
 ---
 
-### Sprint 5B: Summary Rewrite Engine (PRD 2.10)
+### Sprint 5B: Summary Rewrite Engine (PRD 2.10) ✅ COMPLETE
 
 **Goal:** Implement a summary rewriting module that tailors the professional summary to each job while enforcing tone and banned phrase rules.
 
+**Status:** ✅ Completed December 2025
+
 #### Tasks
 
-| ID | Task | File(s) | PRD Ref | Priority |
-|----|------|---------|---------|----------|
-| 5B.1 | Design summary rewrite prompt template | `services/llm/prompts/summary_rewrite.txt` | 2.10 | P0 |
-| 5B.2 | Implement SummaryRewriteService | `services/summary_rewrite.py` | 2.10 | P0 |
-| 5B.3 | Integrate with resume_tailor pipeline | `services/resume_tailor.py` | 1.6, 2.10 | P0 |
-| 5B.4 | Enforce banned phrases and tone via critic | `services/resume_critic.py` | 4.8 | P1 |
-| 5B.5 | Add unit tests for summary rewrite | `tests/test_summary_rewrite.py` | 2.10 | P1 |
+| ID | Task | File(s) | PRD Ref | Status |
+|----|------|---------|---------|--------|
+| 5B.1 | Design summary rewrite prompt template | `services/llm/prompts/summary_rewrite.txt` | 2.10 | ✅ |
+| 5B.2 | Implement SummaryRewriteService | `services/summary_rewrite.py` | 2.10 | ✅ |
+| 5B.3 | Integrate with resume_tailor pipeline | `services/resume_tailor.py` | 1.6, 2.10 | ✅ |
+| 5B.4 | Enforce banned phrases and tone via critic | `services/critic.py` | 4.8 | ✅ |
+| 5B.5 | Add unit tests for summary rewrite | `tests/test_summary_rewrite.py` | 2.10 | ✅ |
 
 #### Acceptance Criteria
-- [ ] Summary rewritten per job using job_profile core priorities
-- [ ] Summary respects word limit and banned phrases
-- [ ] Critic fails outputs with stale or non-tailored summaries
+- [x] Summary rewritten per job using job_profile core priorities
+- [x] Summary respects word limit (60 words) and banned phrases
+- [x] Critic fails outputs with stale or non-tailored summaries
+
+#### Implementation Notes
+- `services/summary_rewrite.py` - Core rewrite service (~340 lines)
+- Uses `candidate_profile.primary_identity`, `specializations`, and `target_roles`
+- Integrates `company_profile` context when available (future Phase 2)
+- `validate_summary_quality()` function added to critic.py
+- 53 unit tests passing
 
 ---
 

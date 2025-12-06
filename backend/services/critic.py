@@ -2360,6 +2360,138 @@ def check_hallucination(
     return passed, concerns
 
 
+# =============================================================================
+# SUMMARY QUALITY VALIDATION (PRD 2.10, 4.8)
+# =============================================================================
+
+# Generic openings that indicate a stale/non-tailored summary
+GENERIC_SUMMARY_PATTERNS = [
+    r"^professional with",
+    r"^experienced professional",
+    r"^seasoned (?:professional|expert|leader)",
+    r"^highly motivated",
+    r"^dedicated professional",
+    r"^accomplished professional",
+    r"^results-driven professional",
+]
+
+
+def validate_summary_quality(
+    summary_text: str,
+    job_profile: JobProfile,
+    max_words: int = 60,
+    context: str = "summary"
+) -> List[CriticIssue]:
+    """
+    Validate professional summary for PRD 2.10 and 4.8 compliance.
+
+    Checks:
+    - Word count limit (default 60)
+    - Banned phrases
+    - Em-dashes
+    - Generic/stale language
+    - Job priority alignment
+
+    Args:
+        summary_text: Summary to validate
+        job_profile: Target job for context
+        max_words: Maximum word count (default 60 per PRD 2.10)
+        context: Section context for issues
+
+    Returns:
+        List of CriticIssue objects
+    """
+    issues: List[CriticIssue] = []
+
+    if not summary_text:
+        issues.append(CriticIssue(
+            issue_type="structure_violation",
+            severity="error",
+            section=context,
+            message="Summary is empty or missing",
+            original_text=None,
+            recommended_fix="Generate a tailored summary using candidate profile and job priorities"
+        ))
+        return issues
+
+    # 1. Word count check
+    word_count = count_words(summary_text)
+    if word_count > max_words:
+        issues.append(CriticIssue(
+            issue_type="word_count_violation",
+            severity="error",  # Exceeding limit is an error per PRD 2.10
+            section=context,
+            message=f"Summary exceeds {max_words}-word limit ({word_count} words)",
+            original_text=summary_text[:100] + "..." if len(summary_text) > 100 else summary_text,
+            recommended_fix=f"Reduce summary to {max_words} words while maintaining key positioning"
+        ))
+
+    # 2. Banned phrases check (reuse existing infrastructure)
+    banned_issues = check_banned_phrases(
+        text=summary_text,
+        company_name=None,  # Company context not needed for summary
+        context=context
+    )
+    issues.extend(banned_issues)
+
+    # 3. Em-dash check
+    if re.search(EM_DASH_PATTERN, summary_text):
+        # Find the context around the em-dash
+        match = re.search(EM_DASH_PATTERN, summary_text)
+        start = max(0, match.start() - 15)
+        end = min(len(summary_text), match.end() + 15)
+        snippet = summary_text[start:end]
+
+        issues.append(CriticIssue(
+            issue_type="em_dash_violation",
+            severity="error",  # Em-dashes are banned per PRD 4.8
+            section=context,
+            message="Em-dash detected in summary (banned punctuation)",
+            original_text=f"...{snippet}..." if start > 0 else f"{snippet}...",
+            recommended_fix="Use commas, parentheses, or restructure the sentence"
+        ))
+
+    # 4. Generic opening check (stale summary detection)
+    summary_lower = summary_text.lower().strip()
+    for pattern in GENERIC_SUMMARY_PATTERNS:
+        if re.match(pattern, summary_lower):
+            issues.append(CriticIssue(
+                issue_type="cliche_violation",
+                severity="warning",
+                section=context,
+                message=f"Generic opening detected: '{summary_text[:50]}...'",
+                original_text=summary_text[:60],
+                recommended_fix="Lead with specific identity/specialization aligned to job (use candidate_profile.primary_identity)"
+            ))
+            break  # Only flag once
+
+    # 5. Job priority alignment check (stale summary detection)
+    if job_profile.core_priorities:
+        priority_mentioned = False
+        for priority in job_profile.core_priorities[:3]:
+            # Check for key terms from each priority
+            key_terms = [term.lower() for term in priority.split() if len(term) > 4]
+            for term in key_terms:
+                if term in summary_lower:
+                    priority_mentioned = True
+                    break
+            if priority_mentioned:
+                break
+
+        if not priority_mentioned:
+            priorities_str = ", ".join(job_profile.core_priorities[:3])
+            issues.append(CriticIssue(
+                issue_type="requirement_coverage",
+                severity="warning",
+                section=context,
+                message="Summary appears non-tailored: no alignment to job priorities detected",
+                original_text=summary_text[:80] + "..." if len(summary_text) > 80 else summary_text,
+                recommended_fix=f"Incorporate themes from job priorities: {priorities_str}"
+            ))
+
+    return issues
+
+
 async def validate_resume_truthfulness(
     resume_json: Dict[str, Any],
     user_id: int,
@@ -2601,6 +2733,18 @@ async def evaluate_resume(
     # ==========================================================================
     banned_issues = check_banned_phrases(resume_text, context="resume")
     all_issues.extend(banned_issues)
+
+    # ==========================================================================
+    # 7B. SUMMARY QUALITY VALIDATION (PRD 2.10, 4.8)
+    # ==========================================================================
+    summary_text = resume_json.get("tailored_summary", "")
+    summary_issues = validate_summary_quality(
+        summary_text=summary_text,
+        job_profile=job_profile,
+        max_words=60,  # PRD 2.10 default
+        context="summary"
+    )
+    all_issues.extend(summary_issues)
 
     # ==========================================================================
     # 8. STRUCTURE CHECK

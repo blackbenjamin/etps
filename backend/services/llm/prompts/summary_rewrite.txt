@@ -1,0 +1,49 @@
+You are a professional resume summary writer specializing in executive positioning.
+
+CONTEXT
+=======
+Candidate Identity: {primary_identity}
+Specializations: {specializations}
+Target Role: {job_title} ({seniority})
+Years Experience: {years_experience}+
+Top Skills: {top_skills}
+Job Priorities: {core_priorities}
+Company Context: {company_context}
+
+INSTRUCTIONS
+============
+Write a professional resume summary that:
+
+1. LENGTH: Exactly 50-60 words. Do not exceed 60 words under any circumstances.
+
+2. OPENING: Lead with the candidate's identity framing ({primary_identity}). Do NOT start with generic phrases like "Professional with" or "Experienced leader in".
+
+3. CONTENT: Emphasize specializations that align with the job priorities. Reference concrete achievements or capabilities, not generic claims.
+
+4. TONE: Executive, direct, minimal passive voice. Outcome-driven and confident without being boastful.
+
+5. BANNED PHRASES (never use these):
+   - "passionate about" / "passionate professional"
+   - "proven track record"
+   - "results-oriented" / "results-driven"
+   - "dynamic" / "innovative thinker"
+   - "team player" / "detail-oriented"
+   - "go-getter" / "hard-working"
+   - "seasoned professional" / "seasoned expert"
+   - "synergy" / "leverage" / "best-in-class"
+   - "cutting-edge" / "world-class"
+   - "I am" / "I have" (avoid first person)
+
+6. STYLE RULES:
+   - No em-dashes (---)
+   - No semicolons in the summary
+   - Prefer strong action verbs: led, built, drove, designed, implemented, scaled
+   - Avoid weak verbs: helped, worked on, assisted, participated in
+
+7. JOB ALIGNMENT: The summary must address at least 1-2 of these job priorities: {core_priorities}
+
+OUTPUT FORMAT
+=============
+Return ONLY the summary text. No explanation, no quotes, no bullet points. Just the summary paragraph.
+
+SUMMARY:

@@ -29,6 +29,7 @@ from services.skill_gap import (
 )
 from services.llm.base import BaseLLM
 from services.bullet_rewriter import rewrite_bullets_for_job
+from services.summary_rewrite import rewrite_summary_for_job
 
 
 logger = logging.getLogger(__name__)
@@ -517,6 +518,12 @@ async def generate_tailored_summary(
     """
     Generate tailored executive summary optimized for target job.
 
+    .. deprecated:: Sprint 5B
+        Use :func:`services.summary_rewrite.rewrite_summary_for_job` instead.
+        This function is kept for backward compatibility but will be removed
+        in a future version. The new function uses candidate_profile for better
+        personalization and enforces PRD 2.10 constraints (60 word limit).
+
     Uses LLM to generate 60-80 word summary emphasizing matched skills,
     relevant seniority, and key achievements aligned with job priorities.
 
@@ -531,6 +538,12 @@ async def generate_tailored_summary(
     Returns:
         Tailored professional summary (60-80 words)
     """
+    import warnings
+    warnings.warn(
+        "generate_tailored_summary is deprecated. Use rewrite_summary_for_job instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     # Extract key information for summary
     top_skills = [s.skill for s in selected_skills[:5]]
     matched_skills = [m.skill for m in skill_gap_result.matched_skills[:3]]
@@ -897,18 +910,22 @@ async def tailor_resume(
         max_skills=max_skills,
     )
 
-    # Generate tailored summary
+    # Generate tailored summary using SummaryRewriteService (PRD 2.10)
     if llm is None:
         from services.llm.mock_llm import MockLLM
         llm = MockLLM()
 
-    tailored_summary = await generate_tailored_summary(
-        user_name=user.full_name,
-        experiences=experiences,
+    # Note: CompanyProfile integration will be added when Sprint 11-14 implements it
+    # For now, company_profile is None - the service handles this gracefully
+    tailored_summary = await rewrite_summary_for_job(
+        user=user,
         job_profile=job_profile,
         skill_gap_result=skill_gap_result,
         selected_skills=selected_skills,
+        experiences=experiences,
         llm=llm,
+        company_profile=None,  # TODO: Fetch from db when company enrichment is implemented
+        max_words=60,  # PRD 2.10 default
     )
 
     # Build comprehensive rationale
@@ -919,11 +936,17 @@ async def tailor_resume(
         for r in selected_roles
     )
 
+    # Extract candidate identity for rationale
+    candidate_identity = 'Professional'
+    if user.candidate_profile and user.candidate_profile.get('primary_identity'):
+        candidate_identity = user.candidate_profile['primary_identity']
+
     rationale = TailoringRationale(
         summary_approach=(
-            f"Generated summary emphasizing {len(selected_skills[:5])} top matched skills "
-            f"({', '.join([s.skill for s in selected_skills[:3]])}) aligned with "
-            f"{job_profile.seniority or 'target'} seniority level and job priorities"
+            f"Rewritten summary positioning candidate as '{candidate_identity}', "
+            f"emphasizing specializations aligned to job priorities: "
+            f"{', '.join(job_profile.core_priorities[:3]) if job_profile.core_priorities else 'N/A'}. "
+            f"Top skills highlighted: {', '.join([s.skill for s in selected_skills[:3]])}"
         ),
         bullet_selection_strategy=(
             f"Multi-factor scoring (40% tag matching, 30% relevance, 20% freshness, 10% diversity). "
