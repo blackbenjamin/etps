@@ -57,6 +57,24 @@ This document provides a detailed implementation plan to build ETPS to full PRD 
 - ✅ After major documentation updates
 - ✅ Before switching to a different sprint/task
 
+**Pre-Push Checklist (mandatory before every push):**
+```bash
+cd /Users/benjaminblack/projects/etps/backend
+
+# 1. Run all unit tests
+python -m pytest -v --tb=short
+
+# 2. Security scan (code vulnerabilities)
+pip install bandit 2>/dev/null; bandit -r . -ll --exclude ./test*.py
+
+# 3. Dependency audit
+pip install safety 2>/dev/null; safety check
+
+# 4. Verify no secrets in staged files
+git diff --cached --name-only | xargs grep -l -E "(api_key|secret|password)" || echo "✓ No secrets"
+```
+All checks must pass before `git push`.
+
 **Commit History:**
 | Commit | Sprint | Description |
 |--------|--------|-------------|
