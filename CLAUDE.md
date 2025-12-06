@@ -15,6 +15,8 @@
 
 - `ETPS_PRD.md` - Product Requirements Document (source of truth)
 - `docs/IMPLEMENTATION_PLAN.md` - Sprint roadmap and progress
+- `docs/ARCHITECTURE.md` - System architecture and service map
+- `docs/DATA_MODEL.md` - Database schema reference (v1.3.0)
 - `docs/cover_letter_style_guide.md` - Writing style rules
 - `backend/README.md` - Backend setup and API reference
 
@@ -34,6 +36,11 @@
    - ReDoS in regex patterns
 
 3. **Update documentation** if sprint completed
+
+4. **Update data model docs** if `backend/db/models.py` changed
+   - Update `docs/DATA_MODEL.md` with new fields/entities
+   - Update JSON schema examples if applicable
+   - Increment version number
 
 ### Commit Convention
 
