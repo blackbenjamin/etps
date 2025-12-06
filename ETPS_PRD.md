@@ -32,19 +32,102 @@ Architecture must not preclude multi-user support (tenancy) in later phases.
   - Optional controls for regeneration and refinement (tone, length, style).
   - Minimal friction: paste JD / URL → optional context → generate.
 
+The job intake UI and backend must support an optional free-text "context notes" field. These notes are passed to:
+
+- Summary Rewrite Engine
+- Resume bullet selection (for special emphasis or exclusions)
+- Cover Letter Generator
+- Networking/Outreach Generator (when implemented)
+
+Context notes may include things like:
+- "Mention that I spoke with John Smith at the XYZ conference."
+- "Do not lean heavily on defense work for this company."
+
 ### 1.4 Phase 1 Success Metrics
 
 - Generate polished, ATS-friendly, tailored resumes in < 60 seconds.
 - Reduce manual rewriting time by ~90% per application.
-- Produce cover letters that are “sendable” with at most minor edits.
+- Produce cover letters that are "sendable" with at most minor edits.
 - Preserve docx formatting with zero layout breakage.
 - Provide **skill-gap analysis** that accurately highlights missing skills and opportunities to reposition, without discouraging applications.
+
+The UI must display ATS-related feedback as:
+
+- A numeric ATS score (0–100).
+- A color-coded indicator (e.g., red < 60, yellow 60–75, green > 75).
+- A short explanation of which areas are limiting ATS performance (e.g., missing key skills, low keyword overlap in summary).
 
 ### 1.5 Long-Term System Feel
 
 - Feels like an internal, enterprise-grade talent tool.
 - Good enough polish to show live in interviews and as a consulting asset.
 - Demonstrates product thinking, UX design, and AI architecture capabilities.
+
+### 1.6 End-to-End Runtime Pipeline (Authoritative Flow)
+
+For a single job application, ETPS must follow this pipeline:
+
+1. **Job Intake**
+   - User provides: JD text and/or URL, optional context notes.
+   - System fetches JD text when URL is provided (with SSRF-safe fetch).
+
+2. **JD Parsing → job_profile**
+   - Extract title, location, seniority, responsibilities, requirements, skills.
+   - Distill 2–3 core priorities for the role.
+   - Classify must-have vs nice-to-have capabilities.
+   - Store as `job_profile`.
+
+3. **Company Enrichment → company_profile** (Phase 2)
+   - Infer company attributes: industry, size, culture signals, AI maturity.
+   - Store as `company_profile`.
+   - Link `job_profile` ↔ `company_profile`.
+
+4. **Fit & Skill-Gap Analysis**
+   - Compare `candidate_profile` + resume schema vs `job_profile`.
+   - Compute `match_result` (overall, skills, domain, seniority scores).
+   - Compute `SkillGapResponse` with gaps and positioning strategies.
+
+5. **Bullet & Content Selection**
+   - Select relevant experiences, engagements, and bullets from:
+     - `employment_history.engagements.bullets`
+     - `ai_portfolio` (when relevant)
+   - Apply the Bullet Selection Algorithm (see Section 2.8).
+
+6. **Summary Rewrite**
+   - Rewrite the professional summary using:
+     - `candidate_profile`
+     - `job_profile.core_priorities`
+     - `company_profile` (when available)
+   - Enforce summary tone, banned phrases, and length constraints.
+
+7. **Resume Construction (Content)**
+   - Assemble selected summary, experiences, skills, and education into a structured JSON representation for this job.
+   - Apply any optional LLM bullet rewrites (if enabled).
+
+8. **Cover Letter Generation**
+   - Generate a cover letter using:
+     - `job_profile`
+     - `company_profile`
+     - Selected experiences and projects
+     - User context notes and style preset
+   - Enforce structural requirements (intro → value → alignment → close).
+
+9. **Critic & Refinement Loop**
+   - Run Resume Critic on the resume JSON + docx.
+   - Run Cover Letter Critic on the cover letter JSON + docx.
+   - Critic enforces truthfulness constraints by validating employer names, job titles, employment dates, and locations against the stored `employment_history` data model.
+   - If failures (style, ATS score, banned phrases, formatting, truthfulness):
+     - Regenerate/repair up to max iterations (default 3).
+     - Stop when all critical checks pass.
+
+10. **Rendering & Output**
+    - Render resume and cover letter to:
+      - `.docx` (primary)
+      - `text/plain`
+      - `application/json`
+    - Expose outputs for download and display ATS/skill-gap results.
+
+This pipeline is the authoritative execution order for ETPS and should be reflected in the implementation plan and orchestration code.
 
 ---
 
@@ -155,6 +238,90 @@ Each bullet/experience in the JSON/DB model includes:
 - Relationship to multiple `job_profile` entries for the same company.
 
 These profiles persist and are reused across applications.
+
+### 2.8 Bullet Selection Algorithm
+
+The resume generator must use a deterministic core algorithm for bullet selection, optionally enhanced by LLM heuristics.
+
+**Inputs:**
+- `job_profile` (title, core requirements, skills, domain tags)
+- `candidate_profile`
+- `employment_history[*].engagements[*].bullets`
+- `ai_portfolio` (project bullets)
+- `domain_tags_master`
+
+**Core Rules:**
+
+1. **Relevance scoring**
+   - Compute a relevance score for each bullet based on:
+     - Tag overlap (`domain_tags`, `tech_tags` vs job domain/skills).
+     - Role type and seniority match.
+     - `importance` flag, when present.
+   - Optionally use embeddings for semantic similarity.
+
+2. **Per-role bullet count**
+   - Default target: 3–6 bullets per major role.
+   - Higher seniority roles appear earlier and may receive more bullets.
+   - Lower-relevance roles may be shown with fewer bullets.
+
+3. **Engagement prioritization (consulting roles)**
+   - For consulting employers, select the 1–3 most relevant engagements for the job.
+   - Within each engagement, select the top bullets by relevance score.
+   - Less relevant engagements should be omitted from the tailored resume unless user-provided context notes explicitly request their inclusion.
+
+4. **Non-consulting roles**
+   - For direct employment roles, treat bullets as belonging to the employer, not nested under engagements.
+   - Still apply relevance scoring and reordering by relevance.
+
+5. **AI portfolio integration**
+   - When the JD is AI/LLM-heavy, allow bullets derived from `ai_portfolio` (e.g., ETPS, RAG systems) to be selected and placed in:
+     - The current BBC role, or
+     - A Projects/Selected Work section (if present in the template).
+
+6. **Redundancy control**
+   - Avoid selecting bullets that repeat the same achievement across roles.
+   - Prefer a single strong bullet that represents a theme.
+
+7. **Truthfulness constraints**
+   - Never select or generate bullets that invent new employers, roles, or time periods.
+   - Only use bullets grounded in existing entries or portfolio projects.
+
+The LLM may assist in ranking or clustering bullets, but the system must follow these deterministic rules for selection and ordering.
+
+### 2.9 Engagements Representation (DB + JSON)
+
+For consulting roles (e.g., Benjamin Black Consulting, Knowledgent), an experience may contain multiple client engagements.
+
+**Database Level:**
+- `experiences` table: one row per employer + role + date range.
+- `engagements` table: one row per client/project:
+  - Foreign key to `experiences`.
+  - Fields: client, project_name, project_type, date_range_label, domain_tags, tech_tags, display_order.
+- `bullets` table: may belong to:
+  - An `experience` directly (non-consulting roles).
+  - An `engagement` (consulting/client work).
+
+**API / JSON Level:**
+- Resume-tailor API must return a nested structure:
+  - `experience` objects containing an `engagements` array.
+  - Each engagement contains its `bullets` array.
+- For non-consulting roles, `engagements` may be empty and bullets attached directly to the experience.
+
+Rendering and bullet selection must treat engagements as **first-class**, nested under consulting employers.
+
+### 2.10 Summary Rewrite Engine
+
+For each job, ETPS must rewrite the professional summary using:
+
+- `candidate_profile` (identity, specializations, target roles)
+- `job_profile.core_priorities`
+- `company_profile` (mission, industry, AI maturity) when available
+
+Constraints:
+- Respect summary tone and banned phrases (Section 4.8).
+- Keep within configured word limit (default ≤ 60 words).
+- Maintain truthfulness (no added roles or fake responsibilities).
+- Emphasize themes aligned to top 2–3 JD priorities.
 
 ---
 
@@ -287,6 +454,15 @@ Mode: **Highly strict.**
 - Proper action verbs.
 - Clean sentence length and structure.
 
+The Critic must validate the following truthfulness constraints for resumes:
+
+- Employer names and job titles must exactly match stored `employment_history` records.
+- Employment dates must exactly match stored date ranges.
+- Locations must not be altered.
+- No new employers, roles, or degrees may appear that do not exist in the underlying data model.
+
+Any violation is a critical failure and must trigger regeneration or a warning that the request cannot be fulfilled as written.
+
 **Cover letter rubric includes:**
 
 - Tone match (executive, concise, outcome-oriented).
@@ -385,6 +561,11 @@ The critic computes:
 
 A total score below 85 results in failed critique and regeneration.
 Any critical violation (banned phrase, em-dash, structural gap) results in an automatic failure.
+
+The Critic Agent must treat all style constraints in this section as hard requirements:
+
+- Any banned phrase, em-dash, or structural omission (missing alignment section, missing mission/industry tie-in) constitutes a **critical failure**.
+- Critical failures require regeneration or repair until resolved or max iterations reached.
 
 ---
 
@@ -491,11 +672,41 @@ Tracks:
 - Timeline and outcomes.
 - Resume/CL versions used.
 
+**Note:** Application tracking, contact history, and reminder workflows are **Phase 3 features**. Phase 1 will only log generation events and critic results; no full tracking UI or workflows are required until Phase 3.
+
 ### 5.9 Risk Controls
 
 - Do not over-assert knowledge of company strategy.
 - Mark uncertain inferences and include confidence scores.
 - Avoid suggesting outreach to CxO-level leaders unless the role/company context clearly justifies it or user insists.
+
+Networking and outreach generation must:
+
+- Avoid recommending outreach to C-level executives unless the role is clearly senior enough and the user explicitly opts in.
+- Label any inferred org structure or reporting lines with confidence levels.
+- Avoid specific claims about internal strategies, restructurings, or confidential initiatives unless they are directly grounded in user-provided context.
+
+### 5.10 Influence of Company Intelligence on Resume & Cover Letter
+
+When a `company_profile` is available, ETPS must use it to:
+
+1. **Resume:**
+   - Select and order bullets that align with:
+     - The company's industry.
+     - Data/AI maturity level.
+     - Mentioned transformations or initiatives.
+   - Tilt emphasis toward relevant domains (e.g., banking, broker-dealer, defense).
+
+2. **Summary:**
+   - Slightly adjust emphasis (e.g., more AI governance vs more product/engineering) based on company maturity and mission.
+
+3. **Cover Letter:**
+   - Connect at least one paragraph to:
+     - The company's business lines or products.
+     - Problems implied by their maturity level (e.g., need for governance vs experimentation).
+   - Adjust tone where culture signals suggest more formal vs more innovative messaging.
+
+The system must not fabricate specific internal initiatives or confidential-sounding strategies; any company-specific claims must be grounded in public information or user-provided context.
 
 ---
 

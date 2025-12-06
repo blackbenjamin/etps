@@ -13,6 +13,14 @@ This document provides a detailed implementation plan to build ETPS to full PRD 
 
 **Target State:** Full Phase 1 (Core Quality), Phase 2 (Company Intelligence), and Phase 3 (Application Tracking) as defined in ETPS_PRD.md.
 
+### Runtime Pipeline Reference
+
+All sprints (5–10 and beyond) assume the authoritative runtime pipeline defined in **PRD Section 1.6**. This pipeline governs the end-to-end flow for each job application:
+
+1. Job Intake → 2. JD Parsing → 3. Company Enrichment → 4. Fit & Skill-Gap Analysis → 5. Bullet & Content Selection → 6. Summary Rewrite → 7. Resume Construction → 8. Cover Letter Generation → 9. Critic & Refinement Loop → 10. Rendering & Output
+
+Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
+
 ---
 
 ## Progress Summary
@@ -23,8 +31,9 @@ This document provides a detailed implementation plan to build ETPS to full PRD 
 | Sprint 2: Skill-Gap Analysis | ✅ COMPLETE | Dec 2025 | Semantic matching with OpenAI embeddings, positioning strategies |
 | Sprint 3: Cover Letter Critic | ✅ COMPLETE | Dec 2025 | Critic iteration loop, banned phrase detection, LLM revision |
 | Sprint 4: Schema & Data Migration | ✅ COMPLETE | Dec 2025 | v1.3.0 schema, engagement structure, 8 engagements |
-| Sprint 5: Bullet Rewriting | 🔲 NOT STARTED | - | LLM-powered rewriting with STAR notes |
-| Sprint 6: Version History & Plain Text | 🔲 NOT STARTED | - | |
+| Sprint 5: Bullet Rewriting & Selection | 🔲 NOT STARTED | - | LLM-powered rewriting, bullet selection algorithm, truthfulness checks |
+| Sprint 5B: Summary Rewrite Engine | 🔲 NOT STARTED | - | Summary tailoring per job with PRD 2.10 |
+| Sprint 6: Version History & Plain Text | 🔲 NOT STARTED | - | DOCX template refinement included |
 | Sprint 7: Qdrant Integration | 🔲 NOT STARTED | - | Vector search setup |
 | Sprint 8: Learning from Approved Outputs | 🔲 NOT STARTED | - | |
 | Sprint 9-10: Frontend MVP | 🔲 NOT STARTED | - | Next.js + Job Intake UI |
@@ -103,10 +112,13 @@ All checks must pass before `git push`.
 │ - Resume Data Update                                            │
 │ - DOCX Generator Updates                                        │
 ├─────────────────────────────────────────────────────────────────┤
-│ PHASE 1C: LLM Enhancement (Sprints 5-6)                        │
-│ - Bullet Rewriting                                              │
+│ PHASE 1C: LLM Enhancement (Sprints 5-5B-6)                     │
+│ - Bullet Rewriting & Selection Algorithm                        │
+│ - Summary Rewrite Engine (Sprint 5B)                            │
+│ - Truthfulness Consistency Checks                               │
 │ - Version History                                               │
 │ - Text/Plain Output                                             │
+│ - DOCX Template Refinement                                      │
 ├─────────────────────────────────────────────────────────────────┤
 │ PHASE 1D: Vector Search & Learning (Sprints 7-8)               │
 │ - Qdrant Integration                                            │
@@ -372,9 +384,9 @@ Independent AI Strategist & Builder
 
 ## Phase 1C: LLM Enhancement
 
-### Sprint 5: Bullet Rewriting (PRD 2.4, 2.6)
+### Sprint 5: Bullet Rewriting & Selection (PRD 2.4, 2.6, 2.8, 2.9, 4.3)
 
-**Goal:** Implement LLM-powered bullet rewriting to optimize for JD keywords while preserving truth.
+**Goal:** Implement LLM-powered bullet rewriting, deterministic bullet selection algorithm, engagements nesting, and truthfulness checks to optimize resumes for JD keywords while preserving truth.
 
 #### Tasks
 
@@ -389,6 +401,10 @@ Independent AI Strategist & Builder
 | 1.4.7 | Add rewrite toggle (enable/disable) | `schemas/resume_tailor.py` | 2.4 | P1 |
 | 1.4.8 | Integrate with resume tailor flow | `services/resume_tailor.py` | 2.4 | P0 |
 | 1.4.9 | Write unit tests | `tests/test_bullet_rewriter.py` | - | P1 |
+| 1.4.10 | Implement deterministic bullet selection algorithm using structured inputs (domain_tags_master, tech_tags, ai_portfolio, seniority tags, importance flags) as defined in PRD 2.8 | `services/resume_tailor.py` | PRD 2.8 | P0 |
+| 1.4.11 | Integrate portfolio project bullets when JD is AI/LLM-heavy | `services/resume_tailor.py` | PRD 2.8 | P1 |
+| 1.4.12 | Ensure resume_tailor JSON output nests engagements under consulting experiences | `services/resume_tailor.py`, `schemas/resume_tailor.py` | PRD 2.9 | P0 |
+| 1.4.13 | Implement resume truthfulness consistency check | `services/resume_critic.py` | PRD 4.3 | P0 |
 
 #### Acceptance Criteria
 - [ ] Bullets rewritten to include JD keywords
@@ -396,6 +412,10 @@ Independent AI Strategist & Builder
 - [ ] No factual changes (dates, metrics, employers)
 - [ ] STAR notes used to enrich rewrites when available
 - [ ] Rewriting can be enabled/disabled per request
+- [ ] Bullet selection follows PRD 2.8 algorithm (tags + importance + role relevance)
+- [ ] Consulting engagements limited to most relevant clients per job
+- [ ] Redundant bullets minimized across roles
+- [ ] Resume Critic validates factual consistency (employers, titles, dates, locations) against stored employment_history data
 
 #### Prompt Strategy
 ```
@@ -414,6 +434,27 @@ Output: Rewritten bullet only, no explanation.
 
 ---
 
+### Sprint 5B: Summary Rewrite Engine (PRD 2.10)
+
+**Goal:** Implement a summary rewriting module that tailors the professional summary to each job while enforcing tone and banned phrase rules.
+
+#### Tasks
+
+| ID | Task | File(s) | PRD Ref | Priority |
+|----|------|---------|---------|----------|
+| 5B.1 | Design summary rewrite prompt template | `services/llm/prompts/summary_rewrite.txt` | 2.10 | P0 |
+| 5B.2 | Implement SummaryRewriteService | `services/summary_rewrite.py` | 2.10 | P0 |
+| 5B.3 | Integrate with resume_tailor pipeline | `services/resume_tailor.py` | 1.6, 2.10 | P0 |
+| 5B.4 | Enforce banned phrases and tone via critic | `services/resume_critic.py` | 4.8 | P1 |
+| 5B.5 | Add unit tests for summary rewrite | `tests/test_summary_rewrite.py` | 2.10 | P1 |
+
+#### Acceptance Criteria
+- [ ] Summary rewritten per job using job_profile core priorities
+- [ ] Summary respects word limit and banned phrases
+- [ ] Critic fails outputs with stale or non-tailored summaries
+
+---
+
 ### Sprint 6: Version History & Plain Text (PRD 2.5, 2.6)
 
 **Goal:** Implement bullet version history and text/plain output format.
@@ -429,12 +470,16 @@ Output: Rewritten bullet only, no explanation.
 | 1.6.5 | Implement plain text cover letter generator | `services/text_cover_letter.py` | 2.5 | P0 |
 | 1.6.6 | Add output format selection to API | `routers/resume.py` | 2.5 | P0 |
 | 1.6.7 | Write unit tests | `tests/test_text_output.py` | - | P1 |
+| 1.6.8 | Refine DOCX resume template to match updated header, summary, and skills layout (font sizes, spacing, portfolio line) | `services/docx_resume.py`, `.docx template file` | PRD 2.3, 2.5, header constraints | P0 |
 
 #### Acceptance Criteria
 - [ ] All bullet rewrites stored in version history
 - [ ] Version history includes timestamp, context, original ref
 - [ ] Plain text output ATS-friendly (no special characters)
 - [ ] API supports format param: docx, text, json
+- [ ] Header shows name, contact line, and portfolio line as defined
+- [ ] Skills section appears in the correct template position and format
+- [ ] No unexpected line breaks or misaligned bullets after migration
 
 ---
 
@@ -539,15 +584,17 @@ etps_approved_outputs: {id, type, embedding, job_context, content}
 | 1.10.6 | Create download buttons (docx, txt, json) | `frontend/src/components/DownloadButtons.tsx` | 6.6 | P0 |
 | 1.10.7 | Build results display panel | `frontend/src/components/ResultsPanel.tsx` | 6.6 | P0 |
 | 1.10.8 | Add skill-gap analysis display | `frontend/src/components/SkillGapPanel.tsx` | 6.6 | P1 |
-| 1.10.9 | Add ATS score display | `frontend/src/components/ATSScoreCard.tsx` | 6.6 | P1 |
+| 1.10.9 | Add ATS score display with color coding and brief explanation | `frontend/src/components/ATSScoreCard.tsx` | PRD 1.4, 4.3 | P1 |
 | 1.10.10 | Wire up to backend APIs | `frontend/src/app/page.tsx` | 6.6 | P0 |
+| 1.10.11 | Pass context notes from UI to backend generation endpoints | `frontend/src/app/page.tsx`, `backend/routers/resume.py`, `backend/routers/cover_letter.py` | PRD 1.6, 6.6 | P0 |
 
 #### Acceptance Criteria
 - [ ] User can paste JD text or URL
 - [ ] Generate buttons trigger backend calls
 - [ ] Download buttons work for all formats
 - [ ] Skill-gap analysis displayed clearly
-- [ ] ATS score shown with breakdown
+- [ ] ATS score shown with numeric score (0-100), color coding (red/yellow/green), and brief explanation
+- [ ] Context notes field available and passed to backend generation endpoints
 
 ---
 
@@ -570,6 +617,10 @@ etps_approved_outputs: {id, type, embedding, job_context, content}
 | 2.1.7 | Store enriched profile | `db/models.py` | 5.1 | P0 |
 | 2.1.8 | Add company profile API | `routers/company.py` | 5.1 | P1 |
 | 2.1.9 | Write unit tests | `tests/test_company.py` | - | P1 |
+
+#### Implementation Notes
+- Ensure company enrichment outputs include `ai_maturity` and `culture_signals` fields (PRD 5.10)
+- These fields influence resume bullet selection, summary rewriting, and cover letter generation
 
 ---
 
@@ -630,6 +681,12 @@ etps_approved_outputs: {id, type, embedding, job_context, content}
 | 2.4.8 | Tailor by recipient type | `services/outreach.py` | 5.6 | P0 |
 | 2.4.9 | Generate DOCX networking report | `services/docx_networking.py` | 5.5 | P2 |
 | 2.4.10 | Add networking UI panel | `frontend/src/components/NetworkingPanel.tsx` | 6.6 | P1 |
+| 2.4.11 | Implement safety guardrails for outreach suggestions (avoid overreaching senior contacts, label low-confidence inferences) | `services/networking.py`, `services/outreach.py` | PRD 5.9 | P0 |
+
+#### Implementation Notes
+- `company_profile` also influences resume and cover letter selection/phrasing (PRD 5.10)
+- Networking guardrails must avoid recommending outreach to C-level executives unless role is clearly senior enough and user explicitly opts in
+- Label any inferred org structure or reporting lines with confidence levels
 
 ---
 
