@@ -84,6 +84,8 @@ async def parse_job_endpoint(
 
         return response
 
+    except HTTPException:
+        raise
     except ValueError as e:
         # Handle validation errors (invalid input)
         raise HTTPException(
@@ -133,6 +135,8 @@ async def analyze_skill_gap_endpoint(
 
         return analysis
 
+    except HTTPException:
+        raise
     except ValueError as e:
         # Handle not found or validation errors
         raise HTTPException(

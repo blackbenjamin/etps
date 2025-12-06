@@ -38,7 +38,7 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 8: Learning from Approved Outputs | ✅ COMPLETE | Dec 2025 | ApprovedOutput model, output approval API, similarity retrieval, vector indexing |
 | Sprint 8B: Gap Remediation | ✅ COMPLETE | Dec 2025 | Integration gaps, truthfulness validation, skill-gap connection |
 | Sprint 8C: Pagination-Aware Layout | ✅ COMPLETE | Dec 2025 | Line budgeting, value-per-line allocation, page split rules, security hardening |
-| Sprint 9-10: Frontend MVP | 🔲 NOT STARTED | - | Next.js + Job Intake UI |
+| Sprint 9-10: Frontend MVP | ✅ COMPLETE | Dec 2025 | Next.js + Job Intake UI, Zustand, TanStack Query, shadcn/ui |
 | Sprint 11-14: Company Intelligence | 🔲 NOT STARTED | - | Phase 2 |
 | Sprint 15-17: Application Tracking | 🔲 NOT STARTED | - | Phase 3 |
 | Sprint 18: Production Hardening | 🔲 NOT STARTED | - | ⚠️ Security & reliability (8 P0 tasks) |

@@ -1,6 +1,6 @@
 # ETPS Data Model Reference
 
-**Version:** 1.3.0
+**Version:** 1.4.0
 **Last Updated:** December 2025
 **Source:** `backend/db/models.py`
 
@@ -347,18 +347,28 @@ Resume template (DOCX) for generation.
 | is_default | Boolean | Default template flag |
 
 #### Contact
-Professional network contact.
+Professional network contact. **Authoritative PII Store** - all person-level PII (names, emails, LinkedIn URLs) is stored ONLY in this table.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | id | Integer | PK |
 | user_id | Integer | FK(users.id) |
 | company_id | Integer | FK(company_profiles.id), Nullable |
-| full_name | String(255) | Contact name |
+| full_name | String(255) | Contact name (**PII**) |
 | title | String(255) | Job title |
+| email | String(255) | Email address (**PII**) |
+| linkedin_url | String(500) | LinkedIn profile URL (**PII**) |
+| notes | Text | User notes (**may contain PII**) |
 | relationship_type | String(50) | Connection type |
 | relationship_strength | Float | Connection strength (0.0-1.0) |
 | is_hiring_manager_candidate | Boolean | Potential hiring manager |
+| deleted_at | DateTime | Soft deletion timestamp (GDPR compliance) |
+
+**PII Handling Notes:**
+- Contact is the **single authoritative store** for person-level PII
+- Vector stores and logs use pseudonymous identifiers (`contact_id`) only
+- Use `utils.pii_sanitizer` to replace names with placeholders before logging/indexing
+- Use `services.placeholder_renderer` to restore real names at output time
 
 #### LogEntry
 System audit log.
@@ -428,6 +438,45 @@ The following entities have 384-dimensional embeddings for semantic search:
 | 1.1.0 | Nov 2025 | Added JobProfile, Application |
 | 1.2.0 | Dec 2025 | Added CriticLog, embedding fields |
 | 1.3.0 | Dec 2025 | Added Engagement, candidate_profile, ai_first_choice |
+| 1.4.0 | Dec 2025 | Added PII handling: Contact.deleted_at, sanitization utilities |
+
+---
+
+## PII Handling Architecture
+
+### Design Principle
+> Keep **real person identities** (names, titles, emails, LinkedIn URLs) in a **single authoritative store** (Contact table). Everywhere else (vector store, logs, analytics) use **stable pseudonymous identifiers** (`contact_id`) and **placeholders** (`{{CONTACT_NAME}}`), and only re-join to PII at the very edge where user-visible outputs are generated.
+
+### Data Classification
+
+| Location | PII Handling |
+|----------|--------------|
+| `contacts` table | **Authoritative store** - all PII lives here |
+| `approved_outputs` table | Original text in DB; sanitized text in vector store |
+| Vector store (Qdrant) | Sanitized text only - names replaced with `{{CONTACT_NAME}}` |
+| Log files | Use `utils.logging_helpers.safe_log_*()` to sanitize |
+| LLM prompts | Use placeholders; real names injected at render time |
+
+### Sanitization Flow
+```
+User Input → sanitize_personal_identifiers() → Store in vector/logs
+                                                      ↓
+Database Query ← placeholder_renderer.render_*() ← Final Output
+```
+
+### Key Utilities
+| Module | Function | Purpose |
+|--------|----------|---------|
+| `utils.pii_sanitizer` | `sanitize_personal_identifiers()` | Replace PII with placeholders |
+| `utils.pii_sanitizer` | `restore_personal_identifiers()` | Restore from contact map |
+| `utils.logging_helpers` | `safe_log_info/debug/warning/error()` | Sanitized logging |
+| `services.placeholder_renderer` | `render_networking_output()` | Restore PII at output time |
+| `services.placeholder_renderer` | `build_contact_context()` | Non-PII context for prompts |
+
+### Soft Deletion (GDPR)
+- `Contact.deleted_at` enables "right to be forgotten"
+- Soft-deleted contacts excluded from rendering operations
+- Query pattern: `.filter(Contact.deleted_at.is_(None))`
 
 ---
 

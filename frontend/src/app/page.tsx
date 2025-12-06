@@ -1,21 +1,141 @@
-export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">ETPS</h1>
-        <p className="text-xl text-gray-600 mb-8">
-          Enterprise-Grade Talent Positioning System
-        </p>
-        <p className="text-gray-500">
-          An AI-Orchestrated Resume, Cover Letter, and Networking Intelligence
-          Platform
-        </p>
+'use client'
 
-        {/* TODO: Implement job intake form */}
-        {/* TODO: Add resume/cover letter generation buttons */}
-        {/* TODO: Add download buttons for docx, text, JSON */}
-        {/* TODO: Add skill-gap analysis panel */}
+import { useEffect } from 'react'
+import { JobIntakeForm } from '@/components/job-intake'
+import { GenerateButtons, ResultsPanel } from '@/components/generation'
+import { SkillGapPanel, ATSScoreCard } from '@/components/analysis'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { useJobStore } from '@/stores/job-store'
+import { useGenerationStore } from '@/stores/generation-store'
+import { useSkillGapAnalysis } from '@/hooks/queries'
+import type { JobProfile } from '@/types'
+
+// Helper to safely get job profile ID from either field
+function getJobId(job: JobProfile | null): number | null {
+  if (!job) return null
+  return job.job_profile_id ?? job.id ?? null
+}
+
+export default function Home() {
+  const { currentJob, setSkillGapAnalysis } = useJobStore()
+  const { resume, coverLetter } = useGenerationStore()
+
+  // Get the job ID safely
+  const jobId = getJobId(currentJob)
+
+  // Auto-fetch skill gap when job is parsed
+  const { data: skillGap, isLoading: isAnalyzing } = useSkillGapAnalysis(jobId)
+
+  useEffect(() => {
+    if (skillGap) {
+      setSkillGapAnalysis(skillGap)
+    }
+  }, [skillGap, setSkillGapAnalysis])
+
+  return (
+    <main className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b bg-card">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <h1 className="text-3xl font-bold">ETPS</h1>
+          <p className="text-muted-foreground">
+            Enterprise Talent Positioning System
+          </p>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column: Input & Generation */}
+          <div className="space-y-6">
+            <JobIntakeForm />
+
+            {currentJob && (
+              <>
+                {/* Job Details Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span>Job Details</span>
+                      {currentJob.seniority && (
+                        <Badge variant="outline">{currentJob.seniority}</Badge>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-muted-foreground">Title</p>
+                        <p className="font-medium">{currentJob.job_title || 'Unknown Position'}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Company</p>
+                        <p className="font-medium">{currentJob.company_name || 'Not specified'}</p>
+                      </div>
+                      {currentJob.location && (
+                        <div>
+                          <p className="text-muted-foreground">Location</p>
+                          <p className="font-medium">{currentJob.location}</p>
+                        </div>
+                      )}
+                      {currentJob.extracted_skills && currentJob.extracted_skills.length > 0 && (
+                        <div className="col-span-2">
+                          <p className="text-muted-foreground mb-1">Key Skills</p>
+                          <div className="flex flex-wrap gap-1">
+                            {currentJob.extracted_skills.slice(0, 8).map((skill, idx) => (
+                              <Badge key={idx} variant="secondary" className="text-xs">
+                                {skill}
+                              </Badge>
+                            ))}
+                            {currentJob.extracted_skills.length > 8 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{currentJob.extracted_skills.length - 8} more
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Generate Buttons */}
+                {jobId && (
+                  <GenerateButtons jobProfileId={jobId} />
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Right Column: Analysis & Results */}
+          <div className="space-y-6">
+            {/* Skill Gap Analysis */}
+            {(currentJob || isAnalyzing) && (
+              <SkillGapPanel analysis={skillGap ?? null} isLoading={isAnalyzing} />
+            )}
+
+            {/* ATS Score */}
+            {resume?.ats_score && (
+              <ATSScoreCard
+                score={resume.ats_score}
+                explanation={resume.tailoring_rationale}
+                suggestions={resume.critic_result?.improvement_suggestions}
+              />
+            )}
+
+            {/* Results Panel */}
+            {currentJob && jobId && (
+              <ResultsPanel
+                resume={resume}
+                coverLetter={coverLetter}
+                jobProfileId={jobId}
+              />
+            )}
+          </div>
+        </div>
       </div>
     </main>
-  );
+  )
 }

@@ -1,7 +1,9 @@
 # Enterprise-Grade Talent Positioning System (ETPS)
-**An AI-Orchestrated Resume, Cover Letter, and Networking Intelligence Platform**  
-Author: Benjamin Black  
+**An AI-Orchestrated Resume, Cover Letter, and Networking Intelligence Platform**
+Author: Benjamin Black
 Version: 1.0 — December 2025
+
+> **Implementation Status:** The data model has evolved to v1.4.0 (see `docs/DATA_MODEL.md`) with additional fields for engagements, PII handling, and learning systems. Core PRD requirements remain stable.
 
 ---
 

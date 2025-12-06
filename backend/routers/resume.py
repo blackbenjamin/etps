@@ -94,6 +94,8 @@ async def generate_tailored_resume(
 
         return tailored_resume
 
+    except HTTPException:
+        raise
     except ValueError as e:
         # Handle validation errors and not found errors
         raise HTTPException(
@@ -102,6 +104,7 @@ async def generate_tailored_resume(
         )
     except Exception as e:
         # Handle unexpected errors - sanitize error message
+        logger.error(f"Resume generation failed: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while generating the tailored resume"

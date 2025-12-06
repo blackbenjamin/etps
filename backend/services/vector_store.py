@@ -1026,6 +1026,9 @@ async def index_approved_output(
     """
     Index an approved output in vector store for similarity search.
 
+    PII Handling: Sanitizes personal identifiers before storing in the vector
+    store payload to prevent PII leakage in logs and search results.
+
     Args:
         approved_output: ApprovedOutput model instance
         embedding_service: Embedding service instance
@@ -1034,11 +1037,16 @@ async def index_approved_output(
     Raises:
         RuntimeError: If indexing fails
     """
+    from utils.pii_sanitizer import sanitize_personal_identifiers
+
     # Generate embedding if not present
     if approved_output.embedding:
         embedding = approved_output.embedding
     else:
         embedding = await embedding_service.generate_embedding(approved_output.original_text)
+
+    # Sanitize text before storing in payload
+    sanitized_text = sanitize_personal_identifiers(approved_output.original_text)
 
     # Build payload matching COLLECTION_SCHEMAS['approved_outputs']
     payload = {
@@ -1046,7 +1054,7 @@ async def index_approved_output(
         'user_id': approved_output.user_id,
         'application_id': approved_output.application_id,
         'output_type': approved_output.output_type,
-        'text': approved_output.original_text,
+        'text': sanitized_text,  # Store sanitized version
         'quality_score': approved_output.quality_score,
         'created_at': approved_output.created_at.isoformat() if approved_output.created_at else None
     }

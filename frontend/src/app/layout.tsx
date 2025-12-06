@@ -1,23 +1,27 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
+import Providers from './providers'
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: "ETPS - Enterprise-Grade Talent Positioning System",
-  description:
-    "An AI-Orchestrated Resume, Cover Letter, and Networking Intelligence Platform",
-};
+  title: 'ETPS - Enterprise Talent Positioning System',
+  description: 'AI-powered resume and cover letter tailoring system',
+}
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={`${inter.className} antialiased`}>
+        <Providers>
+          {children}
+        </Providers>
+      </body>
     </html>
-  );
+  )
 }

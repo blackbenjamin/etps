@@ -1,7 +1,7 @@
 # ETPS Backend Testing Plan
 
-**Version:** 1.0
-**Created:** December 2024
+**Version:** 1.1
+**Created:** December 2025
 **Purpose:** Pre-deployment validation of all ETPS backend capabilities
 
 ---
@@ -501,11 +501,9 @@ echo "✓ All syntax checks pass"
 
 1. **Mock LLM**: Current implementation uses MockLLM for testing. Real LLM integration required for production.
 
-2. **User Model**: The User model doesn't include `phone` field. Contact info in DOCX uses email only unless model is extended.
+2. **Company Profile**: Company-specific customization requires a CompanyProfile entry in database.
 
-3. **Company Profile**: Company-specific customization requires a CompanyProfile entry in database.
-
-4. **Skill Gap**: Requires job_profile.extracted_skills to be populated for accurate matching.
+3. **Skill Gap**: Requires job_profile.extracted_skills to be populated for accurate matching.
 
 ---
 

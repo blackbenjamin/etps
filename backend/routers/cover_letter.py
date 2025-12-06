@@ -102,6 +102,8 @@ async def generate_cover_letter_endpoint(
 
         return cover_letter
 
+    except HTTPException:
+        raise
     except ValueError as e:
         error_msg = str(e)
         # 404 only for "not found" errors
@@ -224,6 +226,8 @@ async def generate_cover_letter_with_critic_endpoint(
             accepted=critic_result.passed
         )
 
+    except HTTPException:
+        raise
     except ValueError as e:
         error_msg = str(e)
         if "not found" in error_msg.lower():
@@ -463,6 +467,8 @@ async def generate_cover_letter_docx_endpoint(
                 }
             )
 
+    except HTTPException:
+        raise
     except ValueError as e:
         error_msg = str(e)
         if "not found" in error_msg.lower():

@@ -340,6 +340,9 @@ class Contact(Base):
 
     Used for network-based job search: identifying hiring managers,
     referral opportunities, and warm introduction paths.
+
+    This is the authoritative PII store for contact information.
+    Personal identifiers are sanitized before being used in prompts/logs.
     """
     __tablename__ = "contacts"
 
@@ -362,6 +365,7 @@ class Contact(Base):
     last_contacted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     is_hiring_manager_candidate: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     hiring_manager_confidence: Mapped[Optional[float]] = mapped_column(Float)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)  # Soft deletion for GDPR compliance
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, onupdate=func.now())
 

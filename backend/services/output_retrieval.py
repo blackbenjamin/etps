@@ -219,6 +219,10 @@ def format_examples_for_prompt(
     """
     Format similar outputs for inclusion in an LLM prompt.
 
+    PII Handling: Text retrieved from vector store payloads is already
+    sanitized (personal identifiers replaced with placeholders), so it's
+    safe to include in prompts sent to LLMs.
+
     Args:
         similar_outputs: List of similar outputs from retrieval
         max_examples: Maximum number of examples to include
