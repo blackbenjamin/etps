@@ -35,7 +35,8 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 5B: Summary Rewrite Engine | ✅ COMPLETE | Dec 2025 | Summary rewrite with candidate_profile, 60-word limit, critic validation |
 | Sprint 6: Version History & Plain Text | ✅ COMPLETE | Dec 2025 | Plain text output, format param, version history API, DOCX refinements |
 | Sprint 7: Qdrant Integration | ✅ COMPLETE | Dec 2025 | Vector store service, MockVectorStore, bullet/job indexing, semantic search |
-| Sprint 8: Learning from Approved Outputs | ✅ COMPLETE | Dec 2025 | ApprovedOutput model, output approval API, similarity retrieval, vector indexing |
+| Sprint 8: Learning from Approved Outputs | ⚠️ PARTIAL | Dec 2025 | ApprovedOutput model, output approval API, similarity retrieval, vector indexing |
+| Sprint 8B: Gap Remediation | 🔲 NOT STARTED | - | Integration gaps, truthfulness validation, skill-gap connection |
 | Sprint 9-10: Frontend MVP | 🔲 NOT STARTED | - | Next.js + Job Intake UI |
 | Sprint 11-14: Company Intelligence | 🔲 NOT STARTED | - | Phase 2 |
 | Sprint 15-17: Application Tracking | 🔲 NOT STARTED | - | Phase 3 |
@@ -120,10 +121,11 @@ All checks must pass before `git push`.
 │ - Text/Plain Output                                             │
 │ - DOCX Template Refinement                                      │
 ├─────────────────────────────────────────────────────────────────┤
-│ PHASE 1D: Vector Search & Learning (Sprints 7-8)               │
+│ PHASE 1D: Vector Search & Learning (Sprints 7-8-8B)            │
 │ - Qdrant Integration                                            │
 │ - Semantic Bullet Matching                                      │
 │ - Learning from Approved Outputs                                │
+│ - Gap Remediation (Sprint 8B)                                   │
 ├─────────────────────────────────────────────────────────────────┤
 │ PHASE 1E: Frontend MVP (Sprints 9-10)                          │
 │ - Next.js Setup                                                 │
@@ -552,23 +554,74 @@ etps_approved_outputs: {id, type, embedding, job_context, content} (Sprint 8)
 
 **Goal:** Store approved outputs and retrieve similar examples for new requests.
 
+**Status:** ⚠️ PARTIAL - Infrastructure complete, integration pending (see Sprint 8B)
+
+#### Tasks
+
+| ID | Task | File(s) | PRD Ref | Priority | Status |
+|----|------|---------|---------|----------|--------|
+| 1.8.1 | Create ApprovedOutput model | `db/models.py` | 4.7 | P0 | ✅ |
+| 1.8.2 | Implement output approval API | `routers/outputs.py` | 4.7 | P0 | ✅ |
+| 1.8.3 | Index approved outputs in Qdrant | `services/vector_store.py` | 4.7 | P0 | ✅ |
+| 1.8.4 | Implement similar output retrieval | `services/output_retrieval.py` | 4.7 | P0 | ✅ |
+| 1.8.5 | Integrate examples into generation prompts | `services/resume_tailor.py`, `services/cover_letter.py` | 4.7 | P1 | ❌ Moved to 8B |
+| 1.8.6 | Add quality comparison in critic | `services/critic.py` | 4.7 | P2 | ❌ Deferred |
+| 1.8.7 | Write unit tests | `tests/test_approved_outputs.py` | - | P1 | ✅ |
+
+#### Acceptance Criteria
+- [x] Users can approve generated outputs
+- [x] Approved outputs indexed with metadata
+- [ ] Similar examples retrieved for new jobs → Sprint 8B
+- [ ] Examples guide generation without copy-paste → Sprint 8B
+
+#### Implementation Notes
+- 45 unit tests in test_approved_outputs.py
+- ApprovedOutput model with user, application, job_profile relationships
+- POST /outputs/approve and GET /outputs/similar endpoints
+- index_approved_output() function in vector_store.py
+- output_retrieval.py service with format_examples_for_prompt()
+- **Gap Identified:** Integration into generation pipeline not complete (Sprint 8B)
+
+---
+
+### Sprint 8B: Gap Remediation (PRD Integration Gaps)
+
+**Goal:** Address critical integration gaps identified in post-Sprint 8 review. Complete the learning system integration and add missing validations.
+
+**Reference:** See `docs/GAP_ANALYSIS_SPRINT_8_REVIEW.md` for full gap analysis.
+
 #### Tasks
 
 | ID | Task | File(s) | PRD Ref | Priority |
 |----|------|---------|---------|----------|
-| 1.8.1 | Create ApprovedOutput model | `db/models.py` | 4.7 | P0 |
-| 1.8.2 | Implement output approval API | `routers/outputs.py` | 4.7 | P0 |
-| 1.8.3 | Index approved outputs in Qdrant | `services/vector_store.py` | 4.7 | P0 |
-| 1.8.4 | Implement similar output retrieval | `services/output_retrieval.py` | 4.7 | P0 |
-| 1.8.5 | Integrate examples into generation prompts | `services/resume_tailor.py` | 4.7 | P1 |
-| 1.8.6 | Add quality comparison in critic | `services/resume_critic.py` | 4.7 | P2 |
-| 1.8.7 | Write unit tests | `tests/test_approved_outputs.py` | - | P1 |
+| 8B.1 | Integrate approved bullets into resume generation | `services/resume_tailor.py` | 4.7 | P0 |
+| 8B.2 | Integrate approved paragraphs into cover letter generation | `services/cover_letter.py` | 4.7 | P0 |
+| 8B.3 | Integrate skill gap results into bullet selection | `services/resume_tailor.py` | 1.6, 2.8 | P0 |
+| 8B.4 | Implement truthfulness validation in resume critic | `services/critic.py` | 4.3 | P0 |
+| 8B.5 | Add em-dash detection to resume critic | `services/critic.py` | 3.5, 4.3 | P1 |
+| 8B.6 | Add max_iterations to config.yaml | `config/config.yaml` | 4.4 | P2 |
+| 8B.7 | Pass STAR notes to bullet rewriter | `services/bullet_rewriter.py` | 2.6 | P2 |
+| 8B.8 | Thread context_notes to summary rewrite | `services/summary_rewrite.py` | 1.3 | P2 |
+| 8B.9 | Verify portfolio integration end-to-end | `services/resume_tailor.py` | 2.8 | P1 |
+| 8B.10 | Write integration tests for new connections | `tests/` | - | P1 |
 
 #### Acceptance Criteria
-- [ ] Users can approve generated outputs
-- [ ] Approved outputs indexed with metadata
-- [ ] Similar examples retrieved for new jobs
-- [ ] Examples guide generation without copy-paste
+- [ ] Similar approved bullets retrieved and formatted for LLM prompt during resume generation
+- [ ] Similar approved paragraphs retrieved for cover letter generation
+- [ ] Skill gap positioning_angles influence bullet selection scoring
+- [ ] Resume critic validates employer names, titles, dates against stored data
+- [ ] Resume critic detects and fails on em-dashes
+- [ ] max_iterations configurable via config.yaml
+- [ ] STAR notes passed to bullet rewrite prompt when available
+- [ ] context_notes/custom_instructions passed to summary rewrite
+- [ ] Portfolio bullets integrated for AI-heavy jobs
+- [ ] All new integrations have test coverage
+
+#### Estimated Effort
+- P0 tasks: 6-8 hours
+- P1 tasks: 2-3 hours
+- P2 tasks: 1-2 hours
+- **Total:** ~11 hours
 
 ---
 
@@ -854,10 +907,12 @@ pip-audit
 Sprint 2 (Skill Gap) → depends on → Sprint 1 (Critic) ✅
 Sprint 3 (CL Critic) → depends on → Sprint 1 (Critic) ✅
 Sprint 4 (Schema Migration) → depends on → Sprint 1-3 (Core complete) ✅
-Sprint 5 (Rewriting) → depends on → Sprint 4 (Schema)
-Sprint 8 (Learning) → depends on → Sprint 7 (Qdrant)
+Sprint 5 (Rewriting) → depends on → Sprint 4 (Schema) ✅
+Sprint 8 (Learning) → depends on → Sprint 7 (Qdrant) ✅
+Sprint 8B (Gap Remediation) → depends on → Sprint 8 (Learning) ✅
+Sprint 9 (Frontend) → depends on → Sprint 8B (Gap Remediation)
 Sprint 10 (UI) → depends on → Sprint 9 (Next.js setup)
-Phase 2 → depends on → Phase 1A complete ✅
+Phase 2 → depends on → Phase 1E complete
 Phase 3 → depends on → Phase 1E complete
 Sprint 18 (Security) → depends on → Phase 1A complete ✅
 Sprint 19 (Deployment) → depends on → Sprint 18 (Security)
