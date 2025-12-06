@@ -19,7 +19,7 @@ from utils.text_processing import fetch_url_content, clean_text, extract_bullets
 SKILL_TAXONOMY = {
     # Programming Languages
     'languages': [
-        'Python', 'Java', 'JavaScript', 'TypeScript', 'C++', 'C#', 'Go', 'Rust',
+        'Python', 'Java', 'JavaScript', 'TypeScript', 'C++', 'C#', 'Rust',
         'Ruby', 'PHP', 'Swift', 'Kotlin', 'Scala', 'R', 'MATLAB', 'SQL', 'Bash',
         'Shell', 'PowerShell', 'Perl', 'Haskell', 'Clojure', 'Elixir', 'Dart'
     ],
@@ -138,7 +138,7 @@ SKILL_TAXONOMY = {
     'leadership': [
         'Team Leadership', 'People Management', 'Cross-functional Leadership',
         'Executive Communication', 'Budget Management', 'Resource Planning',
-        'Hiring', 'Mentorship', 'Coaching', 'Performance Management',
+        'Mentorship', 'Coaching', 'Performance Management',
         'Organizational Development', 'Culture Building'
     ],
 
@@ -410,12 +410,23 @@ def extract_skills_keywords(jd_text: str) -> List[str]:
     found_skills = set()
 
     # Case-insensitive matching for each skill in taxonomy
+    # Case-insensitive matching for each skill in taxonomy
     for skill in ALL_SKILLS:
         skill_lower = skill.lower()
         # Use word boundaries for better matching
         pattern = r'\b' + re.escape(skill_lower) + r'\b'
         if re.search(pattern, jd_lower):
             found_skills.add(skill)
+
+    # Special handling for "Go" (Golang)
+    # 1. Must be "Go" (Title case) or "Golang" (handled by taxonomy if added, but "Go" is the issue)
+    # 2. Must NOT be part of "go-to-market" or "go-getter"
+    if re.search(r'\bGo\b', jd_text):
+        # Check for false positive contexts
+        # "go-to-market" usually appears as "go-to-market" or "Go-to-Market"
+        # If "Go" is followed by "-to-", it's likely a phrase
+        if not re.search(r'\bGo-to-\b', jd_text, re.IGNORECASE):
+             found_skills.add('Go')
 
     return sorted(list(found_skills))
 

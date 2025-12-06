@@ -93,7 +93,7 @@ export const api = {
       accepted: boolean
     }>('/api/v1/cover-letter/generate-with-critic', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, user_id: 1 }),
     })
     return {
       ...response.cover_letter,
