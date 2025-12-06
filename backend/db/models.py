@@ -407,3 +407,66 @@ class LogEntry(Base):
 
     def __repr__(self) -> str:
         return f"<LogEntry(id={self.id}, log_type='{self.log_type}', level='{self.level}', created_at={self.created_at})>"
+
+
+class CriticLog(Base):
+    """
+    Critic evaluation log for cover letter generation iterations.
+
+    Stores the full history of critic evaluations for each cover letter
+    generation session, enabling analysis of improvement patterns and
+    debugging of the iteration loop.
+    """
+    __tablename__ = "critic_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    job_profile_id: Mapped[int] = mapped_column(Integer, ForeignKey("job_profiles.id"), nullable=False, index=True)
+    application_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("applications.id"), index=True)
+
+    # Session tracking
+    session_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)  # UUID for grouping iterations
+    iteration: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-indexed iteration number
+    total_iterations: Mapped[int] = mapped_column(Integer, nullable=False)  # Total iterations in session
+
+    # Evaluation results
+    quality_score: Mapped[float] = mapped_column(Float, nullable=False)
+    passed: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    should_retry: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+    # Issue summary
+    issues_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    critical_issues_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    major_issues_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    # Detailed data (JSON)
+    issues: Mapped[Optional[List[dict]]] = mapped_column(JSON)  # List of CriticIssue dicts
+    improvement_suggestions: Mapped[Optional[List[str]]] = mapped_column(JSON)
+    retry_reasons: Mapped[Optional[List[str]]] = mapped_column(JSON)
+
+    # Score components
+    banned_phrase_violations: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    tone_compliance_score: Mapped[Optional[float]] = mapped_column(Float)
+    ats_coverage_percentage: Mapped[Optional[float]] = mapped_column(Float)
+
+    # Delta tracking
+    score_delta: Mapped[Optional[float]] = mapped_column(Float)  # Change from previous iteration
+    issues_resolved_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    # Draft content (optional, for debugging)
+    draft_text: Mapped[Optional[str]] = mapped_column(Text)  # Can be null to save space
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False, index=True)
+
+    # Indexes for efficient querying
+    __table_args__ = (
+        Index("ix_critic_logs_session", "session_id", "iteration"),
+        Index("ix_critic_logs_user_job", "user_id", "job_profile_id"),
+        Index("ix_critic_logs_quality", "quality_score"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<CriticLog(id={self.id}, session_id='{self.session_id[:8]}...', "
+            f"iteration={self.iteration}/{self.total_iterations}, score={self.quality_score:.1f})>"
+        )

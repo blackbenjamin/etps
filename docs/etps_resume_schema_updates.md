@@ -1,9 +1,9 @@
-# RecruitBot Resume Schema – v1.3.0  
+# ETPS Resume Schema – v1.3.0  
 **Unified Specification for Resume Storage, Transformation, Matching & Rendering**  
 **Benjamin Black / ETPS – December 2025**
 
 This document merges:
-- The original RecruitBot schema update requirements, and  
+- The original ETPS schema update requirements, and  
 - The full implementation-ready v1.3.0 schema specification  
 
 This is the **master configuration file** for Claude Code and defines all structures, rules, and logic for:
@@ -18,7 +18,7 @@ This is the **master configuration file** for Claude Code and defines all struct
 - Summary + tone rules  
 - LinkedIn optimization  
 
-This file is the **authoritative, single source of truth** for the RecruitBot / Enterprise Talent Positioning System (ETPS).
+This file is the **authoritative, single source of truth** for the Enterprise Talent Positioning System (ETPS).
 
 ---
 

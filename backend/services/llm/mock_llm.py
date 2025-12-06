@@ -346,3 +346,131 @@ class MockLLM(BaseLLM):
         ]
 
         return "\n".join(cover_letter_parts)
+
+    # Banned phrase replacements for mock revision
+    PHRASE_REPLACEMENTS = {
+        "i am writing to express my interest": "My background in {skill} aligns well with",
+        "i am excited to apply for": "The {title} role presents an opportunity to apply my expertise in",
+        "i am excited to apply": "This role offers a compelling opportunity to leverage my experience in",
+        "i believe i would be a great fit": "My experience demonstrates strong alignment with",
+        "i am confident i would be a great fit": "My track record shows clear alignment with",
+        "i am confident that": "My experience indicates that",
+        "please find attached": "I have included",
+        "i am the perfect candidate": "My qualifications position me well for",
+        "i look forward to hearing from you": "I welcome the opportunity to discuss this further",
+        "please do not hesitate to contact me": "I am available to discuss at your convenience",
+        "i am available at your convenience": "I am available to connect at a time that works for you",
+        "per your job description": "Based on the role requirements",
+        "as listed in the posting": "As outlined in the position",
+        "your requirements state": "The role requirements indicate",
+        "dear hiring manager": "Dear {company} Team",
+        "i am very interested in": "I am drawn to",
+        "i came across this position": "This position caught my attention because",
+        "passionate": "committed to",
+        "passion for": "dedication to",
+        "dynamic": "adaptable",
+        "motivated": "driven by results",
+        "driven": "focused",
+        "fast-paced": "high-velocity",
+        "results-oriented": "outcome-focused",
+        "proven track record": "demonstrated history",
+        "team player": "collaborative professional",
+        "detail-oriented": "meticulous",
+        "self-starter": "proactive",
+        "think outside the box": "approach problems creatively",
+        "go-getter": "proactive achiever",
+        "hard worker": "dedicated professional",
+        "leverage": "utilize",
+        "synergy": "collaboration",
+        "best-in-class": "industry-leading",
+        "world-class": "exceptional",
+        "cutting-edge": "innovative",
+        "innovative solutions": "effective solutions",
+        "hit the ground running": "contribute immediately",
+        "dynamic environment": "evolving environment",
+    }
+
+    async def revise_cover_letter(
+        self,
+        current_draft: str,
+        critic_feedback: Dict,
+        job_context: Dict,
+        company_context: Dict,
+        tone: str,
+        user_name: str,
+        max_words: int = 300
+    ) -> str:
+        """
+        Revise a cover letter draft based on critic feedback.
+
+        For MockLLM, this performs simple text replacements to address
+        banned phrase issues while maintaining the overall structure.
+
+        Args:
+            current_draft: The current cover letter text to revise
+            critic_feedback: Dict containing issues and suggestions
+            job_context: Job details (title, priorities, skills)
+            company_context: Company details (name, initiatives, culture)
+            tone: Target tone style
+            user_name: User's full name for signature
+            max_words: Target word count (advisory in mock)
+
+        Returns:
+            Revised cover letter text
+        """
+        import re
+
+        revised = current_draft
+        company_name = company_context.get('name', 'the company')
+        job_title = job_context.get('title', 'this role')
+        top_skill = job_context.get('skills', ['this domain'])[0] if job_context.get('skills') else 'this domain'
+
+        # Get issues from feedback
+        issues = critic_feedback.get('issues', [])
+
+        # Process banned phrase issues
+        for issue in issues:
+            if isinstance(issue, dict) and issue.get('category') == 'banned_phrase':
+                description = issue.get('description', '')
+                # Extract the phrase from "Found banned phrase: 'phrase'"
+                match = re.search(r"Found banned phrase: '([^']+)'", description)
+                if match:
+                    banned_phrase = match.group(1).lower()
+
+                    # Find replacement
+                    replacement = self.PHRASE_REPLACEMENTS.get(banned_phrase)
+                    if replacement:
+                        # Format replacement with context
+                        replacement = replacement.format(
+                            skill=top_skill,
+                            title=job_title,
+                            company=company_name
+                        )
+
+                        # Replace in text (case-insensitive)
+                        pattern = re.compile(re.escape(banned_phrase), re.IGNORECASE)
+                        revised = pattern.sub(replacement, revised)
+
+        # Handle em-dash replacement
+        revised = revised.replace('—', ' - ')
+
+        # If ATS coverage is an issue, try to add missing keywords naturally
+        improvement_suggestions = critic_feedback.get('improvement_suggestions', [])
+        for suggestion in improvement_suggestions:
+            if 'missing critical keywords' in suggestion.lower():
+                # Extract keywords from suggestion
+                match = re.search(r'keywords?: (.+)$', suggestion, re.IGNORECASE)
+                if match:
+                    keywords = [k.strip() for k in match.group(1).split(',')]
+                    # Add keywords to the value proposition section if not present
+                    for keyword in keywords[:2]:  # Limit to 2 keywords
+                        if keyword.lower() not in revised.lower():
+                            # Insert keyword mention before closing
+                            closing_markers = ["Sincerely,", "Best,", "Best regards,", "Respectfully,", "With enthusiasm,"]
+                            for marker in closing_markers:
+                                if marker in revised:
+                                    keyword_sentence = f"\n\nMy experience with {keyword} further supports my candidacy.\n\n"
+                                    revised = revised.replace(marker, keyword_sentence + marker)
+                                    break
+
+        return revised

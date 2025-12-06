@@ -6,7 +6,7 @@ banned phrase checking, and quality scoring.
 """
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Set, Tuple
 from sqlalchemy.orm import Session
 
@@ -15,8 +15,10 @@ from schemas.cover_letter import (
     ATSKeywordCoverage,
     BannedPhraseCheck,
     BannedPhraseViolation,
+    CoverLetterCriticResult,
     CoverLetterOutline,
     CoverLetterRationale,
+    CriticIssue,
     GeneratedCoverLetter,
     RequirementCoverage,
     ToneComplianceResult,
@@ -860,6 +862,170 @@ def compute_quality_score(
     return max(0.0, min(100.0, quality_score))
 
 
+# Default quality threshold from config (can be overridden)
+DEFAULT_QUALITY_THRESHOLD = 75.0
+DEFAULT_MAX_ITERATIONS = 3
+
+
+async def evaluate_cover_letter(
+    cover_letter_text: str,
+    job_profile: JobProfile,
+    company_profile: Optional[CompanyProfile],
+    llm: BaseLLM,
+    iteration: int = 1,
+    previous_result: Optional[CoverLetterCriticResult] = None,
+    quality_threshold: float = DEFAULT_QUALITY_THRESHOLD
+) -> CoverLetterCriticResult:
+    """
+    Evaluate a cover letter draft using the critic agent.
+
+    Performs comprehensive quality assessment including:
+    - Banned phrase detection
+    - Tone compliance check
+    - ATS keyword coverage analysis
+    - Issue aggregation and improvement suggestions
+
+    Args:
+        cover_letter_text: The cover letter draft to evaluate
+        job_profile: Target job profile for context
+        company_profile: Optional company profile for context
+        llm: LLM instance for tone inference
+        iteration: Current iteration number (1-indexed)
+        previous_result: Result from previous iteration (for delta calculation)
+        quality_threshold: Minimum quality score to pass (default 75)
+
+    Returns:
+        CoverLetterCriticResult with evaluation details and retry decision
+
+    Raises:
+        ValueError: If quality_threshold is not between 0 and 100
+    """
+    # Validate quality_threshold
+    if not 0 <= quality_threshold <= 100:
+        raise ValueError(f"quality_threshold must be between 0 and 100, got {quality_threshold}")
+
+    company_name = company_profile.name if company_profile else None
+
+    # Run quality checks
+    banned_check = check_banned_phrases(cover_letter_text, company_name)
+    tone_compliance = await assess_tone_compliance(cover_letter_text, job_profile, llm)
+    ats_coverage = analyze_ats_keyword_coverage(cover_letter_text, job_profile)
+
+    # Compute quality score
+    quality_score = compute_quality_score(banned_check, tone_compliance, ats_coverage)
+
+    # Aggregate issues from all checks
+    issues: List[CriticIssue] = []
+    retry_reasons: List[str] = []
+    improvement_suggestions: List[str] = []
+
+    # Add banned phrase issues
+    for violation in banned_check.violations:
+        issues.append(CriticIssue(
+            category="banned_phrase",
+            severity=violation.severity,
+            description=f"Found banned phrase: '{violation.phrase}'",
+            suggestion=f"Remove or rephrase '{violation.phrase}' in the {violation.section} section",
+            section=violation.section
+        ))
+        if violation.severity == "critical":
+            retry_reasons.append(f"Critical banned phrase: '{violation.phrase}'")
+            improvement_suggestions.append(
+                f"Replace '{violation.phrase}' with a more specific, non-clichéd alternative"
+            )
+        elif violation.severity == "major":
+            retry_reasons.append(f"Major banned phrase: '{violation.phrase}'")
+
+    # Add tone compliance issues
+    if not tone_compliance.compatible:
+        issues.append(CriticIssue(
+            category="tone",
+            severity="major",
+            description=f"Tone mismatch: expected {tone_compliance.target_tone}, detected {tone_compliance.detected_tone}",
+            suggestion=f"Adjust formality and language to match {tone_compliance.target_tone} tone"
+        ))
+        retry_reasons.append(f"Tone mismatch: {tone_compliance.detected_tone} vs expected {tone_compliance.target_tone}")
+        improvement_suggestions.append(
+            f"Adjust language formality to match {tone_compliance.target_tone} style"
+        )
+    elif tone_compliance.compliance_score < 0.70:
+        issues.append(CriticIssue(
+            category="tone",
+            severity="minor",
+            description=f"Tone could be better aligned (score: {tone_compliance.compliance_score:.2f})",
+            suggestion="Fine-tune language to better match target tone"
+        ))
+
+    # Add ATS coverage issues
+    if not ats_coverage.coverage_adequate:
+        issues.append(CriticIssue(
+            category="ats_coverage",
+            severity="major",
+            description=f"ATS keyword coverage below threshold: {ats_coverage.coverage_percentage:.1f}%",
+            suggestion=f"Incorporate missing keywords: {', '.join(ats_coverage.missing_critical_keywords[:3])}"
+        ))
+        retry_reasons.append(f"Low ATS coverage: {ats_coverage.coverage_percentage:.1f}%")
+        if ats_coverage.missing_critical_keywords:
+            improvement_suggestions.append(
+                f"Add missing critical keywords: {', '.join(ats_coverage.missing_critical_keywords[:3])}"
+            )
+    elif ats_coverage.coverage_percentage < 70:
+        issues.append(CriticIssue(
+            category="ats_coverage",
+            severity="minor",
+            description=f"ATS coverage could be improved: {ats_coverage.coverage_percentage:.1f}%",
+            suggestion="Consider adding more relevant keywords naturally"
+        ))
+
+    # Determine pass/fail
+    has_critical_issues = any(i.severity == "critical" for i in issues)
+    passed = quality_score >= quality_threshold and not has_critical_issues
+
+    # Determine if we should retry
+    # Don't retry if:
+    # 1. Already passed
+    # 2. Reached max iterations (caller handles this)
+    # 3. Score is very low (unlikely to improve enough)
+    # 4. No actionable improvements identified
+    should_retry = (
+        not passed and
+        len(improvement_suggestions) > 0 and
+        quality_score >= 30.0  # Below 30 is too broken to fix
+    )
+
+    # Calculate score delta from previous iteration
+    score_delta = None
+    issues_resolved: List[str] = []
+    if previous_result is not None:
+        score_delta = quality_score - previous_result.quality_score
+
+        # Find issues that were resolved
+        previous_descriptions = {i.description for i in previous_result.issues}
+        current_descriptions = {i.description for i in issues}
+        resolved = previous_descriptions - current_descriptions
+        issues_resolved = list(resolved)[:5]  # Limit to 5
+
+        # If score got worse or stayed same after multiple tries, reduce retry incentive
+        if score_delta <= 0 and iteration >= 2:
+            should_retry = False
+
+    return CoverLetterCriticResult(
+        iteration=iteration,
+        quality_score=quality_score,
+        passed=passed,
+        should_retry=should_retry,
+        banned_phrase_check=banned_check,
+        tone_compliance=tone_compliance,
+        ats_keyword_coverage=ats_coverage,
+        issues=issues,
+        retry_reasons=retry_reasons,
+        improvement_suggestions=improvement_suggestions,
+        score_delta=score_delta,
+        issues_resolved=issues_resolved,
+        evaluated_at=datetime.now(timezone.utc).isoformat()
+    )
+
+
 def analyze_requirement_coverage(
     cover_letter_text: str,
     job_profile: JobProfile
@@ -996,13 +1162,16 @@ async def generate_cover_letter(
     company_profile_id: Optional[int] = None,
     context_notes: Optional[str] = None,
     referral_name: Optional[str] = None,
-    llm: Optional[BaseLLM] = None
+    llm: Optional[BaseLLM] = None,
+    max_iterations: int = DEFAULT_MAX_ITERATIONS,
+    quality_threshold: float = DEFAULT_QUALITY_THRESHOLD
 ) -> GeneratedCoverLetter:
     """
-    Generate tailored cover letter for job application.
+    Generate tailored cover letter for job application with critic iteration loop.
 
     Main orchestrator for cover letter generation. Analyzes skill gaps,
-    generates structured outline, produces draft, and performs quality checks.
+    generates structured outline, produces draft, runs critic evaluation,
+    and iteratively revises until quality threshold is met or max iterations reached.
 
     Args:
         job_profile_id: Target job profile ID
@@ -1012,9 +1181,11 @@ async def generate_cover_letter(
         context_notes: Optional user-provided context
         referral_name: Optional referrer name
         llm: Optional LLM instance (defaults to MockLLM)
+        max_iterations: Maximum critic iterations (default 3)
+        quality_threshold: Minimum quality score to pass (default 75)
 
     Returns:
-        GeneratedCoverLetter with complete analysis
+        GeneratedCoverLetter with complete analysis and iteration history
 
     Raises:
         ValueError: If user, job profile, or company profile not found
@@ -1089,7 +1260,7 @@ async def generate_cover_letter(
         "context_notes": sanitized_context_notes,
     }
 
-    # Generate cover letter draft
+    # Generate initial cover letter draft
     target_tone = job_profile.tone_style or "formal_corporate"
     draft = await llm.generate_cover_letter(
         outline={
@@ -1105,11 +1276,92 @@ async def generate_cover_letter(
         max_words=300
     )
 
-    # Run quality checks
-    company_name = company_profile.name if company_profile else None
-    banned_check = check_banned_phrases(draft, company_name)
-    tone_compliance = await assess_tone_compliance(draft, job_profile, llm)
-    ats_coverage = analyze_ats_keyword_coverage(draft, job_profile)
+    # =============================================
+    # CRITIC ITERATION LOOP
+    # =============================================
+    iteration_history: List[CoverLetterCriticResult] = []
+    current_draft = draft
+    previous_result: Optional[CoverLetterCriticResult] = None
+
+    for iteration in range(1, max_iterations + 1):
+        # Evaluate current draft
+        critic_result = await evaluate_cover_letter(
+            cover_letter_text=current_draft,
+            job_profile=job_profile,
+            company_profile=company_profile,
+            llm=llm,
+            iteration=iteration,
+            previous_result=previous_result,
+            quality_threshold=quality_threshold
+        )
+
+        # Store in history
+        iteration_history.append(critic_result)
+
+        # Check if we're done
+        if critic_result.passed:
+            # Quality threshold met, exit loop
+            break
+
+        if not critic_result.should_retry:
+            # Critic determined no point in retrying
+            break
+
+        if iteration >= max_iterations:
+            # Max iterations reached
+            break
+
+        # Prepare feedback for revision
+        critic_feedback = {
+            "issues": [
+                {
+                    "category": issue.category,
+                    "severity": issue.severity,
+                    "description": issue.description,
+                    "suggestion": issue.suggestion,
+                    "section": issue.section
+                }
+                for issue in critic_result.issues
+            ],
+            "improvement_suggestions": critic_result.improvement_suggestions,
+            "quality_score": critic_result.quality_score,
+            "retry_reasons": critic_result.retry_reasons
+        }
+
+        # Request revision from LLM
+        current_draft = await llm.revise_cover_letter(
+            current_draft=current_draft,
+            critic_feedback=critic_feedback,
+            job_context=job_context,
+            company_context=company_context,
+            tone=target_tone,
+            user_name=user.full_name,
+            max_words=300
+        )
+
+        previous_result = critic_result
+
+    # =============================================
+    # FINALIZE RESULTS
+    # =============================================
+    final_critic_result = iteration_history[-1] if iteration_history else None
+    iterations_used = len(iteration_history)
+
+    # Use final critic result's checks for the response
+    if final_critic_result:
+        banned_check = final_critic_result.banned_phrase_check
+        tone_compliance = final_critic_result.tone_compliance
+        ats_coverage = final_critic_result.ats_keyword_coverage
+        quality_score = final_critic_result.quality_score
+        critic_passed = final_critic_result.passed
+    else:
+        # Fallback if no critic run (shouldn't happen)
+        company_name = company_profile.name if company_profile else None
+        banned_check = check_banned_phrases(current_draft, company_name)
+        tone_compliance = await assess_tone_compliance(current_draft, job_profile, llm)
+        ats_coverage = analyze_ats_keyword_coverage(current_draft, job_profile)
+        quality_score = compute_quality_score(banned_check, tone_compliance, ats_coverage)
+        critic_passed = quality_score >= quality_threshold
 
     # Build rationale
     rationale = build_rationale(
@@ -1120,17 +1372,16 @@ async def generate_cover_letter(
         ats_coverage=ats_coverage
     )
 
-    # Compute quality score
-    quality_score = compute_quality_score(banned_check, tone_compliance, ats_coverage)
-
     # Analyze requirement coverage (style guide Section 6)
-    requirements_covered = analyze_requirement_coverage(draft, job_profile)
+    requirements_covered = analyze_requirement_coverage(current_draft, job_profile)
 
     # Generate mission alignment summary (style guide Section 6)
-    mission_alignment_summary = generate_mission_alignment_summary(draft, company_profile)
+    mission_alignment_summary = generate_mission_alignment_summary(current_draft, company_profile)
 
     # Extract ATS keywords used
     ats_keywords_used = ats_coverage.covered_keywords
+
+    company_name = company_profile.name if company_profile else None
 
     return GeneratedCoverLetter(
         job_profile_id=job_profile_id,
@@ -1138,15 +1389,19 @@ async def generate_cover_letter(
         company_profile_id=company_profile_id,
         company_name=company_name,
         job_title=job_profile.job_title,
-        draft_cover_letter=draft,
+        draft_cover_letter=current_draft,
         outline=outline,
         banned_phrase_check=banned_check,
         tone_compliance=tone_compliance,
         ats_keyword_coverage=ats_coverage,
         rationale=rationale,
-        generated_at=datetime.utcnow().isoformat(),
+        generated_at=datetime.now(timezone.utc).isoformat(),
         quality_score=quality_score,
         requirements_covered=requirements_covered,
         mission_alignment_summary=mission_alignment_summary,
-        ats_keywords_used=ats_keywords_used
+        ats_keywords_used=ats_keywords_used,
+        iterations_used=iterations_used,
+        final_critic_result=final_critic_result,
+        iteration_history=iteration_history,
+        critic_passed=critic_passed
     )

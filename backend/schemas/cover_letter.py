@@ -139,6 +139,81 @@ class CoverLetterRationale(BaseModel):
     )
 
 
+class CriticIssue(BaseModel):
+    """Individual issue identified by the critic."""
+    category: Literal["banned_phrase", "tone", "ats_coverage", "structure", "content"] = Field(
+        ..., description="Category of the issue"
+    )
+    severity: Literal["critical", "major", "minor"] = Field(
+        ..., description="Severity level"
+    )
+    description: str = Field(
+        ..., description="Detailed description of the issue"
+    )
+    suggestion: Optional[str] = Field(
+        None, description="Suggested fix for the issue"
+    )
+    section: Optional[str] = Field(
+        None, description="Section of cover letter affected"
+    )
+
+
+class CoverLetterCriticResult(BaseModel):
+    """Results from critic evaluation of a cover letter draft."""
+    iteration: int = Field(
+        ..., ge=1, description="Current iteration number (1-indexed)"
+    )
+    quality_score: float = Field(
+        ..., ge=0.0, le=100.0, description="Overall quality score (0-100)"
+    )
+    passed: bool = Field(
+        ..., description="True if quality score meets threshold and no critical issues"
+    )
+    should_retry: bool = Field(
+        ..., description="True if iteration loop should continue with revision"
+    )
+
+    # Detailed analysis components
+    banned_phrase_check: BannedPhraseCheck = Field(
+        ..., description="Banned phrase analysis"
+    )
+    tone_compliance: ToneComplianceResult = Field(
+        ..., description="Tone compliance assessment"
+    )
+    ats_keyword_coverage: ATSKeywordCoverage = Field(
+        ..., description="ATS keyword coverage analysis"
+    )
+
+    # Aggregated issues for revision feedback
+    issues: List[CriticIssue] = Field(
+        default_factory=list, description="All issues identified in this iteration"
+    )
+    retry_reasons: List[str] = Field(
+        default_factory=list, description="Specific reasons for requesting revision"
+    )
+    improvement_suggestions: List[str] = Field(
+        default_factory=list, description="Actionable suggestions for improvement"
+    )
+
+    # Comparison with previous iteration (if applicable)
+    score_delta: Optional[float] = Field(
+        None, description="Change in quality score from previous iteration"
+    )
+    issues_resolved: List[str] = Field(
+        default_factory=list, description="Issues from previous iteration that were fixed"
+    )
+
+    evaluated_at: str = Field(
+        ..., description="ISO timestamp of evaluation"
+    )
+
+    @field_validator('quality_score')
+    @classmethod
+    def round_quality_score(cls, v: float) -> float:
+        """Round quality score to 1 decimal place."""
+        return round(v, 1)
+
+
 class GeneratedCoverLetter(BaseModel):
     """Complete cover letter generation response."""
     job_profile_id: int = Field(..., description="Job profile ID")
@@ -190,8 +265,29 @@ class GeneratedCoverLetter(BaseModel):
         description="ATS keywords successfully incorporated in the letter"
     )
 
+    # Critic iteration tracking
+    iterations_used: int = Field(
+        default=1, ge=1,
+        description="Number of critic iterations performed"
+    )
+    final_critic_result: Optional["CoverLetterCriticResult"] = Field(
+        None, description="Final critic evaluation result"
+    )
+    iteration_history: List["CoverLetterCriticResult"] = Field(
+        default_factory=list,
+        description="History of all critic evaluations across iterations"
+    )
+    critic_passed: bool = Field(
+        default=True,
+        description="Whether the final draft passed critic evaluation"
+    )
+
     @field_validator('quality_score')
     @classmethod
     def round_quality_score(cls, v: float) -> float:
         """Round quality score to 1 decimal place."""
         return round(v, 1)
+
+
+# Forward references for self-referential models
+GeneratedCoverLetter.model_rebuild()

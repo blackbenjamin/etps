@@ -95,3 +95,34 @@ class BaseLLM(ABC):
             Complete cover letter text
         """
         pass
+
+    @abstractmethod
+    async def revise_cover_letter(
+        self,
+        current_draft: str,
+        critic_feedback: Dict,
+        job_context: Dict,
+        company_context: Dict,
+        tone: str,
+        user_name: str,
+        max_words: int = 300
+    ) -> str:
+        """
+        Revise a cover letter draft based on critic feedback.
+
+        Args:
+            current_draft: The current cover letter text to revise
+            critic_feedback: Dict containing:
+                - issues: List of issues identified
+                - improvement_suggestions: List of actionable improvements
+                - quality_score: Current quality score
+            job_context: Job details (title, priorities, skills)
+            company_context: Company details (name, initiatives, culture)
+            tone: Target tone style
+            user_name: User's full name for signature
+            max_words: Target word count
+
+        Returns:
+            Revised cover letter text
+        """
+        pass

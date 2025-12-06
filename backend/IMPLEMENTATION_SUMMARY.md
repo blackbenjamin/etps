@@ -137,7 +137,7 @@ Comprehensive test script covering:
 
 **Run tests:**
 ```bash
-cd /Users/benjaminblack/projects/recruitbot/backend
+cd /Users/benjaminblack/projects/etps/backend
 python3 test_implementation.py
 ```
 

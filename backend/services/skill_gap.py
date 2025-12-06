@@ -381,16 +381,14 @@ async def compute_semantic_skill_match(
 
     try:
         embedding_service = get_embedding_service()
-        best_match = None
-        best_score = 0.0
-
-        for user_skill in user_skills:
-            similarity = await embedding_service.compute_similarity(skill, user_skill)
-            if similarity > best_score:
-                best_score = similarity
-                best_match = user_skill
-
-        if best_score >= threshold:
+        # Use find_best_semantic_match which handles embedding generation internally
+        match_result = await embedding_service.find_best_semantic_match(
+            query=skill,
+            candidates=user_skills,
+            threshold=threshold
+        )
+        if match_result:
+            best_match, best_score = match_result
             logger.debug(f"Semantic match: '{skill}' -> '{best_match}' (score: {best_score:.2f})")
             return (best_match, best_score)
 
@@ -821,8 +819,9 @@ async def compute_weak_signals(
         # Semantic similarity with user skills (Task 2.4)
         semantic_matches = []
         try:
+            # Use compute_text_similarity which checks predefined mappings first
             for user_skill in user_skills:
-                similarity = await embedding_service.compute_similarity(job_skill, user_skill)
+                similarity = await embedding_service.compute_text_similarity(job_skill, user_skill)
                 if 0.4 <= similarity < 0.7:  # Weak signal range
                     semantic_matches.append((user_skill, similarity))
 
@@ -1083,8 +1082,8 @@ def get_cached_skill_gap_analysis(
             return None
 
         # Reconstruct SkillGapResponse from cached dict
-        # Remove metadata fields before reconstructing
-        analysis_data = {k: v for k, v in user_analysis.items() if k not in ['user_id', 'cached_at']}
+        # Remove only the cached_at metadata (keep user_id as it's part of schema)
+        analysis_data = {k: v for k, v in user_analysis.items() if k != 'cached_at'}
         cached_analysis = SkillGapResponse(**analysis_data)
 
         logger.info(f"Retrieved cached skill gap analysis (age: {age_hours:.1f}h)")

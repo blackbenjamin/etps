@@ -134,6 +134,23 @@ class BaseEmbeddingService(ABC):
         # Clamp to [-1, 1] to handle floating point errors
         return max(-1.0, min(1.0, similarity))
 
+    async def compute_text_similarity(self, text1: str, text2: str) -> float:
+        """
+        Compute similarity between two texts by generating embeddings and comparing.
+
+        Subclasses may override this to use predefined similarity maps.
+
+        Args:
+            text1: First text
+            text2: Second text
+
+        Returns:
+            Similarity score
+        """
+        emb1 = await self.generate_embedding(text1)
+        emb2 = await self.generate_embedding(text2)
+        return self.compute_similarity(emb1, emb2)
+
     async def find_best_semantic_match(
         self,
         query: str,
@@ -196,6 +213,12 @@ class MockEmbeddingService(BaseEmbeddingService):
         # AI/ML related
         ('ML Engineering', 'Machine Learning'): 0.95,
         ('Machine Learning', 'ML Engineering'): 0.95,
+        ('Machine Learning Engineering', 'Machine Learning'): 0.93,
+        ('Machine Learning', 'Machine Learning Engineering'): 0.93,
+        ('Machine Learning Engineering', 'ML Ops'): 0.85,
+        ('ML Ops', 'Machine Learning Engineering'): 0.85,
+        ('Machine Learning Engineering', 'ML Engineering'): 0.97,
+        ('ML Engineering', 'Machine Learning Engineering'): 0.97,
         ('Deep Learning', 'Neural Networks'): 0.92,
         ('Neural Networks', 'Deep Learning'): 0.92,
         ('NLP', 'Natural Language Processing'): 0.98,
@@ -276,6 +299,18 @@ class MockEmbeddingService(BaseEmbeddingService):
         ('Product Strategy', 'Product Management'): 0.84,
         ('Project Management', 'Program Management'): 0.81,
         ('Program Management', 'Project Management'): 0.81,
+
+        # Engineering & ML adjacent (for weak signal detection)
+        ('Software Engineering', 'ML Engineering'): 0.65,
+        ('ML Engineering', 'Software Engineering'): 0.65,
+        ('Software Engineering', 'Machine Learning'): 0.55,
+        ('Machine Learning', 'Software Engineering'): 0.55,
+        ('Data Analysis', 'Data Science'): 0.75,
+        ('Data Science', 'Data Analysis'): 0.75,
+        ('Data Analysis', 'Machine Learning'): 0.60,
+        ('Machine Learning', 'Data Analysis'): 0.60,
+        ('System Architecture', 'ML Architecture'): 0.58,
+        ('ML Architecture', 'System Architecture'): 0.58,
     }
 
     def __init__(self, similarity_threshold: float = 0.75, embedding_dim: int = 384):
@@ -301,24 +336,24 @@ class MockEmbeddingService(BaseEmbeddingService):
             text: Input text
 
         Returns:
-            Normalized embedding vector
+            Normalized embedding vector of fixed dimension (self.embedding_dim)
         """
         # Create hash of normalized text
         normalized = text.lower().strip()
         text_hash = hashlib.md5(normalized.encode()).hexdigest()
 
-        # Convert hash to numbers and create vector
+        # Convert each hex char to a float value in range [-1, 1]
+        # MD5 gives 32 hex chars
         vector = []
-        for i in range(0, len(text_hash) * 4, 4):
-            # Take 4 hex chars at a time, convert to int, normalize to [-1, 1]
-            chunk = text_hash[i//4:(i//4)+1]
-            value = (int(chunk, 16) - 7.5) / 7.5  # Normalize from 0-15 to ~[-1, 1]
+        for char in text_hash:
+            value = (int(char, 16) - 7.5) / 7.5  # Normalize from 0-15 to ~[-1, 1]
             vector.append(value)
 
-        # Extend or truncate to desired dimension
+        # Extend to desired dimension by repeating the pattern
         while len(vector) < self.embedding_dim:
-            # Repeat pattern if needed
             vector.extend(vector[:min(len(vector), self.embedding_dim - len(vector))])
+
+        # Truncate to exact dimension
         vector = vector[:self.embedding_dim]
 
         # Normalize to unit vector
@@ -406,6 +441,30 @@ class MockEmbeddingService(BaseEmbeddingService):
         # For mock, we use the base cosine similarity
         # The predefined scores are used implicitly via the embedding generation
         return super().compute_similarity(emb1, emb2)
+
+    async def compute_text_similarity(self, text1: str, text2: str) -> float:
+        """
+        Compute similarity between two texts, using predefined scores when available.
+
+        This method first checks predefined similarity map, then falls back
+        to embedding-based cosine similarity.
+
+        Args:
+            text1: First text
+            text2: Second text
+
+        Returns:
+            Similarity score
+        """
+        # Check predefined similarities first
+        predefined = self._get_predefined_similarity(text1, text2)
+        if predefined is not None:
+            return predefined
+
+        # Fall back to embedding-based similarity
+        emb1 = await self.generate_embedding(text1)
+        emb2 = await self.generate_embedding(text2)
+        return self.compute_similarity(emb1, emb2)
 
     async def find_best_semantic_match(
         self,

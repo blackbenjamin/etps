@@ -10,7 +10,7 @@
 
 ### 1. Environment Setup
 ```bash
-cd /Users/benjaminblack/projects/recruitbot/backend
+cd /Users/benjaminblack/projects/etps/backend
 source venv/bin/activate  # or your virtual environment
 pip install -r requirements.txt
 ```

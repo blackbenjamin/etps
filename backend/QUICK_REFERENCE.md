@@ -407,7 +407,7 @@ asyncio.run(test())
 ## File Locations
 
 ```
-/Users/benjaminblack/projects/recruitbot/backend/
+/Users/benjaminblack/projects/etps/backend/
 ├── utils/
 │   ├── __init__.py
 │   └── text_processing.py
