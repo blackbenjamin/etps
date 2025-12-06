@@ -86,11 +86,20 @@ export const api = {
       body: JSON.stringify({ ...data, user_id: 1 }),
     }),
 
-  generateCoverLetterWithCritic: (data: CoverLetterGenerateRequest) =>
-    apiFetch<GeneratedCoverLetter>('/api/v1/cover-letter/generate-with-critic', {
+  generateCoverLetterWithCritic: async (data: CoverLetterGenerateRequest) => {
+    const response = await apiFetch<{
+      cover_letter: GeneratedCoverLetter
+      critic_result: any
+      accepted: boolean
+    }>('/api/v1/cover-letter/generate-with-critic', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    })
+    return {
+      ...response.cover_letter,
+      critic_result: response.critic_result,
+    }
+  },
 
   downloadCoverLetterDocx: async (jobProfileId: number): Promise<Blob> => {
     const response = await fetch(`${API_BASE}/api/v1/cover-letter/docx?job_profile_id=${jobProfileId}`);
