@@ -38,6 +38,34 @@ This document provides a detailed implementation plan to build ETPS to full PRD 
 - **Test Files:** test_resume_critic.py, test_skill_gap.py, test_cover_letter_critic.py, + others
 - **Coverage:** All Sprint 1-3 functionality tested
 
+### Git Workflow & Commit Checkpoints
+
+**Repository:** https://github.com/blackbenjamin/etps
+
+**Commit Convention:** Commits are made at these checkpoints:
+
+| Checkpoint | Commit Message Format | Example |
+|------------|----------------------|---------|
+| Sprint complete | `feat(sprint-N): <summary>` | `feat(sprint-3): Implement Cover Letter Critic` |
+| Bug fix batch | `fix: <summary>` | `fix: Resolve embedding dimension mismatch` |
+| Documentation update | `docs: <summary>` | `docs: Update implementation plan progress` |
+| Config/setup change | `chore: <summary>` | `chore: Add .gitignore for .env` |
+
+**Commit Timing:**
+- ✅ After each sprint is complete (all tests passing)
+- ✅ After significant bug fix sessions
+- ✅ After major documentation updates
+- ✅ Before switching to a different sprint/task
+
+**Commit History:**
+| Commit | Sprint | Description |
+|--------|--------|-------------|
+| `5c7fe89` | 3 | Cover Letter Critic + rename to ETPS |
+| `37738df` | 2 | Tune embedding threshold |
+| `ce14e48` | 2 | Skill Gap Analyzer enhancements |
+| `eca075f` | 1 | Resume Critic Agent |
+| `96ce919` | - | Initial implementation plan |
+
 ---
 
 ## Implementation Phases Overview
