@@ -9,6 +9,7 @@ sqlalchemy>=2.0.0
 
 # Configuration
 pyyaml>=6.0
+python-dotenv>=1.0.0
 
 # Data validation
 pydantic>=2.0.0
@@ -22,7 +23,9 @@ httpx>=0.25.0
 # DOCX generation
 python-docx>=1.2.0
 
+# AI/ML APIs
+openai>=1.0.0  # OpenAI API for embeddings
+
 # TODO: Add additional dependencies as needed
-# anthropic>=0.7.0  # Claude API
-# openai>=1.0.0     # OpenAI API (fallback)
-# qdrant-client>=1.6.0  # Vector store
+# anthropic>=0.7.0  # Claude API (future)
+# qdrant-client>=1.6.0  # Vector store (future)
