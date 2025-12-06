@@ -37,7 +37,7 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 7: Qdrant Integration | ✅ COMPLETE | Dec 2025 | Vector store service, MockVectorStore, bullet/job indexing, semantic search |
 | Sprint 8: Learning from Approved Outputs | ✅ COMPLETE | Dec 2025 | ApprovedOutput model, output approval API, similarity retrieval, vector indexing |
 | Sprint 8B: Gap Remediation | ✅ COMPLETE | Dec 2025 | Integration gaps, truthfulness validation, skill-gap connection |
-| Sprint 8C: Pagination-Aware Layout | 🔲 NOT STARTED | - | Line budgeting, value-per-line allocation, page split rules |
+| Sprint 8C: Pagination-Aware Layout | ✅ COMPLETE | Dec 2025 | Line budgeting, value-per-line allocation, page split rules, security hardening |
 | Sprint 9-10: Frontend MVP | 🔲 NOT STARTED | - | Next.js + Job Intake UI |
 | Sprint 11-14: Company Intelligence | 🔲 NOT STARTED | - | Phase 2 |
 | Sprint 15-17: Application Tracking | 🔲 NOT STARTED | - | Phase 3 |
@@ -45,9 +45,9 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 19: Deployment | 🔲 NOT STARTED | - | Railway + Vercel |
 
 ### Test Coverage
-- **Total Tests:** 258 passing
-- **Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_sprint_8b_integration.py
-- **Coverage:** All Sprint 1-8B functionality tested
+- **Total Tests:** 344 passing
+- **Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_sprint_8b_integration.py, test_pagination_allocation.py, test_sprint_8c_regression.py
+- **Coverage:** All Sprint 1-8C functionality tested
 
 ### Git Workflow & Commit Checkpoints
 
@@ -637,33 +637,41 @@ etps_approved_outputs: {id, type, embedding, job_context, content} (Sprint 8)
 
 **Goal:** Implement pagination-aware resume layout that allocates bullets under a global space budget, avoids orphaned job headers, and enables optional bullet compression.
 
-**Status:** 🔲 NOT STARTED
+**Status:** ✅ COMPLETE (Dec 2025)
 
 **Reference:** See PRD Section 2.11 for full specification.
 
 #### Tasks
 
-| ID | Task | File(s) | PRD Ref | Priority |
-|----|------|---------|---------|----------|
-| 8C.1 | Add pagination constants to config.yaml (page1_line_budget, page2_line_budget, chars_per_line_estimate, min_bullets_per_role, max_bullets_per_role) | `config/config.yaml` | 2.11 | P0 |
-| 8C.2 | Implement line budget cost estimator for bullets, headers, summary, and skills | `services/resume_tailor.py`, `services/pagination.py` | 2.11 | P0 |
-| 8C.3 | Implement global space-aware bullet allocation algorithm (value-per-line prioritization) | `services/resume_tailor.py`, `services/pagination.py` | 2.8, 2.11 | P0 |
-| 8C.4 | Implement job–page split simulation and rules to avoid orphaned job headers and single bullets | `services/pagination.py` | 2.11 | P0 |
-| 8C.5 | Add per-role minimum/maximum bullet constraints with role condensation for older roles | `services/resume_tailor.py` | 2.11 | P0 |
-| 8C.6 | Implement optional bullet compression mode (shortening long bullets within truthfulness constraints) | `services/bullet_rewriter.py`, `services/resume_tailor.py` | 2.11, 4.3 | P1 |
-| 8C.7 | Update SummaryRewriteService to accept max_lines hint derived from Page 1 budget | `services/summary_rewrite.py`, `services/resume_tailor.py` | 2.10, 2.11 | P0 |
-| 8C.8 | Add basic pagination sanity checks to resume critic (no orphaned headers, no single-bullet orphans) | `services/critic.py` | 4.3, 2.11 | P1 |
-| 8C.9 | Add unit tests for space-aware allocation and job split behavior | `tests/test_pagination_allocation.py` | 2.11 | P1 |
-| 8C.10 | Add regression tests for pagination-aware allocation with sample resumes | `tests/test_pagination_regression.py` | 2.11 | P2 |
+| ID | Task | File(s) | PRD Ref | Status |
+|----|------|---------|---------|--------|
+| 8C.1 | Add pagination constants to config.yaml | `config/config.yaml` | 2.11 | ✅ |
+| 8C.2 | Implement line budget cost estimator | `services/pagination.py` | 2.11 | ✅ |
+| 8C.3 | Implement value-per-line bullet allocation | `services/pagination.py` | 2.8, 2.11 | ✅ |
+| 8C.4 | Implement PageSplitSimulator | `services/pagination.py` | 2.11 | ✅ |
+| 8C.5 | Add per-role constraints and condensation | `services/resume_tailor.py` | 2.11 | ✅ |
+| 8C.6 | Implement bullet compression mode | `services/bullet_rewriter.py`, `services/pagination.py` | 2.11, 4.3 | ✅ |
+| 8C.7 | Add max_lines hint to summary_rewrite | `services/summary_rewrite.py` | 2.10, 2.11 | ✅ |
+| 8C.8 | Add pagination sanity checks to critic | `services/critic.py` | 4.3, 2.11 | ✅ |
+| 8C.9 | Add unit tests (44 tests) | `tests/test_pagination_allocation.py` | 2.11 | ✅ |
+| 8C.10 | Add regression tests (42 tests) | `tests/test_sprint_8c_regression.py` | 2.11 | ✅ |
 
 #### Acceptance Criteria
-- [ ] Resume bullet selection respects a global line budget for Page 1 and Page 2
-- [ ] No job header is placed as the last element on a page with zero bullets below it (per simulation)
-- [ ] Older / less relevant roles are automatically condensed first when space is constrained
-- [ ] Optional bullet compression reduces overflow while preserving truthfulness and tone
-- [ ] SummaryRewriteService can shorten or slightly expand the summary based on a max-lines hint derived from the Page 1 budget
-- [ ] Resume critic validates basic pagination sanity (no orphaned job headers)
-- [ ] All pagination logic has test coverage
+- [x] Resume bullet selection respects a global line budget for Page 1 and Page 2
+- [x] No job header is placed as the last element on a page with zero bullets below it (per simulation)
+- [x] Older / less relevant roles are automatically condensed first when space is constrained
+- [x] Optional bullet compression reduces overflow while preserving truthfulness and tone
+- [x] SummaryRewriteService can shorten or slightly expand the summary based on a max-lines hint derived from the Page 1 budget
+- [x] Resume critic validates basic pagination sanity (no orphaned job headers)
+- [x] All pagination logic has test coverage (86 new tests)
+
+#### Security Hardening (Post-Review)
+- Pre-compiled regex patterns to prevent ReDoS attacks
+- Input length validation (500 char max for compression)
+- Bounds checking on max_lines parameter (1-100)
+- Improved exception handling with specific error types
+- Parameter validation moved to function start
+- Condensation suggestion validation before array access
 
 #### Estimated Effort
 - P0 tasks: 12-16 hours
