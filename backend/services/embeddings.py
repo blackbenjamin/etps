@@ -197,6 +197,69 @@ class BaseEmbeddingService(ABC):
 
         return None
 
+    async def embed_bullet(
+        self,
+        bullet_text: str,
+        context: Optional[Dict] = None
+    ) -> List[float]:
+        """
+        Generate embedding for a bullet point.
+
+        Args:
+            bullet_text: Resume bullet text to embed
+            context: Optional context dict (currently unused, reserved for future use)
+
+        Returns:
+            Embedding vector
+
+        Raises:
+            ValueError: If bullet_text is empty
+        """
+        return await self.generate_embedding(bullet_text)
+
+    async def embed_job_profile(
+        self,
+        title: str,
+        responsibilities: str,
+        requirements: str,
+        nice_to_haves: Optional[str] = None
+    ) -> List[float]:
+        """
+        Generate embedding for a job profile combining key fields.
+
+        Combines job title, responsibilities, requirements, and optional nice-to-haves
+        into a single semantic representation for matching against resume bullets.
+
+        Args:
+            title: Job title
+            responsibilities: Job responsibilities text
+            requirements: Job requirements text
+            nice_to_haves: Optional nice-to-have qualifications
+
+        Returns:
+            Embedding vector
+
+        Raises:
+            ValueError: If any required field is empty
+        """
+        if not title or not title.strip():
+            raise ValueError("Job title cannot be empty")
+        if not responsibilities or not responsibilities.strip():
+            raise ValueError("Responsibilities cannot be empty")
+        if not requirements or not requirements.strip():
+            raise ValueError("Requirements cannot be empty")
+
+        parts = [
+            f"Job Title: {title}",
+            f"Responsibilities: {responsibilities}",
+            f"Requirements: {requirements}"
+        ]
+        if nice_to_haves and nice_to_haves.strip():
+            parts.append(f"Nice-to-Have: {nice_to_haves}")
+
+        combined = "\n\n".join(parts)
+        return await self.generate_embedding(combined)
+
 
 class MockEmbeddingService(BaseEmbeddingService):
     """

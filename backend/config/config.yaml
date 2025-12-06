@@ -37,11 +37,15 @@ vector_store:
   host: "localhost"
   port: 6333
   collection_prefix: "etps_"
+  auto_index_on_startup: true
+  batch_size: 50
 
 # Embeddings configuration
 embeddings:
   similarity_threshold: 0.60  # Minimum cosine similarity for semantic matches (tuned for OpenAI text-embedding-3-small)
   batch_size: 100             # Maximum batch size for embedding generation
+  vector_dimensions: 384      # text-embedding-3-small dimension
+  index_retired_bullets: false
 
 # Feature flags
 features:

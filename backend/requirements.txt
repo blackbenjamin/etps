@@ -28,4 +28,4 @@ openai>=1.0.0  # OpenAI API for embeddings
 
 # TODO: Add additional dependencies as needed
 # anthropic>=0.7.0  # Claude API (future)
-# qdrant-client>=1.6.0  # Vector store (future)
+qdrant-client>=1.6.0  # Vector store for semantic search
