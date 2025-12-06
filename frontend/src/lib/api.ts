@@ -73,10 +73,26 @@ export const api = {
       body: JSON.stringify({ ...data, user_id: 1 }),
     }),
 
-  downloadResumeDocx: async (jobProfileId: number): Promise<Blob> => {
-    const response = await fetch(`${API_BASE}/api/v1/resume/docx?job_profile_id=${jobProfileId}&format=docx&user_name=Demo User&user_email=demo@example.com`);
-    if (!response.ok) throw new Error('Download failed');
-    return response.blob();
+  downloadResumeDocx: async (resume: TailoredResume): Promise<Blob> => {
+    const response = await fetch(`${API_BASE}/api/v1/resume/docx?format=docx`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        tailored_resume: resume,
+        user_name: 'Demo User',
+        user_email: 'demo@example.com',
+        user_phone: '555-0123',
+        user_linkedin: 'linkedin.com/in/demouser',
+        user_portfolio: 'github.com/demouser',
+      }),
+    })
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Download failed: ${errorText}`)
+    }
+    return response.blob()
   },
 
   // Cover Letter

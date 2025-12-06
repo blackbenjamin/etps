@@ -100,12 +100,12 @@ export function useGenerateCoverLetterWithCritic() {
 // Download resume mutation
 export function useDownloadResume() {
   return useMutation({
-    mutationFn: async (jobProfileId: number) => {
-      const blob = await api.downloadResumeDocx(jobProfileId)
+    mutationFn: async (resume: TailoredResume) => {
+      const blob = await api.downloadResumeDocx(resume)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `resume_${jobProfileId}.docx`
+      a.download = `resume_${resume.job_profile_id}.docx`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)

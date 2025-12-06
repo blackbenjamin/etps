@@ -19,7 +19,7 @@ export function DownloadButtons({ type, jobProfileId, jsonData }: DownloadButton
 
   const handleDownloadDocx = async () => {
     if (type === 'resume') {
-      await downloadResume.mutateAsync(jobProfileId)
+      await downloadResume.mutateAsync(jsonData as TailoredResume)
     } else {
       await downloadCoverLetter.mutateAsync(jobProfileId)
     }
