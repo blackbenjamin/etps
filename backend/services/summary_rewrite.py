@@ -258,6 +258,7 @@ async def rewrite_summary_for_job(
     company_profile: Optional[Any] = None,
     max_words: int = 60,
     context_notes: Optional[str] = None,
+    max_lines: Optional[int] = None,
 ) -> str:
     """
     Rewrite professional summary tailored to a specific job.
@@ -275,6 +276,7 @@ async def rewrite_summary_for_job(
         company_profile: Optional company profile for context
         max_words: Maximum word count (default 60 per PRD 2.10)
         context_notes: Optional user-provided context notes for personalization (Sprint 8B.8)
+        max_lines: Optional hint for target line count in rendered resume
 
     Returns:
         Tailored professional summary (<=max_words)
@@ -298,6 +300,21 @@ async def rewrite_summary_for_job(
 
     # Build company context
     company_context = build_company_context(company_profile)
+
+    # If max_lines hint provided, calculate effective max_words
+    if max_lines is not None:
+        # Validate max_lines bounds (1-100 reasonable for resume summary)
+        if max_lines < 1:
+            logger.warning(f"Invalid max_lines={max_lines} (too small), ignoring")
+        elif max_lines > 100:
+            logger.warning(f"Invalid max_lines={max_lines} (too large), ignoring")
+        else:
+            chars_per_line = 75
+            avg_word_length = 5
+            # Ensure at least 1 word even for very short line limits
+            effective_max_words = max(1, (max_lines * chars_per_line) // avg_word_length)
+            max_words = min(max_words, effective_max_words)
+            logger.info(f"Adjusted max_words to {max_words} based on max_lines={max_lines}")
 
     # Check if using MockLLM
     if llm.__class__.__name__ == 'MockLLM':
@@ -333,14 +350,29 @@ async def rewrite_summary_for_job(
         else:
             prompt_vars['context_notes'] = 'Not provided'
 
+        # Add max_lines hint if provided
+        if max_lines is not None:
+            prompt_vars['max_lines'] = max_lines
+        else:
+            prompt_vars['max_lines'] = 'Not specified'
+
         # Format prompt - use safe format to handle missing placeholders
         try:
             prompt = template.format(**prompt_vars)
-        except KeyError:
-            # Template doesn't have context_notes placeholder, append separately
-            prompt = template.format(**{k: v for k, v in prompt_vars.items() if k != 'context_notes'})
+        except KeyError as e:
+            # Template doesn't have all placeholders, filter and append separately
+            # Remove keys that may not be in the template
+            safe_vars = {k: v for k, v in prompt_vars.items()
+                        if k not in ('context_notes', 'max_lines')}
+            prompt = template.format(**safe_vars)
+
+            # Append context_notes if provided
             if context_notes:
                 prompt += f"\n\nAdditional context from user: {context_notes[:500]}"
+
+            # Append max_lines hint if provided
+            if max_lines is not None:
+                prompt += f"\n\nTarget line count: {max_lines} lines (approximately {max_words} words)"
 
         # Generate summary via LLM
         summary = await llm.generate_text(prompt, max_tokens=150)
@@ -357,6 +389,17 @@ async def rewrite_summary_for_job(
 
     # 4. Clean up formatting
     summary = ' '.join(summary.split())  # Normalize whitespace
+
+    # 5. Validate line count if max_lines was specified
+    if max_lines is not None:
+        chars_per_line = 75
+        estimated_lines = len(summary) / chars_per_line
+        if estimated_lines > max_lines:
+            logger.warning(
+                f"Summary exceeds max_lines={max_lines} "
+                f"(estimated {estimated_lines:.1f} lines). "
+                f"Consider reducing max_words further."
+            )
 
     logger.info(
         f"Generated summary for job {job_profile.id}: "

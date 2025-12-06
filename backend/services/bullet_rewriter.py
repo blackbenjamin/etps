@@ -276,3 +276,69 @@ async def rewrite_bullets_for_job(
     )
 
     return rewritten_bullets
+
+
+async def compress_bullet_for_space(
+    bullet_text: str,
+    target_reduction: float = 0.20,
+    llm_client: Optional[Any] = None,
+    use_llm: bool = False
+) -> Tuple[str, bool]:
+    """
+    Compress a bullet to reduce character count while preserving meaning.
+
+    Two modes:
+    1. Heuristic mode (default): Uses pattern-based compression
+    2. LLM mode: Uses LLM to intelligently shorten while preserving facts
+
+    Args:
+        bullet_text: Original bullet text
+        target_reduction: Target reduction percentage (0.20 = 20%)
+        llm_client: Optional OpenAI client for LLM mode
+        use_llm: If True, use LLM for smarter compression
+
+    Returns:
+        Tuple of (compressed_text, was_modified)
+    """
+    if not bullet_text:
+        return bullet_text, False
+
+    original_length = len(bullet_text)
+
+    if use_llm and llm_client:
+        # LLM-based compression
+        prompt = f'''Shorten this resume bullet point by approximately {int(target_reduction * 100)}% while:
+1. Preserving ALL factual information (numbers, metrics, outcomes)
+2. Keeping the same meaning and impact
+3. Maintaining professional tone
+4. Starting with a strong action verb
+
+Original bullet ({original_length} chars):
+"{bullet_text}"
+
+Shortened version (aim for ~{int(original_length * (1 - target_reduction))} chars):'''
+
+        try:
+            response = await llm_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=150,
+                temperature=0.3
+            )
+            compressed = response.choices[0].message.content.strip()
+
+            # Remove quotes if present
+            compressed = compressed.strip('"\'')
+
+            # Validate compression didn't remove too much
+            if len(compressed) > original_length * 0.5:  # At least 50% of original
+                return compressed, True
+        except Exception as e:
+            logger.warning(f"LLM compression failed, falling back to heuristic: {e}")
+
+    # Heuristic compression (import from pagination)
+    from services.pagination import compress_bullet_text
+    compressed = compress_bullet_text(bullet_text, target_reduction)
+
+    was_modified = compressed != bullet_text
+    return compressed, was_modified

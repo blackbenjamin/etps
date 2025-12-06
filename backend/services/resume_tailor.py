@@ -57,6 +57,7 @@ from services.output_retrieval import (
     retrieve_similar_summaries,
     format_examples_for_prompt,
 )
+from services.pagination import PaginationService, PageSplitSimulator
 
 
 logger = logging.getLogger(__name__)
@@ -737,7 +738,8 @@ async def tailor_resume(
     llm: Optional[BaseLLM] = None,
     enable_bullet_rewriting: bool = False,
     rewrite_strategy: Optional[str] = "both",
-    enable_learning: bool = True
+    enable_learning: bool = True,
+    enable_pagination_aware: bool = False  # NEW: Sprint 8C.5
 ) -> TailoredResume:
     """
     Main orchestrator: Generate complete tailored resume for specific job.
@@ -763,6 +765,7 @@ async def tailor_resume(
         enable_bullet_rewriting: If True, rewrite bullets to include JD keywords
         rewrite_strategy: Strategy for rewriting - "keywords", "star_enrichment", or "both"
         enable_learning: If True, retrieve similar approved bullets for learning (Sprint 8B.1)
+        enable_pagination_aware: If True, use space-aware bullet selection with value-per-line prioritization
 
     Returns:
         Complete tailored resume with rationale
@@ -770,7 +773,7 @@ async def tailor_resume(
     Raises:
         ValueError: If job profile or user not found, or invalid parameters
     """
-    # Validate parameters
+    # Validate parameters FIRST (before any database queries)
     if not 2 <= max_bullets_per_role <= 8:
         raise ValueError("max_bullets_per_role must be between 2 and 8")
     if not 5 <= max_skills <= 20:
@@ -1029,6 +1032,76 @@ async def tailor_resume(
         max_words=60,  # PRD 2.10 default
         context_notes=custom_instructions,  # Sprint 8B.8: Thread context_notes
     )
+
+    # ==========================================================================
+    # SPRINT 8C.5: PAGINATION-AWARE BULLET ALLOCATION
+    # ==========================================================================
+    if enable_pagination_aware and selected_roles:
+        pagination_service = PaginationService()
+        page_simulator = PageSplitSimulator(pagination_service)
+
+        # Estimate summary and skills lines
+        summary_lines = pagination_service.estimate_summary_lines(tailored_summary) if tailored_summary else 0
+        skills_lines = pagination_service.estimate_skills_lines([s.skill for s in selected_skills])
+
+        # Build roles structure for simulation
+        role_structures = []
+        for role in selected_roles:
+            bullets_info = []
+            for bullet in role.selected_bullets:
+                line_cost = pagination_service.estimate_bullet_lines(bullet.text)
+                bullets_info.append({'text': bullet.text, 'lines': line_cost})
+
+            role_structures.append({
+                'experience_id': role.experience_id,
+                'job_header_lines': pagination_service.get_job_header_lines(),
+                'bullets': bullets_info
+            })
+
+        # Simulate page layout
+        layout = page_simulator.simulate_page_layout(summary_lines, skills_lines, role_structures)
+
+        # If layout overflows, apply condensation strategy
+        if not layout.fits_in_budget:
+            # Get condensation suggestions for older roles
+            config = pagination_service._config
+            min_bullets = config.get('min_bullets_per_role', 2)
+            overflow_lines = layout.total_lines - pagination_service.get_total_budget()
+
+            if config.get('condense_older_roles', True) and overflow_lines > 0:
+                condensation_suggestions = page_simulator.suggest_condensation(
+                    role_structures,
+                    target_reduction_lines=overflow_lines,
+                    min_bullets_per_role=min_bullets
+                )
+
+                # Apply condensation by trimming bullets from suggested roles
+                for suggestion in condensation_suggestions:
+                    role_idx = suggestion.get('role_index')
+                    target_bullet_count = suggestion.get('suggested_bullets', 0)
+
+                    # Validate suggestion values
+                    if role_idx is None or not isinstance(role_idx, int):
+                        continue
+                    if target_bullet_count <= 0:
+                        continue
+                    if role_idx < 0 or role_idx >= len(selected_roles):
+                        continue
+
+                    role = selected_roles[role_idx]
+                    if len(role.selected_bullets) > target_bullet_count:
+                        # Keep highest-scoring bullets
+                        role.selected_bullets = sorted(
+                            role.selected_bullets,
+                            key=lambda b: b.relevance_score,
+                            reverse=True
+                        )[:target_bullet_count]
+
+                # Log condensation action
+                logger.info(
+                    f"Pagination-aware condensation applied: reduced {len(condensation_suggestions)} "
+                    f"role(s) to fit 2-page budget"
+                )
 
     # Build comprehensive rationale
     # Calculate total bullets across direct bullets and engagement bullets

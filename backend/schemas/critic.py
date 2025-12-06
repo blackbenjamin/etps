@@ -30,6 +30,10 @@ ISSUE_TYPES = Literal[
     "generic_statement_violation",
     "structure_gap_violation",
     "truthfulness",
+    # Pagination issue types
+    "pagination_overflow",
+    "pagination_orphan",
+    "pagination_check_error",
 ]
 
 

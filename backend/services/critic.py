@@ -30,6 +30,7 @@ from services.cover_letter import (
 )
 from services.llm.base import BaseLLM
 from services.llm.mock_llm import MockLLM
+from services.pagination import PaginationService, PageSplitSimulator
 
 
 # Severity mapping from banned phrase severity to critic severity
@@ -2624,6 +2625,122 @@ async def validate_resume_truthfulness(
     return is_truthful, issues
 
 
+def check_pagination_constraints(
+    resume_json: Dict,
+    context: str = "resume"
+) -> Tuple[bool, int, List[CriticIssue]]:
+    """
+    Check if resume fits within 2-page line budget per PRD 2.11.
+
+    Args:
+        resume_json: TailoredResume JSON structure
+        context: Section context for issue reporting
+
+    Returns:
+        Tuple of (fits_budget, estimated_lines, list of CriticIssue)
+    """
+    issues: List[CriticIssue] = []
+
+    try:
+        pagination_service = PaginationService()
+        page_simulator = PageSplitSimulator(pagination_service)
+
+        # Extract and estimate summary lines
+        summary_text = resume_json.get("tailored_summary", "")
+        summary_lines = pagination_service.estimate_summary_lines(summary_text)
+
+        # Extract and estimate skills lines
+        selected_skills = resume_json.get("selected_skills", [])
+        skills = [s.get("skill", "") if isinstance(s, dict) else str(s) for s in selected_skills]
+        skills_lines = pagination_service.estimate_skills_lines(skills)
+
+        # Build role structures for simulation
+        role_structures = []
+        for role in resume_json.get("selected_roles", []):
+            bullets_info = []
+
+            # Handle direct bullets
+            for bullet in role.get("selected_bullets", []):
+                bullet_text = bullet.get("text", "") if isinstance(bullet, dict) else str(bullet)
+                line_cost = pagination_service.estimate_bullet_lines(bullet_text)
+                bullets_info.append({'text': bullet_text, 'lines': line_cost})
+
+            # Handle engagement bullets (consulting roles)
+            for eng in role.get("selected_engagements", []):
+                for bullet in eng.get("selected_bullets", []):
+                    bullet_text = bullet.get("text", "") if isinstance(bullet, dict) else str(bullet)
+                    line_cost = pagination_service.estimate_bullet_lines(bullet_text)
+                    bullets_info.append({'text': bullet_text, 'lines': line_cost})
+
+            role_structures.append({
+                'experience_id': role.get("experience_id", 0),
+                'job_header_lines': pagination_service.get_job_header_lines(),
+                'bullets': bullets_info
+            })
+
+        # Simulate page layout
+        layout = page_simulator.simulate_page_layout(summary_lines, skills_lines, role_structures)
+
+        total_budget = pagination_service.get_total_budget()
+        estimated_lines = layout.total_lines
+        fits_budget = layout.fits_in_budget
+
+        # Report violations
+        if not fits_budget:
+            overflow = estimated_lines - total_budget
+            issues.append(CriticIssue(
+                issue_type="pagination_overflow",
+                severity="warning",
+                section=context,
+                message=f"Resume exceeds 2-page budget by ~{overflow} lines ({estimated_lines} estimated vs {total_budget} budget)",
+                original_text=None,
+                recommended_fix="Reduce bullet count on older roles or compress bullet text"
+            ))
+
+        # Report specific page violations from simulator
+        for violation in layout.violations:
+            if "orphan" in violation.lower():
+                issues.append(CriticIssue(
+                    issue_type="pagination_orphan",
+                    severity="info",
+                    section=context,
+                    message=violation,
+                    original_text=None,
+                    recommended_fix="Role was moved to avoid orphaned header"
+                ))
+
+        return fits_budget, estimated_lines, issues
+
+    except (TypeError, KeyError, AttributeError) as e:
+        # Handle expected errors from malformed resume_json
+        import logging
+        import traceback
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            f"Pagination check failed due to malformed input (non-blocking): {e}\n"
+            f"Traceback: {traceback.format_exc()}"
+        )
+        # Return None for estimated_lines to indicate error, but don't block
+        return True, None, [CriticIssue(
+            issue_type="pagination_check_error",
+            severity="info",
+            section=context,
+            message=f"Pagination check could not complete: {str(e)[:100]}",
+            original_text=None,
+            recommended_fix="Ensure resume JSON structure is valid"
+        )]
+    except Exception as e:
+        # Unexpected errors should be logged with full traceback
+        import logging
+        import traceback
+        logger = logging.getLogger(__name__)
+        logger.error(
+            f"Unexpected error in pagination check: {e}\n"
+            f"Traceback: {traceback.format_exc()}"
+        )
+        return True, None, []
+
+
 async def evaluate_resume(
     resume_json: Dict,
     job_profile: JobProfile,
@@ -2784,6 +2901,15 @@ async def evaluate_resume(
             original_text=None,
             recommended_fix=f"Incorporate '{keyword}' into summary or bullets"
         ))
+
+    # ==========================================================================
+    # 9B. PAGINATION CONSTRAINTS CHECK (Sprint 8C.8)
+    # ==========================================================================
+    fits_pagination, estimated_lines, pagination_issues = check_pagination_constraints(
+        resume_json=resume_json,
+        context="resume"
+    )
+    all_issues.extend(pagination_issues)
 
     # ==========================================================================
     # 10. RULE ENFORCEMENT
