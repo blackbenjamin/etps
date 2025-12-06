@@ -137,7 +137,9 @@ SKILL_TAXONOMY = {
         'Program Management', 'Portfolio Management', 'Business Analysis',
         'Requirements Gathering', 'Process Improvement', 'Operational Excellence',
         'Sales', 'Business Development', 'Marketing', 'Go-to-Market', 'Pre-sales',
-        'Account Management'
+        'Account Management',
+        'Consulting', 'AI Consulting', 'Business Consulting', 'Technology Consulting',
+        'AI Strategy', 'Technology Sales', 'Innovation', 'Problem Solving'
     ],
 
     # Leadership & Management
@@ -145,7 +147,8 @@ SKILL_TAXONOMY = {
         'Team Leadership', 'People Management', 'Cross-functional Leadership',
         'Executive Communication', 'Budget Management', 'Resource Planning',
         'Mentorship', 'Coaching', 'Performance Management',
-        'Organizational Development', 'Culture Building'
+        'Organizational Development', 'Culture Building',
+        'Public Speaking', 'Thought Leadership', 'Strategic Communication'
     ],
 
     # Domain Knowledge
