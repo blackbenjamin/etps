@@ -693,3 +693,274 @@ async def tailor_resume(
         generated_at=datetime.utcnow().isoformat(),
         constraints_validated=constraints_validated,
     )
+
+
+async def tailor_resume_with_critic(
+    job_profile_id: int,
+    user_id: int,
+    db: Session,
+    max_bullets_per_role: int = 4,
+    max_skills: int = 12,
+    custom_instructions: Optional[str] = None,
+    llm: Optional[BaseLLM] = None,
+    max_iterations: int = 3,
+    strict_mode: bool = False,
+) -> Tuple[TailoredResume, "ResumeCriticResult"]:
+    """
+    Generate tailored resume with critic-in-the-loop evaluation.
+
+    Implements PRD 4.1-4.5 critic loop:
+    1. Generate tailored resume
+    2. Run resume critic evaluation
+    3. If critic fails, adjust parameters and regenerate (up to max_iterations)
+    4. Return best result with critic evaluation
+
+    Adjustment strategy on failure:
+    - Iteration 2: Expand bullet selection, prioritize metrics
+    - Iteration 3: Relax constraints, focus on must-have requirements
+
+    Args:
+        job_profile_id: ID of target job profile
+        user_id: User ID
+        db: Database session
+        max_bullets_per_role: Maximum bullets per experience (2-8)
+        max_skills: Maximum skills in skills section (5-20)
+        custom_instructions: Optional user instructions for tailoring
+        llm: Optional LLM instance
+        max_iterations: Maximum critic iterations (default 3)
+        strict_mode: If True, treat warnings as errors
+
+    Returns:
+        Tuple of (TailoredResume, ResumeCriticResult)
+
+    Raises:
+        ValueError: If job profile or user not found
+    """
+    from schemas.critic import ResumeCriticResult
+    from services.critic import evaluate_resume
+
+    # Fetch job profile for critic
+    job_profile = db.query(JobProfile).filter(JobProfile.id == job_profile_id).first()
+    if not job_profile:
+        raise ValueError(f"Job profile {job_profile_id} not found")
+
+    best_resume: Optional[TailoredResume] = None
+    best_critic_result: Optional[ResumeCriticResult] = None
+    best_quality_score: float = 0.0
+
+    for iteration in range(1, max_iterations + 1):
+        # Adjust parameters based on iteration
+        iter_max_bullets = max_bullets_per_role
+        iter_max_skills = max_skills
+        iter_instructions = custom_instructions
+
+        if iteration == 2:
+            # Expand bullet selection on second attempt
+            iter_max_bullets = min(max_bullets_per_role + 1, 8)
+            iter_instructions = (
+                f"{custom_instructions or ''} "
+                f"Focus on bullets with quantifiable metrics and strong action verbs. "
+                f"Prioritize achievement statements."
+            ).strip()
+
+        elif iteration == 3:
+            # Final attempt: maximize coverage
+            iter_max_bullets = min(max_bullets_per_role + 2, 8)
+            iter_max_skills = min(max_skills + 2, 20)
+            iter_instructions = (
+                f"{custom_instructions or ''} "
+                f"Maximize coverage of must-have requirements. "
+                f"Include all high-impact achievements with metrics."
+            ).strip()
+
+        # Generate tailored resume
+        try:
+            resume = await tailor_resume(
+                job_profile_id=job_profile_id,
+                user_id=user_id,
+                db=db,
+                max_bullets_per_role=iter_max_bullets,
+                max_skills=iter_max_skills,
+                custom_instructions=iter_instructions,
+                llm=llm,
+            )
+        except ValueError as e:
+            # Re-raise validation errors
+            raise
+
+        # Run critic evaluation
+        resume_dict = resume.model_dump()
+        critic_result = await evaluate_resume(
+            resume_json=resume_dict,
+            job_profile=job_profile,
+            db=db,
+            user_id=user_id,
+            llm=llm,
+            strict_mode=strict_mode,
+            iteration=iteration,
+        )
+
+        # Track best result
+        if critic_result.quality_score > best_quality_score:
+            best_quality_score = critic_result.quality_score
+            best_resume = resume
+            best_critic_result = critic_result
+
+        # If passed, return immediately
+        if critic_result.passed:
+            return resume, critic_result
+
+        # Log iteration for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(
+            f"Resume critic iteration {iteration}/{max_iterations}: "
+            f"passed={critic_result.passed}, "
+            f"errors={critic_result.error_count}, "
+            f"warnings={critic_result.warning_count}, "
+            f"quality={critic_result.quality_score}"
+        )
+
+        # Check if we should continue
+        if not critic_result.should_retry:
+            break
+
+    # Return best result (even if not passing)
+    if best_resume is None or best_critic_result is None:
+        # This shouldn't happen, but handle edge case
+        raise ValueError("Failed to generate any resume")
+
+    return best_resume, best_critic_result
+
+
+async def log_critic_result(
+    db: Session,
+    application_id: Optional[int],
+    critic_result: "ResumeCriticResult",
+    resume_json: Dict,
+) -> None:
+    """
+    Log critic evaluation result to database for tracking and analysis.
+
+    Stores the critic result in the application's critic_scores field
+    and creates a log entry for auditing.
+
+    Args:
+        db: Database session
+        application_id: Application ID (if linked)
+        critic_result: Critic evaluation result
+        resume_json: Resume JSON that was evaluated
+    """
+    from db.models import Application, LogEntry
+
+    if application_id:
+        # Update application with critic scores
+        application = db.query(Application).filter(
+            Application.id == application_id
+        ).first()
+
+        if application:
+            # Merge critic scores into existing scores
+            existing_scores = application.critic_scores or {}
+            existing_scores['resume'] = {
+                'passed': critic_result.passed,
+                'quality_score': critic_result.quality_score,
+                'alignment_score': critic_result.alignment_score,
+                'clarity_score': critic_result.clarity_score,
+                'impact_score': critic_result.impact_score,
+                'tone_score': critic_result.tone_score,
+                'ats_overall': critic_result.ats_score.overall_score,
+                'error_count': critic_result.error_count,
+                'warning_count': critic_result.warning_count,
+                'iteration': critic_result.iteration,
+                'evaluated_at': critic_result.evaluated_at,
+            }
+            application.critic_scores = existing_scores
+            application.ats_score = critic_result.ats_score.overall_score
+
+            # Create log entry
+            log_entry = LogEntry(
+                user_id=application.user_id,
+                application_id=application_id,
+                action='resume_critic',
+                details={
+                    'passed': critic_result.passed,
+                    'quality_score': critic_result.quality_score,
+                    'iteration': critic_result.iteration,
+                    'issues_count': len(critic_result.issues),
+                    'summary': critic_result.evaluation_summary,
+                },
+            )
+            db.add(log_entry)
+            db.commit()
+
+
+def get_critic_feedback_for_revision(
+    critic_result: "ResumeCriticResult"
+) -> Dict[str, any]:
+    """
+    Extract actionable feedback from critic result for resume revision.
+
+    Converts critic issues into structured guidance for the next
+    tailoring iteration.
+
+    Args:
+        critic_result: Critic evaluation result
+
+    Returns:
+        Dict with revision guidance:
+        - priority_fixes: List of blocking issues to fix
+        - suggestions: List of non-blocking improvements
+        - weak_areas: Areas needing attention
+        - strong_areas: Areas performing well
+    """
+    priority_fixes = []
+    suggestions = []
+    weak_areas = []
+    strong_areas = []
+
+    # Categorize issues
+    for issue in critic_result.issues:
+        if issue.severity == 'error':
+            priority_fixes.append({
+                'type': issue.issue_type,
+                'section': issue.section,
+                'message': issue.message,
+                'fix': issue.recommended_fix,
+            })
+        elif issue.severity == 'warning':
+            suggestions.append({
+                'type': issue.issue_type,
+                'section': issue.section,
+                'message': issue.message,
+                'fix': issue.recommended_fix,
+            })
+
+    # Identify weak areas based on scores
+    if critic_result.alignment_score < 70:
+        weak_areas.append('JD alignment - missing key requirements')
+    if critic_result.clarity_score < 70:
+        weak_areas.append('Bullet clarity - restructure for conciseness')
+    if critic_result.impact_score < 50:
+        weak_areas.append('Impact orientation - add more metrics and achievements')
+    if critic_result.tone_score < 80:
+        weak_areas.append('Tone - adjust to be more professional/executive')
+
+    # Identify strong areas
+    if critic_result.alignment_score >= 85:
+        strong_areas.append(f'Strong JD alignment ({critic_result.alignment_score})')
+    if critic_result.clarity_score >= 85:
+        strong_areas.append(f'Clear and concise bullets ({critic_result.clarity_score})')
+    if critic_result.impact_score >= 70:
+        strong_areas.append(f'Good impact orientation ({critic_result.impact_score})')
+    if critic_result.ats_score.overall_score >= 80:
+        strong_areas.append(f'Strong ATS score ({critic_result.ats_score.overall_score})')
+
+    return {
+        'priority_fixes': priority_fixes,
+        'suggestions': suggestions[:5],  # Limit to top 5
+        'weak_areas': weak_areas,
+        'strong_areas': strong_areas,
+        'metrics_coverage': f"{critic_result.bullets_with_metrics}/{critic_result.bullets_total} bullets with metrics",
+        'weak_verb_count': critic_result.weak_verb_count,
+    }

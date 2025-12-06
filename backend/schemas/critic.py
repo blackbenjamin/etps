@@ -256,6 +256,104 @@ class StyleScoreBreakdown(BaseModel):
     )
 
 
+class ResumeCriticResult(BaseModel):
+    """
+    Critic result specifically for resume evaluation.
+
+    Implements PRD 4.3 resume rubric:
+    - Alignment to JD requirements
+    - Clarity and conciseness of bullets
+    - Impact orientation (achievements, metrics)
+    - Tone (executive, direct, professional)
+    - No hallucinations
+    - ATS keyword coverage
+    - Skills relevance
+    - Proper action verbs
+    """
+    content_type: Literal["resume"] = Field(
+        default="resume", description="Content type (always resume)"
+    )
+
+    passed: bool = Field(
+        ..., description="Overall pass/fail (False if any blocking issues)"
+    )
+
+    issues: List[CriticIssue] = Field(
+        default_factory=list, description="All issues found"
+    )
+
+    error_count: int = Field(..., ge=0, description="Number of blocking errors")
+    warning_count: int = Field(..., ge=0, description="Number of non-blocking warnings")
+    info_count: int = Field(..., ge=0, description="Number of informational notes")
+
+    # Resume-specific scores
+    alignment_score: float = Field(
+        ..., ge=0.0, le=100.0, description="JD alignment score (0-100)"
+    )
+    clarity_score: float = Field(
+        ..., ge=0.0, le=100.0, description="Clarity and conciseness score (0-100)"
+    )
+    impact_score: float = Field(
+        ..., ge=0.0, le=100.0, description="Impact orientation score (0-100)"
+    )
+    tone_score: float = Field(
+        ..., ge=0.0, le=100.0, description="Tone appropriateness score (0-100)"
+    )
+
+    ats_score: ATSScoreBreakdown = Field(
+        ..., description="Detailed ATS scoring breakdown"
+    )
+
+    structure_check: StructureCheckResult = Field(
+        ..., description="Structure/format validation results"
+    )
+
+    # Hallucination detection
+    hallucination_check_passed: bool = Field(
+        default=True, description="Whether content passes hallucination checks"
+    )
+    hallucination_issues: List[str] = Field(
+        default_factory=list, description="Specific hallucination concerns found"
+    )
+
+    # Bullet quality metrics
+    bullets_with_metrics: int = Field(
+        default=0, ge=0, description="Number of bullets containing quantifiable metrics"
+    )
+    bullets_total: int = Field(
+        default=0, ge=0, description="Total number of bullets"
+    )
+    weak_verb_count: int = Field(
+        default=0, ge=0, description="Number of bullets with weak verbs"
+    )
+
+    quality_score: float = Field(
+        ..., ge=0.0, le=100.0, description="Overall quality score (0-100)"
+    )
+
+    evaluation_summary: str = Field(
+        ..., description="Human-readable summary of evaluation"
+    )
+
+    evaluated_at: str = Field(
+        ..., description="ISO timestamp of evaluation"
+    )
+
+    iteration: int = Field(
+        default=1, ge=1, description="Critic iteration number"
+    )
+
+    should_retry: bool = Field(
+        default=False, description="Whether the resume should be regenerated"
+    )
+
+    @field_validator('quality_score', 'alignment_score', 'clarity_score', 'impact_score', 'tone_score')
+    @classmethod
+    def round_score(cls, v: float) -> float:
+        """Round scores to 1 decimal place."""
+        return round(v, 1)
+
+
 class CoverLetterCriticResult(BaseModel):
     """
     Extended critic result specifically for cover letter evaluation.

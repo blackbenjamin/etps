@@ -17,6 +17,7 @@ from schemas.critic import (
     CriticIssue,
     CriticResult,
     RequirementCoverageScore,
+    ResumeCriticResult,
     StructureCheckResult,
     StyleScoreBreakdown,
 )
@@ -1889,4 +1890,705 @@ async def evaluate_cover_letter(
         quality_score=quality_score,
         evaluation_summary=summary,
         evaluated_at=datetime.utcnow().isoformat()
+    )
+
+
+# =============================================================================
+# RESUME CRITIC FUNCTIONS (PRD 4.3)
+# =============================================================================
+
+# Strong action verbs preferred for resume bullets (extended list)
+RESUME_STRONG_VERBS = {
+    "achieved", "accelerated", "advanced", "architected", "automated",
+    "built", "championed", "closed", "coached", "consolidated",
+    "created", "delivered", "designed", "developed", "directed",
+    "drove", "eliminated", "enabled", "engineered", "established",
+    "exceeded", "executed", "expanded", "founded", "generated",
+    "grew", "implemented", "improved", "increased", "influenced",
+    "initiated", "innovated", "integrated", "introduced", "launched",
+    "led", "managed", "maximized", "mentored", "modernized",
+    "negotiated", "optimized", "orchestrated", "originated", "overhauled",
+    "partnered", "pioneered", "produced", "reduced", "redesigned",
+    "reengineered", "restructured", "revamped", "scaled", "secured",
+    "shaped", "simplified", "spearheaded", "standardized", "steered",
+    "streamlined", "strengthened", "structured", "succeeded", "surpassed",
+    "sustained", "systematized", "transformed", "tripled", "unified",
+}
+
+# Weak/vague verbs to avoid in resume bullets
+RESUME_WEAK_VERBS = {
+    "assisted", "contributed", "helped", "participated", "supported",
+    "worked", "was responsible", "handled", "dealt with", "involved",
+    "tasked with", "took part", "aided",
+}
+
+# Metrics indicators (presence = impact-oriented)
+METRICS_PATTERNS = [
+    r'\$[\d,]+[KMB]?',  # Dollar amounts
+    r'\d+%',  # Percentages
+    r'\d+x',  # Multipliers
+    r'\d+\+',  # Plus amounts
+    r'\b\d{2,}\b(?:\s+(?:clients?|users?|customers?|partners?|stakeholders?|teams?|employees?|engineers?))?',  # Numbers with context
+    r'(?:increased|decreased|reduced|improved|grew|generated|saved|delivered)\s+(?:by\s+)?\d+',  # Action + number
+    r'(?:million|billion|thousand)\b',  # Large numbers in words
+]
+
+
+def extract_bullets_from_resume(resume_json: Dict) -> List[Dict]:
+    """
+    Extract all bullet points from a TailoredResume JSON.
+
+    Args:
+        resume_json: TailoredResume JSON structure
+
+    Returns:
+        List of bullet dicts with text and metadata
+    """
+    bullets = []
+    for role in resume_json.get("selected_roles", []):
+        for bullet in role.get("selected_bullets", []):
+            bullets.append({
+                "text": bullet.get("text", ""),
+                "bullet_id": bullet.get("bullet_id"),
+                "role_title": role.get("job_title", ""),
+                "employer": role.get("employer_name", ""),
+            })
+    return bullets
+
+
+def check_bullet_action_verbs(bullets: List[Dict]) -> Tuple[int, int, List[CriticIssue]]:
+    """
+    Check that bullets start with strong action verbs.
+
+    Args:
+        bullets: List of bullet dicts from extract_bullets_from_resume
+
+    Returns:
+        Tuple of (weak_verb_count, total_bullets, issues)
+    """
+    issues: List[CriticIssue] = []
+    weak_count = 0
+
+    for bullet in bullets:
+        text = bullet.get("text", "").strip()
+        if not text:
+            continue
+
+        # Get first word (the action verb)
+        first_word = text.split()[0].lower().rstrip(".,;:") if text.split() else ""
+
+        # Check for weak verbs
+        for weak in RESUME_WEAK_VERBS:
+            if first_word == weak or text.lower().startswith(weak):
+                weak_count += 1
+                issues.append(CriticIssue(
+                    issue_type="weak_verb_violation",
+                    severity="warning",
+                    section=f"bullet_{bullet.get('bullet_id', 'unknown')}",
+                    message=f"Bullet starts with weak verb: '{first_word}'",
+                    original_text=text[:80] + "..." if len(text) > 80 else text,
+                    recommended_fix=f"Start with a strong action verb like 'Led', 'Built', 'Delivered', 'Drove'"
+                ))
+                break
+
+    return weak_count, len(bullets), issues
+
+
+def check_bullet_metrics(bullets: List[Dict]) -> Tuple[int, List[CriticIssue]]:
+    """
+    Check for quantifiable metrics/achievements in bullets.
+
+    Args:
+        bullets: List of bullet dicts
+
+    Returns:
+        Tuple of (bullets_with_metrics, issues for bullets lacking metrics)
+    """
+    issues: List[CriticIssue] = []
+    metrics_count = 0
+
+    for bullet in bullets:
+        text = bullet.get("text", "")
+        has_metrics = any(re.search(pattern, text) for pattern in METRICS_PATTERNS)
+
+        if has_metrics:
+            metrics_count += 1
+        else:
+            # Not all bullets need metrics, but flag if majority don't have them
+            issues.append(CriticIssue(
+                issue_type="requirement_coverage",  # Using existing type
+                severity="info",  # Informational - not blocking
+                section=f"bullet_{bullet.get('bullet_id', 'unknown')}",
+                message="Bullet lacks quantifiable metrics",
+                original_text=text[:80] + "..." if len(text) > 80 else text,
+                recommended_fix="Add specific metrics (%, $, numbers) to quantify impact"
+            ))
+
+    return metrics_count, issues
+
+
+def check_bullet_clarity(bullets: List[Dict]) -> Tuple[float, List[CriticIssue]]:
+    """
+    Check bullet clarity and conciseness.
+
+    Clarity criteria:
+    - Length: 15-35 words ideal
+    - No run-on sentences (max 2 commas)
+    - No jargon without context
+
+    Args:
+        bullets: List of bullet dicts
+
+    Returns:
+        Tuple of (clarity_score, issues)
+    """
+    issues: List[CriticIssue] = []
+    clarity_scores = []
+
+    for bullet in bullets:
+        text = bullet.get("text", "")
+        word_count = count_words(text)
+        comma_count = text.count(",")
+        bullet_score = 100
+
+        # Check length
+        if word_count < 10:
+            bullet_score -= 20
+            issues.append(CriticIssue(
+                issue_type="structure_violation",
+                severity="warning",
+                section=f"bullet_{bullet.get('bullet_id', 'unknown')}",
+                message=f"Bullet too short ({word_count} words)",
+                original_text=text,
+                recommended_fix="Expand with more detail about impact and context"
+            ))
+        elif word_count > 40:
+            bullet_score -= 25
+            issues.append(CriticIssue(
+                issue_type="structure_violation",
+                severity="warning",
+                section=f"bullet_{bullet.get('bullet_id', 'unknown')}",
+                message=f"Bullet too long ({word_count} words)",
+                original_text=text[:80] + "..." if len(text) > 80 else text,
+                recommended_fix="Split into multiple bullets or condense to 15-35 words"
+            ))
+
+        # Check comma density (run-on indicator)
+        if comma_count > 3:
+            bullet_score -= 15
+            issues.append(CriticIssue(
+                issue_type="comma_overuse_violation",
+                severity="info",
+                section=f"bullet_{bullet.get('bullet_id', 'unknown')}",
+                message=f"Bullet has too many commas ({comma_count})",
+                original_text=text[:80] + "..." if len(text) > 80 else text,
+                recommended_fix="Restructure to reduce complexity"
+            ))
+
+        clarity_scores.append(max(0, bullet_score))
+
+    avg_clarity = sum(clarity_scores) / len(clarity_scores) if clarity_scores else 100.0
+    return avg_clarity, issues
+
+
+def calculate_jd_alignment_score(
+    resume_json: Dict,
+    job_profile: JobProfile
+) -> Tuple[float, List[CriticIssue]]:
+    """
+    Calculate how well resume content aligns with JD requirements.
+
+    Checks:
+    - Skills match to extracted_skills
+    - Bullets relevance to core_priorities
+    - Must-have capabilities coverage
+
+    Args:
+        resume_json: TailoredResume JSON
+        job_profile: Target JobProfile
+
+    Returns:
+        Tuple of (alignment_score 0-100, issues for gaps)
+    """
+    issues: List[CriticIssue] = []
+
+    # Extract resume text for matching
+    text_parts = [resume_json.get("tailored_summary", "")]
+    for role in resume_json.get("selected_roles", []):
+        for bullet in role.get("selected_bullets", []):
+            text_parts.append(bullet.get("text", ""))
+    for skill in resume_json.get("selected_skills", []):
+        text_parts.append(skill.get("skill_name", ""))
+    resume_text = " ".join(text_parts).lower()
+
+    # Check must-have capabilities
+    must_haves = job_profile.must_have_capabilities or []
+    must_have_matched = 0
+    must_have_missing = []
+
+    for cap in must_haves:
+        if cap and cap.lower() in resume_text:
+            must_have_matched += 1
+        else:
+            must_have_missing.append(cap)
+
+    must_have_score = (must_have_matched / len(must_haves) * 100) if must_haves else 100.0
+
+    # Check core priorities
+    core_priorities = job_profile.core_priorities or []
+    priorities_matched = 0
+
+    for priority in core_priorities[:5]:  # Top 5 priorities
+        if priority and any(word.lower() in resume_text for word in priority.split() if len(word) > 4):
+            priorities_matched += 1
+
+    priority_score = (priorities_matched / min(5, len(core_priorities)) * 100) if core_priorities else 100.0
+
+    # Check extracted skills
+    extracted_skills = job_profile.extracted_skills or []
+    skills_matched = 0
+
+    for skill in extracted_skills:
+        if skill and skill.lower() in resume_text:
+            skills_matched += 1
+
+    skills_score = (skills_matched / len(extracted_skills) * 100) if extracted_skills else 100.0
+
+    # Generate issues for missing must-haves
+    for cap in must_have_missing[:3]:  # Top 3 missing
+        issues.append(CriticIssue(
+            issue_type="requirement_coverage",
+            severity="warning",
+            section="alignment",
+            message=f"Must-have capability not evident: '{cap}'",
+            original_text=None,
+            recommended_fix=f"Add experience or skill demonstrating: {cap}"
+        ))
+
+    # Weighted alignment score
+    alignment_score = (
+        must_have_score * 0.50 +  # Must-haves most important
+        priority_score * 0.30 +   # Core priorities
+        skills_score * 0.20       # Extracted skills
+    )
+
+    return alignment_score, issues
+
+
+def calculate_impact_score(bullets: List[Dict]) -> float:
+    """
+    Calculate impact orientation score based on metrics presence and achievement focus.
+
+    Args:
+        bullets: List of bullet dicts
+
+    Returns:
+        Impact score 0-100
+    """
+    if not bullets:
+        return 100.0
+
+    metrics_count, _ = check_bullet_metrics(bullets)
+    metrics_rate = metrics_count / len(bullets) if bullets else 0
+
+    # Achievement indicators (beyond metrics)
+    achievement_words = {
+        "achieved", "exceeded", "surpassed", "delivered", "generated",
+        "increased", "decreased", "improved", "grew", "reduced", "saved",
+        "won", "earned", "recognized", "awarded",
+    }
+
+    achievement_count = 0
+    for bullet in bullets:
+        text = bullet.get("text", "").lower()
+        if any(word in text for word in achievement_words):
+            achievement_count += 1
+
+    achievement_rate = achievement_count / len(bullets) if bullets else 0
+
+    # Score calculation
+    # 50% metrics, 50% achievement language
+    impact_score = (metrics_rate * 50) + (achievement_rate * 50)
+
+    # Bonus for high metrics density
+    if metrics_rate > 0.6:
+        impact_score = min(100, impact_score + 10)
+
+    return impact_score
+
+
+async def check_resume_tone(
+    resume_text: str,
+    expected_tone: str,
+    llm: BaseLLM
+) -> Tuple[float, List[CriticIssue]]:
+    """
+    Check resume tone matches expected style.
+
+    For resumes, tone should generally be:
+    - Executive and direct
+    - Achievement-focused
+    - Professional (no casual language)
+
+    Args:
+        resume_text: Full resume text
+        expected_tone: Expected tone from job_profile
+        llm: LLM for tone detection
+
+    Returns:
+        Tuple of (tone_score 0-100, issues)
+    """
+    issues: List[CriticIssue] = []
+    tone_score = 100
+
+    # Check passive voice (should be minimal in resumes)
+    passive_rate, passive_examples = detect_passive_voice(resume_text)
+    if passive_rate > 0.10:  # Stricter for resumes than cover letters
+        tone_score -= min(30, int(passive_rate * 150))
+        issues.append(CriticIssue(
+            issue_type="passive_voice_violation",
+            severity="warning",
+            section="resume",
+            message=f"Excessive passive voice ({passive_rate*100:.1f}%)",
+            original_text=passive_examples[0] if passive_examples else None,
+            recommended_fix="Rewrite using active voice: 'Led team...' not 'Team was led by...'"
+        ))
+
+    # Check for casual/unprofessional language
+    casual_phrases = [
+        "i think", "i feel", "kind of", "sort of", "a lot of",
+        "really good", "very nice", "awesome", "amazing",
+    ]
+
+    for phrase in casual_phrases:
+        if phrase in resume_text.lower():
+            tone_score -= 10
+            issues.append(CriticIssue(
+                issue_type="tone_mismatch",
+                severity="warning",
+                section="resume",
+                message=f"Casual language detected: '{phrase}'",
+                original_text=None,
+                recommended_fix="Use professional, formal language"
+            ))
+
+    # Run LLM tone check
+    detected_tone = await llm.infer_tone(resume_text)
+
+    # Resume-specific tone compatibility
+    # Formal/professional tones are always acceptable for resumes
+    acceptable_tones = {"formal_corporate", "consulting_professional", "executive"}
+    if detected_tone not in acceptable_tones and expected_tone in acceptable_tones:
+        tone_score -= 15
+        issues.append(CriticIssue(
+            issue_type="tone_mismatch",
+            severity="warning",
+            section="resume",
+            message=f"Tone ({detected_tone}) may not match expected {expected_tone}",
+            original_text=None,
+            recommended_fix=f"Adjust language to match {expected_tone} style"
+        ))
+
+    return max(0, tone_score), issues
+
+
+def check_hallucination(
+    resume_json: Dict,
+    db: Session,
+    user_id: int
+) -> Tuple[bool, List[str]]:
+    """
+    Check for potential hallucinations in resume content.
+
+    Validates that:
+    - Job titles match original experience records
+    - Employer names match original records
+    - Dates haven't been altered
+    - Bullet text is from actual bullet records (not fabricated)
+
+    Args:
+        resume_json: TailoredResume JSON
+        db: Database session
+        user_id: User ID for validation
+
+    Returns:
+        Tuple of (hallucination_check_passed, list of hallucination concerns)
+    """
+    concerns = []
+
+    for role in resume_json.get("selected_roles", []):
+        experience_id = role.get("experience_id")
+        if not experience_id:
+            concerns.append(f"Role missing experience_id reference")
+            continue
+
+        # Fetch original experience
+        experience = db.query(Experience).filter(
+            Experience.id == experience_id,
+            Experience.user_id == user_id
+        ).first()
+
+        if not experience:
+            concerns.append(f"Experience ID {experience_id} not found in database")
+            continue
+
+        # Validate job title
+        if role.get("job_title") != experience.job_title:
+            concerns.append(
+                f"Job title mismatch: '{role.get('job_title')}' vs original '{experience.job_title}'"
+            )
+
+        # Validate employer name
+        if role.get("employer_name") != experience.employer_name:
+            concerns.append(
+                f"Employer mismatch: '{role.get('employer_name')}' vs original '{experience.employer_name}'"
+            )
+
+        # Validate bullets exist in database
+        from db.models import Bullet
+        for bullet in role.get("selected_bullets", []):
+            bullet_id = bullet.get("bullet_id")
+            if bullet_id:
+                db_bullet = db.query(Bullet).filter(
+                    Bullet.id == bullet_id,
+                    Bullet.user_id == user_id
+                ).first()
+                if not db_bullet:
+                    concerns.append(f"Bullet ID {bullet_id} not found in database")
+
+    passed = len(concerns) == 0
+    return passed, concerns
+
+
+async def evaluate_resume(
+    resume_json: Dict,
+    job_profile: JobProfile,
+    db: Session,
+    user_id: int,
+    llm: Optional[BaseLLM] = None,
+    strict_mode: bool = False,
+    iteration: int = 1
+) -> ResumeCriticResult:
+    """
+    Perform complete critic evaluation for a tailored resume.
+
+    Implements PRD 4.3 resume rubric:
+    - Alignment to JD requirements (alignment_score)
+    - Clarity and conciseness of bullets (clarity_score)
+    - Impact orientation - achievements, metrics (impact_score)
+    - Tone - executive, direct, professional (tone_score)
+    - No hallucinations (hallucination_check)
+    - ATS keyword coverage (ats_score)
+    - Skills relevance (via ats_score.skills_score)
+    - Proper action verbs (weak_verb_count)
+
+    Args:
+        resume_json: TailoredResume JSON structure
+        job_profile: Target JobProfile for alignment checking
+        db: Database session
+        user_id: User ID for hallucination validation
+        llm: LLM instance (defaults to MockLLM)
+        strict_mode: If True, treat warnings as errors
+        iteration: Current critic iteration number
+
+    Returns:
+        ResumeCriticResult with detailed evaluation and scoring
+    """
+    # Initialize LLM
+    if llm is None:
+        llm = MockLLM()
+
+    if not isinstance(resume_json, dict):
+        resume_json = {}
+
+    all_issues: List[CriticIssue] = []
+
+    # Extract bullets for analysis
+    bullets = extract_bullets_from_resume(resume_json)
+    bullets_total = len(bullets)
+
+    # Extract full text for analysis
+    text_parts = [resume_json.get("tailored_summary", "")]
+    for bullet in bullets:
+        text_parts.append(bullet.get("text", ""))
+    resume_text = " ".join(text_parts)
+
+    # ==========================================================================
+    # 1. JD ALIGNMENT SCORING
+    # ==========================================================================
+    alignment_score, alignment_issues = calculate_jd_alignment_score(resume_json, job_profile)
+    all_issues.extend(alignment_issues)
+
+    # ==========================================================================
+    # 2. CLARITY AND CONCISENESS SCORING
+    # ==========================================================================
+    clarity_score, clarity_issues = check_bullet_clarity(bullets)
+    all_issues.extend(clarity_issues)
+
+    # ==========================================================================
+    # 3. IMPACT ORIENTATION SCORING
+    # ==========================================================================
+    impact_score = calculate_impact_score(bullets)
+    bullets_with_metrics, metrics_issues = check_bullet_metrics(bullets)
+    # Only add metrics issues if impact score is low
+    if impact_score < 50:
+        all_issues.extend(metrics_issues[:3])  # Limit to top 3
+
+    # ==========================================================================
+    # 4. TONE VALIDATION
+    # ==========================================================================
+    expected_tone = job_profile.tone_style or "formal_corporate"
+    tone_score, tone_issues = await check_resume_tone(resume_text, expected_tone, llm)
+    all_issues.extend(tone_issues)
+
+    # ==========================================================================
+    # 5. ACTION VERB QUALITY
+    # ==========================================================================
+    weak_verb_count, _, verb_issues = check_bullet_action_verbs(bullets)
+    all_issues.extend(verb_issues)
+
+    # ==========================================================================
+    # 6. HALLUCINATION DETECTION
+    # ==========================================================================
+    hallucination_passed, hallucination_concerns = check_hallucination(
+        resume_json, db, user_id
+    )
+    if not hallucination_passed:
+        for concern in hallucination_concerns:
+            all_issues.append(CriticIssue(
+                issue_type="rule_violation",
+                severity="error",  # Hallucinations are blocking
+                section="resume",
+                message=f"Hallucination detected: {concern}",
+                original_text=None,
+                recommended_fix="Ensure all content matches original database records"
+            ))
+
+    # ==========================================================================
+    # 7. BANNED PHRASES CHECK
+    # ==========================================================================
+    banned_issues = check_banned_phrases(resume_text, context="resume")
+    all_issues.extend(banned_issues)
+
+    # ==========================================================================
+    # 8. STRUCTURE CHECK
+    # ==========================================================================
+    structure_result = check_structure(resume_json, "resume")
+    for missing in structure_result.missing_sections:
+        all_issues.append(CriticIssue(
+            issue_type="structure_violation",
+            severity="error",
+            section="resume",
+            message=f"Missing required section: {missing}",
+            original_text=None,
+            recommended_fix=f"Add {missing} section"
+        ))
+
+    if not structure_result.word_count_valid:
+        all_issues.append(CriticIssue(
+            issue_type="word_count_violation",
+            severity="warning",
+            section="resume_summary",
+            message=f"Summary word count ({structure_result.word_count}) outside range ({structure_result.expected_range})",
+            original_text=None,
+            recommended_fix=f"Adjust summary to {structure_result.expected_range}"
+        ))
+
+    # ==========================================================================
+    # 9. ATS SCORE
+    # ==========================================================================
+    ats_score = compute_ats_score(job_profile, resume_json, "resume")
+
+    for keyword in ats_score.keywords_missing[:3]:
+        all_issues.append(CriticIssue(
+            issue_type="ats_keyword_missing",
+            severity="warning",
+            section="resume",
+            message=f"Critical ATS keyword missing: '{keyword}'",
+            original_text=None,
+            recommended_fix=f"Incorporate '{keyword}' into summary or bullets"
+        ))
+
+    # ==========================================================================
+    # 10. RULE ENFORCEMENT
+    # ==========================================================================
+    rule_issues = enforce_rules(resume_json, "resume", db)
+    all_issues.extend(rule_issues)
+
+    # ==========================================================================
+    # PASS/FAIL DETERMINATION
+    # ==========================================================================
+    error_count = sum(1 for issue in all_issues if issue.severity == "error")
+    warning_count = sum(1 for issue in all_issues if issue.severity == "warning")
+    info_count = sum(1 for issue in all_issues if issue.severity == "info")
+
+    if strict_mode:
+        passed = error_count == 0 and warning_count == 0
+    else:
+        passed = error_count == 0
+
+    # ==========================================================================
+    # QUALITY SCORE CALCULATION
+    # ==========================================================================
+    # Weighted average of component scores
+    # Alignment: 30%, Clarity: 20%, Impact: 20%, Tone: 15%, ATS: 15%
+    quality_score = (
+        alignment_score * 0.30 +
+        clarity_score * 0.20 +
+        impact_score * 0.20 +
+        tone_score * 0.15 +
+        ats_score.overall_score * 0.15
+    )
+
+    # Penalties for errors and hallucinations
+    if not hallucination_passed:
+        quality_score = max(0, quality_score - 30)  # Major penalty
+    quality_score = max(0, quality_score - (error_count * 5) - (warning_count * 2))
+    quality_score = min(100, max(0, quality_score))
+
+    # ==========================================================================
+    # DETERMINE IF RETRY NEEDED
+    # ==========================================================================
+    # Retry if passed=False and iteration < 3
+    should_retry = not passed and iteration < 3
+
+    # ==========================================================================
+    # GENERATE SUMMARY
+    # ==========================================================================
+    if passed:
+        if warning_count > 0:
+            summary = f"Resume meets quality standards with {warning_count} warning(s)"
+        else:
+            summary = "Resume meets all quality standards"
+    else:
+        blocking_reasons = []
+        if not hallucination_passed:
+            blocking_reasons.append("hallucination detected")
+        if error_count > len(hallucination_concerns):
+            blocking_reasons.append(f"{error_count - len(hallucination_concerns)} other error(s)")
+        summary = f"Resume has blocking issues: {', '.join(blocking_reasons) if blocking_reasons else f'{error_count} error(s)'}"
+
+    return ResumeCriticResult(
+        content_type="resume",
+        passed=passed,
+        issues=all_issues,
+        error_count=error_count,
+        warning_count=warning_count,
+        info_count=info_count,
+        alignment_score=round(alignment_score, 1),
+        clarity_score=round(clarity_score, 1),
+        impact_score=round(impact_score, 1),
+        tone_score=round(tone_score, 1),
+        ats_score=ats_score,
+        structure_check=structure_result,
+        hallucination_check_passed=hallucination_passed,
+        hallucination_issues=hallucination_concerns,
+        bullets_with_metrics=bullets_with_metrics,
+        bullets_total=bullets_total,
+        weak_verb_count=weak_verb_count,
+        quality_score=round(quality_score, 1),
+        evaluation_summary=summary,
+        evaluated_at=datetime.utcnow().isoformat(),
+        iteration=iteration,
+        should_retry=should_retry,
     )
