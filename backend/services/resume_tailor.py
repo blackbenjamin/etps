@@ -6,12 +6,33 @@ to maximize alignment with specific job requirements.
 """
 
 import logging
+import os
 import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, Tuple
+
+import yaml
 from sqlalchemy.orm import Session
 
 from db.models import Bullet, Engagement, Experience, JobProfile, User
+
+
+# Configuration loader
+def _load_config() -> dict:
+    """Load configuration from config.yaml."""
+    config_path = os.path.join(
+        os.path.dirname(__file__), '..', 'config', 'config.yaml'
+    )
+    try:
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError:
+        return {}
+
+
+_CONFIG = _load_config()
+# Sprint 8B.6: Read defaults from config.yaml
+DEFAULT_MAX_ITERATIONS = int(_CONFIG.get('critic', {}).get('max_iterations', 3))
 from schemas.resume_tailor import (
     SelectedBullet,
     SelectedEngagement,
@@ -192,6 +213,23 @@ def select_bullets_for_role(
     matched_skills = {m.skill for m in skill_gap_result.matched_skills}
     priority_tags = skill_gap_result.bullet_selection_guidance.get('prioritize_tags', [])
 
+    # Extract positioning keywords from skill gap analysis (Sprint 8B.3)
+    positioning_keywords = set()
+    if skill_gap_result and skill_gap_result.key_positioning_angles:
+        for angle in skill_gap_result.key_positioning_angles[:3]:
+            # Extract significant words from positioning angles
+            words = set(word.lower() for word in angle.split()
+                       if len(word) > 3 and word.lower() not in {'and', 'the', 'with', 'for', 'that', 'this'})
+            positioning_keywords.update(words)
+
+    # Extract user advantages for bonus scoring
+    user_advantage_terms = set()
+    if skill_gap_result and skill_gap_result.user_advantages:
+        for advantage in skill_gap_result.user_advantages[:3]:
+            words = set(word.lower() for word in advantage.split()
+                       if len(word) > 3 and word.lower() not in {'and', 'the', 'with', 'for', 'that', 'this'})
+            user_advantage_terms.update(words)
+
     # Score each bullet
     scored_bullets: List[Tuple[Bullet, float, str]] = []
 
@@ -266,8 +304,23 @@ def select_bullets_for_role(
             if is_ai_heavy_job(job_profile):
                 ai_first_choice_bonus = 0.12
 
+        # 7. Positioning alignment bonus (Sprint 8B.3) - up to +0.10
+        positioning_bonus = 0.0
+        if positioning_keywords and bullet.text:
+            bullet_words = set(word.lower() for word in bullet.text.split())
+            overlap_count = len(positioning_keywords & bullet_words)
+            if overlap_count > 0:
+                positioning_bonus = min(overlap_count * 0.03, 0.10)
+
+        # 8. User advantage alignment bonus (Sprint 8B.3) - up to +0.08
+        advantage_bonus = 0.0
+        if user_advantage_terms and bullet.text:
+            bullet_words = set(word.lower() for word in bullet.text.split())
+            if len(user_advantage_terms & bullet_words) > 0:
+                advantage_bonus = 0.08
+
         # Calculate total score
-        total_score = tag_score + relevance_score + usage_score + type_score + importance_bonus + ai_first_choice_bonus
+        total_score = tag_score + relevance_score + usage_score + type_score + importance_bonus + ai_first_choice_bonus + positioning_bonus + advantage_bonus
 
         # Build selection reason
         reason_parts = []
@@ -277,6 +330,10 @@ def select_bullets_for_role(
             reason_parts.append(f"Strong {bullet.bullet_type} statement")
         if bullet.usage_count == 0:
             reason_parts.append("Fresh content (not recently used)")
+        if positioning_bonus > 0:
+            reason_parts.append("Aligns with positioning strategy")
+        if advantage_bonus > 0:
+            reason_parts.append("Highlights user advantage")
 
         selection_reason = "; ".join(reason_parts) if reason_parts else "Relevant experience"
 
@@ -679,7 +736,8 @@ async def tailor_resume(
     custom_instructions: Optional[str] = None,
     llm: Optional[BaseLLM] = None,
     enable_bullet_rewriting: bool = False,
-    rewrite_strategy: Optional[str] = "both"
+    rewrite_strategy: Optional[str] = "both",
+    enable_learning: bool = True
 ) -> TailoredResume:
     """
     Main orchestrator: Generate complete tailored resume for specific job.
@@ -704,6 +762,7 @@ async def tailor_resume(
         llm: Optional LLM instance (will use MockLLM if not provided)
         enable_bullet_rewriting: If True, rewrite bullets to include JD keywords
         rewrite_strategy: Strategy for rewriting - "keywords", "star_enrichment", or "both"
+        enable_learning: If True, retrieve similar approved bullets for learning (Sprint 8B.1)
 
     Returns:
         Complete tailored resume with rationale
@@ -762,6 +821,30 @@ async def tailor_resume(
         user_id=user_id,
         db=db,
     )
+
+    # Sprint 8B.1: Retrieve similar approved bullets for learning
+    similar_approved_bullets = []
+    if enable_learning:
+        try:
+            from services.embeddings import create_embedding_service
+            from services.vector_store import create_vector_store
+
+            embedding_service = create_embedding_service(use_mock=False)
+            vector_store = create_vector_store(use_mock=False)
+
+            similar_approved_bullets = await retrieve_similar_bullets(
+                job_profile=job_profile,
+                embedding_service=embedding_service,
+                vector_store=vector_store,
+                user_id=user_id,
+                limit=5,
+                min_quality_score=0.70
+            )
+
+            if similar_approved_bullets:
+                logger.info(f"Retrieved {len(similar_approved_bullets)} similar approved bullets for job {job_profile_id}")
+        except Exception as e:
+            logger.warning(f"Failed to retrieve similar approved bullets (continuing without): {e}")
 
     # Select bullets for each role
     selected_roles: List[SelectedRole] = []
@@ -884,6 +967,15 @@ async def tailor_resume(
         bullets_db_query = db.query(Bullet).filter(Bullet.id.in_(all_bullet_ids)).all()
         bullets_db = {b.id: b for b in bullets_db_query}
 
+        # Build examples context from approved bullets (Sprint 8B.1)
+        examples_context = ""
+        if similar_approved_bullets:
+            examples_context = format_examples_for_prompt(
+                similar_outputs=similar_approved_bullets,
+                max_examples=3,
+                include_quality_score=True
+            )
+
         # Rewrite bullets for each role
         for role in selected_roles:
             if role.selected_bullets:
@@ -893,7 +985,8 @@ async def tailor_resume(
                     llm_client=llm_client,
                     db=db,
                     bullets_db=bullets_db,
-                    strategy=rewrite_strategy or "both"
+                    strategy=rewrite_strategy or "both",
+                    examples_context=examples_context
                 )
 
             # Rewrite bullets within engagements
@@ -905,7 +998,8 @@ async def tailor_resume(
                         llm_client=llm_client,
                         db=db,
                         bullets_db=bullets_db,
-                        strategy=rewrite_strategy or "both"
+                        strategy=rewrite_strategy or "both",
+                        examples_context=examples_context
                     )
 
     # Select and order skills
@@ -923,6 +1017,7 @@ async def tailor_resume(
 
     # Note: CompanyProfile integration will be added when Sprint 11-14 implements it
     # For now, company_profile is None - the service handles this gracefully
+    # Sprint 8B.8: Pass context_notes (custom_instructions) to summary rewrite
     tailored_summary = await rewrite_summary_for_job(
         user=user,
         job_profile=job_profile,
@@ -932,6 +1027,7 @@ async def tailor_resume(
         llm=llm,
         company_profile=None,  # TODO: Fetch from db when company enrichment is implemented
         max_words=60,  # PRD 2.10 default
+        context_notes=custom_instructions,  # Sprint 8B.8: Thread context_notes
     )
 
     # Build comprehensive rationale
@@ -956,9 +1052,11 @@ async def tailor_resume(
         ),
         bullet_selection_strategy=(
             f"Multi-factor scoring (40% tag matching, 30% relevance, 20% freshness, 10% diversity). "
+            f"Sprint 8B.3: Added positioning alignment bonus and user advantage bonus. "
             f"Selected {total_bullets} total bullets "
             f"across {len(selected_roles)} roles, prioritizing matched skills: "
-            f"{', '.join(skill_gap_result.bullet_selection_guidance.get('prioritize_tags', [])[:5])}"
+            f"{', '.join(skill_gap_result.bullet_selection_guidance.get('prioritize_tags', [])[:5])}. "
+            f"Key positioning angles: {', '.join(skill_gap_result.key_positioning_angles[:2]) if skill_gap_result.key_positioning_angles else 'N/A'}"
         ),
         skills_ordering_logic=(
             f"Tier-based selection: Tier 1 (critical matches), Tier 2 (strong matches), "
@@ -1049,7 +1147,7 @@ async def tailor_resume_with_critic(
     max_skills: int = 12,
     custom_instructions: Optional[str] = None,
     llm: Optional[BaseLLM] = None,
-    max_iterations: int = 3,
+    max_iterations: int = DEFAULT_MAX_ITERATIONS,
     strict_mode: bool = False,
 ) -> Tuple[TailoredResume, "ResumeCriticResult"]:
     """

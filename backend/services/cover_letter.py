@@ -5,12 +5,32 @@ Generates tailored cover letters with tone compliance, ATS optimization,
 banned phrase checking, and quality scoring.
 """
 
+import logging
+import os
 import re
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Set, Tuple
+
+import yaml
 from sqlalchemy.orm import Session
 
 from db.models import CompanyProfile, JobProfile, User
+
+
+# Configuration loader
+def _load_config() -> dict:
+    """Load configuration from config.yaml."""
+    config_path = os.path.join(
+        os.path.dirname(__file__), '..', 'config', 'config.yaml'
+    )
+    try:
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError:
+        return {}
+
+
+_CONFIG = _load_config()
 from schemas.cover_letter import (
     ATSKeywordCoverage,
     BannedPhraseCheck,
@@ -32,6 +52,9 @@ from services.output_retrieval import (
     retrieve_similar_cover_letter_paragraphs,
     format_examples_for_prompt,
 )
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 
 def smart_truncate(text: Optional[str], max_length: int = 100) -> str:
@@ -868,8 +891,9 @@ def compute_quality_score(
 
 
 # Default quality threshold from config (can be overridden)
-DEFAULT_QUALITY_THRESHOLD = 75.0
-DEFAULT_MAX_ITERATIONS = 3
+# Sprint 8B.6: Read defaults from config.yaml
+DEFAULT_QUALITY_THRESHOLD = float(_CONFIG.get('critic', {}).get('ats_score_threshold', 75.0))
+DEFAULT_MAX_ITERATIONS = int(_CONFIG.get('critic', {}).get('max_iterations', 3))
 
 
 async def evaluate_cover_letter(
@@ -1169,7 +1193,8 @@ async def generate_cover_letter(
     referral_name: Optional[str] = None,
     llm: Optional[BaseLLM] = None,
     max_iterations: int = DEFAULT_MAX_ITERATIONS,
-    quality_threshold: float = DEFAULT_QUALITY_THRESHOLD
+    quality_threshold: float = DEFAULT_QUALITY_THRESHOLD,
+    enable_learning: bool = True
 ) -> GeneratedCoverLetter:
     """
     Generate tailored cover letter for job application with critic iteration loop.
@@ -1188,6 +1213,7 @@ async def generate_cover_letter(
         llm: Optional LLM instance (defaults to MockLLM)
         max_iterations: Maximum critic iterations (default 3)
         quality_threshold: Minimum quality score to pass (default 75)
+        enable_learning: Enable learning from approved outputs (default True)
 
     Returns:
         GeneratedCoverLetter with complete analysis and iteration history
@@ -1232,6 +1258,34 @@ async def generate_cover_letter(
         db=db
     )
 
+    # Sprint 8B.2: Retrieve similar approved cover letter paragraphs for learning
+    similar_approved_paragraphs = []
+    if enable_learning:
+        try:
+            from services.embeddings import create_embedding_service
+            from services.vector_store import create_vector_store
+            from services.output_retrieval import (
+                retrieve_similar_cover_letter_paragraphs,
+                format_examples_for_prompt
+            )
+
+            embedding_service = create_embedding_service(use_mock=False)
+            vector_store = create_vector_store(use_mock=False)
+
+            similar_approved_paragraphs = await retrieve_similar_cover_letter_paragraphs(
+                job_profile=job_profile,
+                embedding_service=embedding_service,
+                vector_store=vector_store,
+                user_id=user_id,
+                limit=3,
+                min_quality_score=0.70
+            )
+
+            if similar_approved_paragraphs:
+                logger.info(f"Retrieved {len(similar_approved_paragraphs)} similar approved paragraphs for job {job_profile_id}")
+        except Exception as e:
+            logger.warning(f"Failed to retrieve similar approved paragraphs (continuing without): {e}")
+
     # Generate outline
     outline = generate_outline(
         job_profile=job_profile,
@@ -1257,12 +1311,22 @@ async def generate_cover_letter(
         # Remove any control characters
         sanitized_context_notes = ''.join(c for c in sanitized_context_notes if c.isprintable() or c in '\n\t')
 
+    # Build examples context from approved paragraphs (Sprint 8B.2)
+    examples_context = ""
+    if similar_approved_paragraphs:
+        examples_context = format_examples_for_prompt(
+            similar_outputs=similar_approved_paragraphs,
+            max_examples=2,
+            include_quality_score=True
+        )
+
     company_context = {
         "name": company_profile.name if company_profile else None,
         "initiatives": company_profile.known_initiatives if company_profile else None,
         "culture": company_profile.culture_signals if company_profile else None,
         "referral_name": referral_name,
         "context_notes": sanitized_context_notes,
+        "examples_context": examples_context,
     }
 
     # Generate initial cover letter draft

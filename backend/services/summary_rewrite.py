@@ -257,6 +257,7 @@ async def rewrite_summary_for_job(
     llm: BaseLLM,
     company_profile: Optional[Any] = None,
     max_words: int = 60,
+    context_notes: Optional[str] = None,
 ) -> str:
     """
     Rewrite professional summary tailored to a specific job.
@@ -273,6 +274,7 @@ async def rewrite_summary_for_job(
         llm: LLM instance for generation
         company_profile: Optional company profile for context
         max_words: Maximum word count (default 60 per PRD 2.10)
+        context_notes: Optional user-provided context notes for personalization (Sprint 8B.8)
 
     Returns:
         Tailored professional summary (<=max_words)
@@ -313,16 +315,32 @@ async def rewrite_summary_for_job(
             logger.warning("Summary prompt template not found, using inline prompt")
             template = _get_fallback_prompt_template()
 
-        prompt = template.format(
-            primary_identity=primary_identity,
-            specializations=', '.join(specializations) if specializations else 'N/A',
-            job_title=job_profile.job_title or 'Target Role',
-            seniority=job_profile.seniority or 'Senior',
-            years_experience=years_experience,
-            top_skills=', '.join(top_skills) if top_skills else 'N/A',
-            core_priorities=', '.join(core_priorities[:3]) if core_priorities else 'N/A',
-            company_context=company_context,
-        )
+        # Sprint 8B.8: Add context_notes to prompt variables
+        prompt_vars = {
+            'primary_identity': primary_identity,
+            'specializations': ', '.join(specializations) if specializations else 'N/A',
+            'job_title': job_profile.job_title or 'Target Role',
+            'seniority': job_profile.seniority or 'Senior',
+            'years_experience': years_experience,
+            'top_skills': ', '.join(top_skills) if top_skills else 'N/A',
+            'core_priorities': ', '.join(core_priorities[:3]) if core_priorities else 'N/A',
+            'company_context': company_context,
+        }
+
+        # Add context_notes if provided
+        if context_notes:
+            prompt_vars['context_notes'] = context_notes[:500]  # Limit length
+        else:
+            prompt_vars['context_notes'] = 'Not provided'
+
+        # Format prompt - use safe format to handle missing placeholders
+        try:
+            prompt = template.format(**prompt_vars)
+        except KeyError:
+            # Template doesn't have context_notes placeholder, append separately
+            prompt = template.format(**{k: v for k, v in prompt_vars.items() if k != 'context_notes'})
+            if context_notes:
+                prompt += f"\n\nAdditional context from user: {context_notes[:500]}"
 
         # Generate summary via LLM
         summary = await llm.generate_text(prompt, max_tokens=150)

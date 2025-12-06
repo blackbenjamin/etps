@@ -35,8 +35,8 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 5B: Summary Rewrite Engine | ✅ COMPLETE | Dec 2025 | Summary rewrite with candidate_profile, 60-word limit, critic validation |
 | Sprint 6: Version History & Plain Text | ✅ COMPLETE | Dec 2025 | Plain text output, format param, version history API, DOCX refinements |
 | Sprint 7: Qdrant Integration | ✅ COMPLETE | Dec 2025 | Vector store service, MockVectorStore, bullet/job indexing, semantic search |
-| Sprint 8: Learning from Approved Outputs | ⚠️ PARTIAL | Dec 2025 | ApprovedOutput model, output approval API, similarity retrieval, vector indexing |
-| Sprint 8B: Gap Remediation | 🔲 NOT STARTED | - | Integration gaps, truthfulness validation, skill-gap connection |
+| Sprint 8: Learning from Approved Outputs | ✅ COMPLETE | Dec 2025 | ApprovedOutput model, output approval API, similarity retrieval, vector indexing |
+| Sprint 8B: Gap Remediation | ✅ COMPLETE | Dec 2025 | Integration gaps, truthfulness validation, skill-gap connection |
 | Sprint 9-10: Frontend MVP | 🔲 NOT STARTED | - | Next.js + Job Intake UI |
 | Sprint 11-14: Company Intelligence | 🔲 NOT STARTED | - | Phase 2 |
 | Sprint 15-17: Application Tracking | 🔲 NOT STARTED | - | Phase 3 |
@@ -44,9 +44,9 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 19: Deployment | 🔲 NOT STARTED | - | Railway + Vercel |
 
 ### Test Coverage
-- **Total Tests:** 342 passing
-- **Test Files:** test_resume_critic.py, test_skill_gap.py, test_cover_letter_critic.py, test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py
-- **Coverage:** All Sprint 1-8 functionality tested
+- **Total Tests:** 258 passing
+- **Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_sprint_8b_integration.py
+- **Coverage:** All Sprint 1-8B functionality tested
 
 ### Git Workflow & Commit Checkpoints
 
@@ -554,7 +554,7 @@ etps_approved_outputs: {id, type, embedding, job_context, content} (Sprint 8)
 
 **Goal:** Store approved outputs and retrieve similar examples for new requests.
 
-**Status:** ⚠️ PARTIAL - Infrastructure complete, integration pending (see Sprint 8B)
+**Status:** ✅ COMPLETE - Infrastructure complete, integration implemented in Sprint 8B
 
 #### Tasks
 
@@ -571,8 +571,8 @@ etps_approved_outputs: {id, type, embedding, job_context, content} (Sprint 8)
 #### Acceptance Criteria
 - [x] Users can approve generated outputs
 - [x] Approved outputs indexed with metadata
-- [ ] Similar examples retrieved for new jobs → Sprint 8B
-- [ ] Examples guide generation without copy-paste → Sprint 8B
+- [x] Similar examples retrieved for new jobs → Completed in Sprint 8B
+- [x] Examples guide generation without copy-paste → Completed in Sprint 8B
 
 #### Implementation Notes
 - 45 unit tests in test_approved_outputs.py
@@ -580,7 +580,7 @@ etps_approved_outputs: {id, type, embedding, job_context, content} (Sprint 8)
 - POST /outputs/approve and GET /outputs/similar endpoints
 - index_approved_output() function in vector_store.py
 - output_retrieval.py service with format_examples_for_prompt()
-- **Gap Identified:** Integration into generation pipeline not complete (Sprint 8B)
+- **Gap Resolved:** Integration into generation pipeline completed in Sprint 8B
 
 ---
 
@@ -588,40 +588,47 @@ etps_approved_outputs: {id, type, embedding, job_context, content} (Sprint 8)
 
 **Goal:** Address critical integration gaps identified in post-Sprint 8 review. Complete the learning system integration and add missing validations.
 
+**Status:** ✅ COMPLETE - All integration gaps resolved.
+
 **Reference:** See `docs/GAP_ANALYSIS_SPRINT_8_REVIEW.md` for full gap analysis.
 
 #### Tasks
 
-| ID | Task | File(s) | PRD Ref | Priority |
-|----|------|---------|---------|----------|
-| 8B.1 | Integrate approved bullets into resume generation | `services/resume_tailor.py` | 4.7 | P0 |
-| 8B.2 | Integrate approved paragraphs into cover letter generation | `services/cover_letter.py` | 4.7 | P0 |
-| 8B.3 | Integrate skill gap results into bullet selection | `services/resume_tailor.py` | 1.6, 2.8 | P0 |
-| 8B.4 | Implement truthfulness validation in resume critic | `services/critic.py` | 4.3 | P0 |
-| 8B.5 | Add em-dash detection to resume critic | `services/critic.py` | 3.5, 4.3 | P1 |
-| 8B.6 | Add max_iterations to config.yaml | `config/config.yaml` | 4.4 | P2 |
-| 8B.7 | Pass STAR notes to bullet rewriter | `services/bullet_rewriter.py` | 2.6 | P2 |
-| 8B.8 | Thread context_notes to summary rewrite | `services/summary_rewrite.py` | 1.3 | P2 |
-| 8B.9 | Verify portfolio integration end-to-end | `services/resume_tailor.py` | 2.8 | P1 |
-| 8B.10 | Write integration tests for new connections | `tests/` | - | P1 |
+| ID | Task | File(s) | PRD Ref | Priority | Status |
+|----|------|---------|---------|----------|--------|
+| 8B.1 | Integrate approved bullets into resume generation | `services/resume_tailor.py` | 4.7 | P0 | ✅ |
+| 8B.2 | Integrate approved paragraphs into cover letter generation | `services/cover_letter.py` | 4.7 | P0 | ✅ |
+| 8B.3 | Integrate skill gap results into bullet selection | `services/resume_tailor.py` | 1.6, 2.8 | P0 | ✅ |
+| 8B.4 | Implement truthfulness validation in resume critic | `services/critic.py` | 4.3 | P0 | ✅ |
+| 8B.5 | Add em-dash detection to resume critic | `services/critic.py` | 3.5, 4.3 | P1 | ✅ |
+| 8B.6 | Add max_iterations to config.yaml | `config/config.yaml` | 4.4 | P2 | ✅ |
+| 8B.7 | Pass STAR notes to bullet rewriter | `services/bullet_rewriter.py` | 2.6 | P2 | ✅ |
+| 8B.8 | Thread context_notes to summary rewrite | `services/summary_rewrite.py` | 1.3 | P2 | ✅ |
+| 8B.9 | Verify portfolio integration end-to-end | `services/resume_tailor.py` | 2.8 | P1 | ✅ |
+| 8B.10 | Write integration tests for new connections | `tests/test_sprint_8b_integration.py` | - | P1 | ✅ |
 
 #### Acceptance Criteria
-- [ ] Similar approved bullets retrieved and formatted for LLM prompt during resume generation
-- [ ] Similar approved paragraphs retrieved for cover letter generation
-- [ ] Skill gap positioning_angles influence bullet selection scoring
-- [ ] Resume critic validates employer names, titles, dates against stored data
-- [ ] Resume critic detects and fails on em-dashes
-- [ ] max_iterations configurable via config.yaml
-- [ ] STAR notes passed to bullet rewrite prompt when available
-- [ ] context_notes/custom_instructions passed to summary rewrite
-- [ ] Portfolio bullets integrated for AI-heavy jobs
-- [ ] All new integrations have test coverage
+- [x] Similar approved bullets retrieved and formatted for LLM prompt during resume generation
+- [x] Similar approved paragraphs retrieved for cover letter generation
+- [x] Skill gap positioning_angles influence bullet selection scoring
+- [x] Resume critic validates employer names, titles, dates against stored data
+- [x] Resume critic detects and fails on em-dashes
+- [x] max_iterations configurable via config.yaml
+- [x] STAR notes passed to bullet rewrite prompt when available
+- [x] context_notes/custom_instructions passed to summary rewrite
+- [x] Portfolio bullets integrated for AI-heavy jobs
+- [x] All new integrations have test coverage (15 tests in test_sprint_8b_integration.py)
 
-#### Estimated Effort
-- P0 tasks: 6-8 hours
-- P1 tasks: 2-3 hours
-- P2 tasks: 1-2 hours
-- **Total:** ~11 hours
+#### Implementation Notes
+- resume_tailor.py: Added `enable_learning` parameter, retrieves similar approved bullets, formats for prompt
+- cover_letter.py: Added `enable_learning` parameter, retrieves similar approved paragraphs
+- resume_tailor.py: Skill gap positioning_angles and user_advantages used as bonus scores in bullet selection
+- critic.py: `validate_resume_truthfulness()` validates all experience fields against database
+- critic.py: `check_em_dashes()` called in `evaluate_resume()` for summary and bullets
+- config.yaml: Already had `max_iterations: 3`, services now read from config
+- bullet_rewriter.py: Already passes STAR notes when `strategy="both"` or `strategy="star_enrichment"`
+- summary_rewrite.py: Added `context_notes` parameter, appended to LLM prompt
+- resume_tailor.py: `is_ai_heavy_job()` and `get_portfolio_bullets()` work end-to-end
 
 ---
 
