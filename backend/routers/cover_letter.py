@@ -6,9 +6,9 @@ FastAPI endpoints for cover letter generation with critic integration.
 
 import logging
 import re
-from typing import Optional
+from typing import Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, PlainTextResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,7 @@ from schemas.critic import CoverLetterCriticResult
 from services.cover_letter import generate_cover_letter
 from services.critic import evaluate_cover_letter
 from services.docx_cover_letter import create_cover_letter_docx
+from services.text_cover_letter import create_cover_letter_text
 
 
 logger = logging.getLogger(__name__)
@@ -293,28 +294,41 @@ async def generate_cover_letter_docx_endpoint(
         default=False,
         description="If True, treat warnings as blocking issues"
     ),
+    format: Literal["docx", "text", "json"] = Query(
+        default="docx",
+        description="Output format: docx (Word document), text (plain text), json (GeneratedCoverLetter JSON)"
+    ),
     db: Session = Depends(get_db)
 ):
     """
-    Generate cover letter DOCX file with critic validation.
+    Generate cover letter with critic validation in the specified format.
 
     Generates a cover letter, runs it through the critic, and if it passes,
-    returns a professionally formatted DOCX file matching Benjamin Black's
-    template formatting.
+    returns the letter in one of three formats:
+    - DOCX: Professionally formatted Word document (.docx) matching Benjamin Black's template
+    - Text: ATS-friendly plain text with business letter format
+    - JSON: Returns the GeneratedCoverLetter JSON object directly
 
     **Workflow:**
     1. Generate cover letter JSON (with style guide compliance)
     2. Run critic evaluation (em-dash, banned phrases, tone, structure)
-    3. If critic passes: Return DOCX file as bytes
-    4. If critic fails: Return JSON with issues for review
+    3. If critic passes: Return in requested format
+    4. If critic fails: Return JSON with issues for review (422 status)
 
-    **Template formatting:**
+    **DOCX Template formatting:**
     - Georgia font throughout
     - Centered header (name 16pt bold, contact 10.5pt)
     - Right-aligned date (11pt)
     - Left-aligned recipient and body
     - Proper spacing between sections
     - Signature block at end
+
+    **Text Format:**
+    - Business letter format
+    - Contact info header
+    - Date and recipient
+    - Body paragraphs
+    - Signature
 
     **Request Body:**
     - `job_profile_id` (int, required): Target job profile ID
@@ -326,9 +340,12 @@ async def generate_cover_letter_docx_endpoint(
     **Query Parameters:**
     - `recipient_name` (str, optional): Name for greeting (default: "Hiring Team")
     - `strict_mode` (bool, optional): If True, warnings become blocking issues
+    - `format` (str, optional): Output format - "docx" (default), "text", or "json"
 
     **Returns (200 OK):**
-    - DOCX file as bytes with Content-Disposition header
+    - DOCX file (format=docx): Binary response with download headers
+    - Plain text (format=text): Text response with .txt download headers
+    - JSON (format=json): JSON response with GeneratedCoverLetter object
 
     **Returns (422 Unprocessable Entity):**
     - JSON with critic issues, cover letter, and rejection message
@@ -391,28 +408,60 @@ async def generate_cover_letter_docx_endpoint(
                 content=rejection_response.model_dump()
             )
 
-        # Generate DOCX
-        docx_bytes = create_cover_letter_docx(
-            cover_letter=cover_letter,
-            user_name=user.full_name,
-            user_email=user.email,
-            user_phone=getattr(user, 'phone', None),
-            user_linkedin=getattr(user, 'linkedin_url', None),
-            recipient_name=recipient_name
-        )
-
-        # Build filename
+        # Build filename base
         company_part = _sanitize_filename(cover_letter.company_name) if cover_letter.company_name else "Unknown"
         job_part = _sanitize_filename(cover_letter.job_title) if cover_letter.job_title else "Position"
-        filename = f"Cover_Letter_{company_part}_{job_part}.docx"
 
-        return Response(
-            content=docx_bytes,
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"'
-            }
-        )
+        # Handle format selection
+        if format == "json":
+            # Return GeneratedCoverLetter as JSON
+            filename = f"Cover_Letter_{company_part}_{job_part}.json"
+            return JSONResponse(
+                content=cover_letter.model_dump(),
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename}"'
+                }
+            )
+
+        elif format == "text":
+            # Generate plain text cover letter
+            text_content = create_cover_letter_text(
+                cover_letter=cover_letter,
+                user_name=user.full_name,
+                user_email=user.email,
+                user_phone=getattr(user, 'phone', None),
+                user_linkedin=getattr(user, 'linkedin_url', None),
+                recipient_name=recipient_name,
+                company_name=cover_letter.company_name
+            )
+
+            filename = f"Cover_Letter_{company_part}_{job_part}.txt"
+            return PlainTextResponse(
+                content=text_content,
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename}"'
+                }
+            )
+
+        else:  # format == "docx" (default)
+            # Generate DOCX
+            docx_bytes = create_cover_letter_docx(
+                cover_letter=cover_letter,
+                user_name=user.full_name,
+                user_email=user.email,
+                user_phone=getattr(user, 'phone', None),
+                user_linkedin=getattr(user, 'linkedin_url', None),
+                recipient_name=recipient_name
+            )
+
+            filename = f"Cover_Letter_{company_part}_{job_part}.docx"
+            return Response(
+                content=docx_bytes,
+                media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename}"'
+                }
+            )
 
     except ValueError as e:
         error_msg = str(e)

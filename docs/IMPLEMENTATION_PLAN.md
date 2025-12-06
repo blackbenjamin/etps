@@ -33,7 +33,7 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 4: Schema & Data Migration | ✅ COMPLETE | Dec 2025 | v1.3.0 schema, engagement structure, 8 engagements |
 | Sprint 5: Bullet Rewriting & Selection | ✅ COMPLETE | Dec 2025 | LLM-powered rewriting, bullet selection algorithm, truthfulness checks |
 | Sprint 5B: Summary Rewrite Engine | ✅ COMPLETE | Dec 2025 | Summary rewrite with candidate_profile, 60-word limit, critic validation |
-| Sprint 6: Version History & Plain Text | 🔲 NOT STARTED | - | DOCX template refinement included |
+| Sprint 6: Version History & Plain Text | ✅ COMPLETE | Dec 2025 | Plain text output, format param, version history API, DOCX refinements |
 | Sprint 7: Qdrant Integration | 🔲 NOT STARTED | - | Vector search setup |
 | Sprint 8: Learning from Approved Outputs | 🔲 NOT STARTED | - | |
 | Sprint 9-10: Frontend MVP | 🔲 NOT STARTED | - | Next.js + Job Intake UI |
@@ -43,9 +43,9 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 19: Deployment | 🔲 NOT STARTED | - | Railway + Vercel |
 
 ### Test Coverage
-- **Total Tests:** 80 passing
-- **Test Files:** test_resume_critic.py, test_skill_gap.py, test_cover_letter_critic.py, test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py
-- **Coverage:** All Sprint 1-3 functionality tested
+- **Total Tests:** 144 passing
+- **Test Files:** test_resume_critic.py, test_skill_gap.py, test_cover_letter_critic.py, test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py
+- **Coverage:** All Sprint 1-6 functionality tested
 
 ### Git Workflow & Commit Checkpoints
 
@@ -464,31 +464,40 @@ Output: Rewritten bullet only, no explanation.
 
 ---
 
-### Sprint 6: Version History & Plain Text (PRD 2.5, 2.6)
+### Sprint 6: Version History & Plain Text (PRD 2.5, 2.6) ✅ COMPLETE
 
 **Goal:** Implement bullet version history and text/plain output format.
 
+**Status:** ✅ Completed December 2025
+
 #### Tasks
 
-| ID | Task | File(s) | PRD Ref | Priority |
-|----|------|---------|---------|----------|
-| 1.6.1 | Design version history JSON schema | `db/models.py` | 2.6 | P0 |
-| 1.6.2 | Implement version tracking on save | `services/bullet_rewriter.py` | 2.6 | P0 |
-| 1.6.3 | Add version history retrieval API | `routers/resume.py` | 2.6 | P1 |
-| 1.6.4 | Implement plain text resume generator | `services/text_resume.py` | 2.5 | P0 |
-| 1.6.5 | Implement plain text cover letter generator | `services/text_cover_letter.py` | 2.5 | P0 |
-| 1.6.6 | Add output format selection to API | `routers/resume.py` | 2.5 | P0 |
-| 1.6.7 | Write unit tests | `tests/test_text_output.py` | - | P1 |
-| 1.6.8 | Refine DOCX resume template to match updated header, summary, and skills layout (font sizes, spacing, portfolio line) | `services/docx_resume.py`, `.docx template file` | PRD 2.3, 2.5, header constraints | P0 |
+| ID | Task | File(s) | PRD Ref | Status |
+|----|------|---------|---------|--------|
+| 1.6.1 | Design version history JSON schema | `db/models.py` | 2.6 | ✅ (Sprint 5) |
+| 1.6.2 | Implement version tracking on save | `services/bullet_rewriter.py` | 2.6 | ✅ (Sprint 5) |
+| 1.6.3 | Add version history retrieval API | `routers/resume.py` | 2.6 | ✅ |
+| 1.6.4 | Implement plain text resume generator | `services/text_resume.py` | 2.5 | ✅ |
+| 1.6.5 | Implement plain text cover letter generator | `services/text_cover_letter.py` | 2.5 | ✅ |
+| 1.6.6 | Add output format selection to API | `routers/resume.py`, `routers/cover_letter.py` | 2.5 | ✅ |
+| 1.6.7 | Write unit tests | `tests/test_text_output.py` | - | ✅ |
+| 1.6.8 | Refine DOCX resume template | `services/docx_resume.py` | PRD 2.3, 2.5 | ✅ |
 
 #### Acceptance Criteria
-- [ ] All bullet rewrites stored in version history
-- [ ] Version history includes timestamp, context, original ref
-- [ ] Plain text output ATS-friendly (no special characters)
-- [ ] API supports format param: docx, text, json
-- [ ] Header shows name, contact line, and portfolio line as defined
-- [ ] Skills section appears in the correct template position and format
-- [ ] No unexpected line breaks or misaligned bullets after migration
+- [x] All bullet rewrites stored in version history (done in Sprint 5)
+- [x] Version history includes timestamp, context, original ref
+- [x] Plain text output ATS-friendly (ASCII only, no special characters)
+- [x] API supports format param: docx, text, json
+- [x] Header shows name, contact line, and portfolio URL
+- [x] Skills section appears in correct position (before Education)
+- [x] No unexpected line breaks or misaligned bullets
+
+#### Implementation Notes
+- `services/text_resume.py` - ATS-friendly plain text (~280 lines)
+- `services/text_cover_letter.py` - Business letter format (~145 lines)
+- API format parameter: `?format=docx|text|json` with docx as default
+- GET `/resume/bullets/{id}/versions` for version history
+- 64 unit tests in test_text_output.py
 
 ---
 

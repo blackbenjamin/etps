@@ -354,6 +354,10 @@ class ResumeDocxRequest(BaseModel):
         None,
         description="LinkedIn URL or handle for the resume header"
     )
+    user_portfolio: Optional[str] = Field(
+        None,
+        description="Portfolio URL for the resume header"
+    )
     education: List[EducationEntry] = Field(
         default_factory=list,
         description="List of education entries to include"

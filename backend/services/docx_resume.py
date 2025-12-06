@@ -508,6 +508,7 @@ def create_resume_docx(
     user_email: str,
     user_phone: Optional[str] = None,
     user_linkedin: Optional[str] = None,
+    user_portfolio: Optional[str] = None,
     education: Optional[list[dict]] = None
 ) -> bytes:
     """
@@ -522,6 +523,7 @@ def create_resume_docx(
         user_email: Email address for the header
         user_phone: Phone number for the header (optional)
         user_linkedin: LinkedIn URL or handle for the header (optional)
+        user_portfolio: Portfolio URL for the header (optional)
         education: List of education entries, each with:
             - institution: str
             - location: str (optional)
@@ -538,7 +540,8 @@ def create_resume_docx(
         ...     user_name="Benjamin Black",
         ...     user_email="benjamin.black@sloan.mit.edu",
         ...     user_phone="617-504-5529",
-        ...     user_linkedin="linkedin.com/in/benjaminblack"
+        ...     user_linkedin="linkedin.com/in/benjaminblack",
+        ...     user_portfolio="benjaminblack.ai"
         ... )
     """
     doc = Document()
@@ -571,6 +574,8 @@ def create_resume_docx(
         contact_parts.append(user_phone)
     if user_linkedin:
         contact_parts.append(user_linkedin)
+    if user_portfolio:
+        contact_parts.append(user_portfolio)
 
     contact_text = "     ".join(contact_parts)
     contact_run = contact_para.add_run(contact_text)
