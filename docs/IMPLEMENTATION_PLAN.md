@@ -37,6 +37,7 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 7: Qdrant Integration | ✅ COMPLETE | Dec 2025 | Vector store service, MockVectorStore, bullet/job indexing, semantic search |
 | Sprint 8: Learning from Approved Outputs | ✅ COMPLETE | Dec 2025 | ApprovedOutput model, output approval API, similarity retrieval, vector indexing |
 | Sprint 8B: Gap Remediation | ✅ COMPLETE | Dec 2025 | Integration gaps, truthfulness validation, skill-gap connection |
+| Sprint 8C: Pagination-Aware Layout | 🔲 NOT STARTED | - | Line budgeting, value-per-line allocation, page split rules |
 | Sprint 9-10: Frontend MVP | 🔲 NOT STARTED | - | Next.js + Job Intake UI |
 | Sprint 11-14: Company Intelligence | 🔲 NOT STARTED | - | Phase 2 |
 | Sprint 15-17: Application Tracking | 🔲 NOT STARTED | - | Phase 3 |
@@ -632,6 +633,77 @@ etps_approved_outputs: {id, type, embedding, job_context, content} (Sprint 8)
 
 ---
 
+### Sprint 8C: Pagination-Aware Layout & Page Budgeting (PRD 2.11)
+
+**Goal:** Implement pagination-aware resume layout that allocates bullets under a global space budget, avoids orphaned job headers, and enables optional bullet compression.
+
+**Status:** 🔲 NOT STARTED
+
+**Reference:** See PRD Section 2.11 for full specification.
+
+#### Tasks
+
+| ID | Task | File(s) | PRD Ref | Priority |
+|----|------|---------|---------|----------|
+| 8C.1 | Add pagination constants to config.yaml (page1_line_budget, page2_line_budget, chars_per_line_estimate, min_bullets_per_role, max_bullets_per_role) | `config/config.yaml` | 2.11 | P0 |
+| 8C.2 | Implement line budget cost estimator for bullets, headers, summary, and skills | `services/resume_tailor.py`, `services/pagination.py` | 2.11 | P0 |
+| 8C.3 | Implement global space-aware bullet allocation algorithm (value-per-line prioritization) | `services/resume_tailor.py`, `services/pagination.py` | 2.8, 2.11 | P0 |
+| 8C.4 | Implement job–page split simulation and rules to avoid orphaned job headers and single bullets | `services/pagination.py` | 2.11 | P0 |
+| 8C.5 | Add per-role minimum/maximum bullet constraints with role condensation for older roles | `services/resume_tailor.py` | 2.11 | P0 |
+| 8C.6 | Implement optional bullet compression mode (shortening long bullets within truthfulness constraints) | `services/bullet_rewriter.py`, `services/resume_tailor.py` | 2.11, 4.3 | P1 |
+| 8C.7 | Update SummaryRewriteService to accept max_lines hint derived from Page 1 budget | `services/summary_rewrite.py`, `services/resume_tailor.py` | 2.10, 2.11 | P0 |
+| 8C.8 | Add basic pagination sanity checks to resume critic (no orphaned headers, no single-bullet orphans) | `services/critic.py` | 4.3, 2.11 | P1 |
+| 8C.9 | Add unit tests for space-aware allocation and job split behavior | `tests/test_pagination_allocation.py` | 2.11 | P1 |
+| 8C.10 | Add regression tests for pagination-aware allocation with sample resumes | `tests/test_pagination_regression.py` | 2.11 | P2 |
+
+#### Acceptance Criteria
+- [ ] Resume bullet selection respects a global line budget for Page 1 and Page 2
+- [ ] No job header is placed as the last element on a page with zero bullets below it (per simulation)
+- [ ] Older / less relevant roles are automatically condensed first when space is constrained
+- [ ] Optional bullet compression reduces overflow while preserving truthfulness and tone
+- [ ] SummaryRewriteService can shorten or slightly expand the summary based on a max-lines hint derived from the Page 1 budget
+- [ ] Resume critic validates basic pagination sanity (no orphaned job headers)
+- [ ] All pagination logic has test coverage
+
+#### Estimated Effort
+- P0 tasks: 12-16 hours
+- P1 tasks: 6-8 hours
+- P2 tasks: 2-3 hours
+- **Total:** ~22 hours
+
+#### Design Notes
+
+**Line Budget Estimation:**
+```python
+# Each element has an estimated line cost
+SECTION_HEADER_LINES = 1
+JOB_HEADER_LINES = 2  # company, title, location, dates
+BULLET_CHROME_LINES = 1  # bullet point itself
+CHARS_PER_LINE = 75  # configurable
+
+def estimate_bullet_lines(bullet_text: str) -> int:
+    """Estimate lines for a single bullet."""
+    text_lines = math.ceil(len(bullet_text) / CHARS_PER_LINE)
+    return BULLET_CHROME_LINES + text_lines
+```
+
+**Value-Per-Line Prioritization:**
+```python
+# For each bullet, compute value_per_line
+value_per_line = relevance_score / estimated_lines
+# Sort bullets by value_per_line descending when space is constrained
+```
+
+**Page Split Simulation:**
+```python
+# Fill Page 1 and Page 2 using line budget
+# If job header would be on last 2 lines of Page 1:
+#   Option A: Move entire job to Page 2
+#   Option B: Reduce bullets in earlier roles to make room
+```
+
+---
+
 ## Phase 1E: Frontend MVP
 
 ### Sprint 9: Next.js Setup (PRD 6.6)
@@ -917,7 +989,8 @@ Sprint 4 (Schema Migration) → depends on → Sprint 1-3 (Core complete) ✅
 Sprint 5 (Rewriting) → depends on → Sprint 4 (Schema) ✅
 Sprint 8 (Learning) → depends on → Sprint 7 (Qdrant) ✅
 Sprint 8B (Gap Remediation) → depends on → Sprint 8 (Learning) ✅
-Sprint 9 (Frontend) → depends on → Sprint 8B (Gap Remediation)
+Sprint 8C (Pagination) → depends on → Sprint 8B (Gap Remediation) ✅
+Sprint 9 (Frontend) → depends on → Sprint 8C (Pagination)
 Sprint 10 (UI) → depends on → Sprint 9 (Next.js setup)
 Phase 2 → depends on → Phase 1E complete
 Phase 3 → depends on → Phase 1E complete

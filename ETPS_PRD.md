@@ -163,6 +163,8 @@ The system must preserve the following from the master template:
 - Job title/company/date alignment.
 - No auto-resizing, unexpected line breaks, or layout shifts.
 
+ETPS may estimate vertical space using line-budget heuristics, but it must not insert manual page breaks or alter core template layout properties (margins, fonts, base spacing) in ways that invalidate the master template.
+
 ### 2.4 Allowed Transformations
 
 The system **may** change per job:
@@ -282,6 +284,12 @@ The resume generator must use a deterministic core algorithm for bullet selectio
    - Avoid selecting bullets that repeat the same achievement across roles.
    - Prefer a single strong bullet that represents a theme.
 
+6.5. **Space-aware prioritization**
+   - When there is not enough vertical space to include all high-relevance bullets, the system must:
+     - Prefer bullets with higher JD relevance **per line of text**.
+     - Condense older or lower-priority roles to fewer bullets before cutting bullets from recent, highly-relevant roles.
+     - Use the global page line budget (2.11) to decide how many bullets each role can afford.
+
 7. **Truthfulness constraints**
    - Never select or generate bullets that invent new employers, roles, or time periods.
    - Only use bullets grounded in existing entries or portfolio projects.
@@ -322,6 +330,83 @@ Constraints:
 - Keep within configured word limit (default ≤ 60 words).
 - Maintain truthfulness (no added roles or fake responsibilities).
 - Emphasize themes aligned to top 2–3 JD priorities.
+- Accept a "max length" or "max lines" hint derived from the global Page 1 budget, and shape the summary text accordingly (shorter for JD-heavy resumes, slightly longer when more space is available).
+
+### 2.11 Pagination-Aware Layout & Page Budgeting
+
+ETPS must use an approximate, **pagination-aware layout strategy** to keep resumes cleanly formatted across 1–2 pages, without relying on pixel-perfect Word pagination.
+
+The system must treat vertical space as a **budget** and allocate bullets accordingly.
+
+**Key Concepts:**
+
+- **Line Budget Unit:**
+  ETPS uses an estimated "line" unit (or vertical unit) to approximate space consumption for each element:
+  - Section headers = 1 line
+  - Job header (company, title, location, dates) = 1–2 lines (configurable estimate)
+  - Summary section = estimated fixed line count (based on character length)
+  - Skills section = estimated fixed line count (based on character length)
+  - Each bullet = 1 line (bullet chrome) + `ceil(char_count / chars_per_line)` text lines
+    (`chars_per_line` is a configurable constant, e.g., 75)
+
+- **Page Capacity:**
+  - Page 1: configurable capacity (e.g., ~50 lines)
+  - Page 2: configurable capacity (e.g., ~55 lines)
+  These values are **heuristic** and can be tuned but must be documented in `config.yaml`.
+
+- **Section-Level Budgeting:**
+  - Summary and Skills sections must respect target maximum line counts so that **Experience** can occupy the majority of Page 1.
+  - The Summary Rewrite Engine (2.10) must accept a "max length" or "max lines" hint derived from the remaining Page 1 budget.
+
+**Role & Bullet Allocation Rules (Space-Aware):**
+
+1. **Global Space Budget:**
+   - ETPS must allocate bullets under a **global vertical space budget** for the resume (Page 1 + Page 2).
+   - Each bullet has:
+     - A **value** (JD relevance score based on tags, embeddings, and `importance` flags).
+     - A **cost** (estimated line count).
+   - The system must prefer bullets with higher **value per line** when space is limited.
+
+2. **Per-Role Bullet Limits:**
+   - Each role must have:
+     - A configurable **minimum** number of bullets (e.g., 2–3) for recent / critical roles.
+     - A configurable **maximum** number of bullets (e.g., 6).
+   - Older or less relevant roles can be **condensed** to fewer bullets if the global budget is tight.
+
+3. **Engagement Prioritization (Consulting Roles):**
+   - For consulting experiences (with engagements):
+     - Select only the 1–3 most relevant engagements for a given JD.
+     - Within each engagement, select bullets by JD relevance subject to the global space budget.
+   - Less relevant engagements may be omitted entirely for a specific tailored resume.
+
+4. **Job–Page Split Rules:**
+   - The system must simulate filling Page 1 and Page 2 using the line budget and:
+     - Avoid placing a **job header** as the last line of a page with zero bullets under it.
+     - Avoid **orphaned single bullets** at the top or bottom of a page when possible.
+   - If adding a job header on Page 1 would leave fewer than a configurable minimum number of lines (e.g., header + 2 bullets), the system should:
+     - Move that entire job to Page 2, or
+     - Reduce earlier bullets to free enough space for a non-awkward split.
+
+5. **Bullet Length Shaping:**
+   - When a role slightly exceeds the available line budget, the Bullet Rewriter (2.4, 2.6) may:
+     - Compress one or more long bullets (e.g., reduce character count by ~20–25%) **without changing factual content**, and
+     - Re-estimate the line cost to see if this resolves overflow.
+   - Compression is optional and must respect all truthfulness constraints in Section 4.
+
+6. **Truthfulness & Structure Constraints:**
+   - Pagination-aware selection must never:
+     - Invent new roles, employers, or date ranges.
+     - Remove or alter job headers in a way that misrepresents employment history.
+   - It may only drop bullets or engagements for space reasons, not change core facts.
+
+**Limitations (Explicit):**
+
+- ETPS does **not** guarantee pixel-perfect pagination across all Word versions and printers.
+- The system aims for:
+  - No orphaned job headers.
+  - Reasonable distribution of bullets across two pages.
+  - High JD coverage per line of text.
+- Minor manual adjustment in Word is acceptable and expected for real-world use.
 
 ---
 
@@ -453,6 +538,11 @@ Mode: **Highly strict.**
 - Avoidance of redundant bullets.
 - Proper action verbs.
 - Clean sentence length and structure.
+- Basic pagination sanity:
+  - No page with a job header and zero bullets beneath it.
+  - No obvious orphaned single bullet at the top of a page when additional bullets from the same job could have fit on the prior page under the configured line budget.
+
+The critic does **not** need true page coordinates; it only needs to confirm that the pagination-aware allocation logic has been applied (i.e., the line-budget simulation didn't put the resume into a clearly invalid state).
 
 The Critic must validate the following truthfulness constraints for resumes:
 

@@ -53,4 +53,35 @@ features:
   company_intelligence: false  # Phase 2
   application_tracking: false  # Phase 3
 
-# TODO: Add additional configuration as needed
+# Pagination-aware layout settings (PRD 2.11)
+# These are heuristic estimates for line budget calculations
+pagination:
+  # Page capacity in estimated lines
+  page1_line_budget: 50        # Page 1 has less space (header, contact info)
+  page2_line_budget: 55        # Page 2 has slightly more usable space
+
+  # Character count per line for bullet text estimation
+  chars_per_line_estimate: 75  # Based on typical resume font/margin settings
+
+  # Per-role bullet constraints
+  min_bullets_per_role: 2      # Minimum bullets for recent/critical roles
+  max_bullets_per_role: 6      # Maximum bullets per role
+
+  # Element line costs (used in space estimation)
+  section_header_lines: 1      # "EXPERIENCE", "SKILLS", etc.
+  job_header_lines: 2          # Company, title, location, dates
+  bullet_chrome_lines: 1       # The bullet point marker itself
+
+  # Summary and skills section budgets
+  max_summary_lines: 4         # Target max lines for professional summary
+  max_skills_lines: 3          # Target max lines for skills section
+
+  # Page split rules
+  min_bullets_after_job_header: 2  # If fewer would fit, move job to next page
+
+  # Bullet compression settings
+  compression_enabled: true        # Whether to allow bullet compression
+  compression_target_reduction: 0.20  # Target ~20% character reduction
+
+  # Space-aware prioritization
+  condense_older_roles: true   # Condense older/less relevant roles first
