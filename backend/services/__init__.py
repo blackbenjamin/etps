@@ -11,8 +11,8 @@ TODO: Implement the following services:
 - embedding_service: Vector operations with Qdrant
 """
 
-from services.skill_gap import analyze_skill_gap, build_user_skill_profile
-from services.bullet_rewriter import (
+from .skill_gap import analyze_skill_gap, build_user_skill_profile
+from .bullet_rewriter import (
     rewrite_bullet,
     rewrite_bullets_for_job,
     validate_rewrite,

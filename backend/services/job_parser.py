@@ -37,14 +37,17 @@ SKILL_TAXONOMY = {
         'Pandas', 'NumPy', 'SciPy', 'NLTK', 'spaCy', 'Hugging Face', 'OpenAI',
         'LangChain', 'LlamaIndex', 'Stable Diffusion', 'BERT', 'GPT', 'Transformer',
         'CNN', 'RNN', 'LSTM', 'GAN', 'Reinforcement Learning', 'Deep Learning',
-        'Machine Learning', 'Neural Networks', 'NLP', 'Computer Vision', 'MLOps'
+        'Machine Learning', 'Neural Networks', 'NLP', 'Computer Vision', 'MLOps',
+        'Artificial Intelligence', 'AI', 'Data Science', 'Generative AI', 'LLM',
+        'Large Language Model', 'GenAI'
     ],
 
     # Cloud Platforms
     'cloud': [
         'AWS', 'Amazon Web Services', 'Azure', 'Microsoft Azure', 'GCP',
         'Google Cloud Platform', 'Google Cloud', 'IBM Cloud', 'Oracle Cloud',
-        'DigitalOcean', 'Heroku', 'Vercel', 'Netlify', 'Cloudflare'
+        'DigitalOcean', 'Heroku', 'Vercel', 'Netlify', 'Cloudflare',
+        'Cloud Architecture'
     ],
 
     # Cloud Services
@@ -123,7 +126,8 @@ SKILL_TAXONOMY = {
         'Agile', 'Scrum', 'Kanban', 'SAFe', 'Waterfall', 'Lean', 'Six Sigma',
         'ITIL', 'DevOps', 'SRE', 'Site Reliability Engineering', 'Microservices',
         'Event-Driven Architecture', 'Domain-Driven Design', 'DDD', 'CQRS',
-        'API Design', 'RESTful API', 'GraphQL', 'gRPC'
+        'API Design', 'RESTful API', 'GraphQL', 'gRPC',
+        'Solution Architecture', 'System Design', 'Technical Architecture'
     ],
 
     # Consulting & Business
@@ -131,7 +135,9 @@ SKILL_TAXONOMY = {
         'Strategy', 'Business Strategy', 'Digital Transformation', 'Change Management',
         'Stakeholder Management', 'Client Management', 'Project Management',
         'Program Management', 'Portfolio Management', 'Business Analysis',
-        'Requirements Gathering', 'Process Improvement', 'Operational Excellence'
+        'Requirements Gathering', 'Process Improvement', 'Operational Excellence',
+        'Sales', 'Business Development', 'Marketing', 'Go-to-Market', 'Pre-sales',
+        'Account Management'
     ],
 
     # Leadership & Management
