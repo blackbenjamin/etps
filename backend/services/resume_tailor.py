@@ -5,14 +5,16 @@ Intelligently selects and optimizes resume content (bullets, skills, summary)
 to maximize alignment with specific job requirements.
 """
 
+import logging
 import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, Tuple
 from sqlalchemy.orm import Session
 
-from db.models import Bullet, Experience, JobProfile, User
+from db.models import Bullet, Engagement, Experience, JobProfile, User
 from schemas.resume_tailor import (
     SelectedBullet,
+    SelectedEngagement,
     SelectedRole,
     SelectedSkill,
     TailoredResume,
@@ -26,6 +28,10 @@ from services.skill_gap import (
     find_skill_match_sync,
 )
 from services.llm.base import BaseLLM
+from services.bullet_rewriter import rewrite_bullets_for_job
+
+
+logger = logging.getLogger(__name__)
 
 
 # Banned phrases that should be removed from generated summaries
@@ -46,6 +52,98 @@ BANNED_PHRASES = [
     "hard-working",
     "passionate about",
 ]
+
+
+def is_ai_heavy_job(job_profile: JobProfile) -> bool:
+    """
+    Determine if a job is AI/ML-heavy based on job type tags and extracted skills.
+
+    A job is considered AI-heavy if it has 2+ AI-related terms in its tags or skills.
+    """
+    ai_terms = {
+        'ai', 'ml', 'machine learning', 'deep learning', 'llm', 'nlp',
+        'natural language processing', 'generative ai', 'ai governance',
+        'ai strategy', 'ai ethics', 'computer vision', 'neural network',
+        'transformers', 'gpt', 'large language model', 'ai/ml', 'ai risk'
+    }
+
+    job_terms = set()
+
+    # Collect terms from job profile
+    if job_profile.job_type_tags:
+        job_terms.update(t.lower() for t in job_profile.job_type_tags)
+    if job_profile.extracted_skills:
+        job_terms.update(s.lower() for s in job_profile.extracted_skills)
+    if job_profile.core_priorities:
+        for p in job_profile.core_priorities:
+            job_terms.update(p.lower().split())
+
+    # Count AI-related matches
+    ai_matches = len(ai_terms & job_terms)
+    return ai_matches >= 2
+
+
+def get_portfolio_bullets(user: User, job_profile: JobProfile, db: Session) -> List[Bullet]:
+    """
+    Generate synthetic bullets from ai_portfolio for AI-heavy jobs.
+
+    Creates temporary Bullet objects from the user's ai_portfolio projects
+    when the job emphasizes AI/ML skills.
+
+    Args:
+        user: User model with candidate_profile containing ai_portfolio
+        job_profile: JobProfile to check AI relevance
+        db: Database session (not used for portfolio bullets, they're synthetic)
+
+    Returns:
+        List of synthetic Bullet objects for portfolio projects
+    """
+    if not is_ai_heavy_job(job_profile):
+        return []
+
+    candidate_profile = user.candidate_profile or {}
+    portfolio = candidate_profile.get('ai_portfolio', [])
+
+    if not portfolio:
+        return []
+
+    bullets = []
+    for idx, project in enumerate(portfolio):
+        # Extract project details
+        name = project.get('name', 'AI Project')
+        description = project.get('description', '')
+        tech_stack = project.get('tech_stack', [])
+        impact = project.get('impact', '')
+
+        # Build bullet text
+        if impact:
+            bullet_text = f"Designed and built {name}: {description} - {impact}"
+        else:
+            bullet_text = f"Designed and built {name}: {description}"
+
+        # Truncate if too long
+        if len(bullet_text) > 200:
+            bullet_text = bullet_text[:197] + "..."
+
+        # Create synthetic bullet (not persisted to DB)
+        synthetic_bullet = Bullet(
+            id=-1000 - idx,  # Negative ID to distinguish from real bullets
+            user_id=user.id,
+            experience_id=None,  # Will be assigned to current consulting role
+            engagement_id=None,
+            text=bullet_text,
+            tags=['ai_portfolio'] + tech_stack,
+            seniority_level='senior',
+            bullet_type='achievement',
+            relevance_scores={'ai': 0.95, 'ml': 0.90, 'technology': 0.85},
+            ai_first_choice=True,
+            importance='high',
+            order=100 + idx,  # Place after regular bullets
+        )
+        bullets.append(synthetic_bullet)
+
+    logger.info(f"Generated {len(bullets)} portfolio bullets for AI-heavy job")
+    return bullets
 
 
 def select_bullets_for_role(
@@ -145,8 +243,24 @@ def select_bullets_for_role(
             elif bullet.bullet_type == 'responsibility':
                 type_score = 0.08
 
+        # 5. Importance flag bonus
+        importance_bonus = 0.0
+        if hasattr(bullet, 'importance') and bullet.importance:
+            if bullet.importance == 'high':
+                importance_bonus = 0.08
+            elif bullet.importance == 'medium':
+                importance_bonus = 0.04
+            elif bullet.importance == 'low':
+                importance_bonus = 0.0
+
+        # 6. AI-first choice bonus for AI/ML jobs
+        ai_first_choice_bonus = 0.0
+        if hasattr(bullet, 'ai_first_choice') and bullet.ai_first_choice:
+            if is_ai_heavy_job(job_profile):
+                ai_first_choice_bonus = 0.12
+
         # Calculate total score
-        total_score = tag_score + relevance_score + usage_score + type_score
+        total_score = tag_score + relevance_score + usage_score + type_score + importance_bonus + ai_first_choice_bonus
 
         # Build selection reason
         reason_parts = []
@@ -205,6 +319,74 @@ def select_bullets_for_role(
                 tags=bullet.tags or [],
                 selection_reason=reason,
             ))
+
+    return selected
+
+
+def select_engagements_for_experience(
+    experience: Experience,
+    job_profile: JobProfile,
+    max_engagements: int = 3,
+) -> List[Engagement]:
+    """
+    Select the most relevant engagements for a consulting role.
+
+    Scoring:
+    - domain_tags overlap with job requirements (50%)
+    - tech_tags overlap with job skills (30%)
+    - Recency/order (20%)
+
+    Args:
+        experience: Experience with engagements to select from
+        job_profile: Target job profile
+        max_engagements: Maximum engagements to select (default 3)
+
+    Returns:
+        List of selected Engagement objects, ordered by relevance
+    """
+    if not experience.engagements:
+        return []
+
+    # Build job context for matching
+    job_domains = set()
+    job_skills = set()
+
+    if job_profile.job_type_tags:
+        job_domains.update(t.lower() for t in job_profile.job_type_tags)
+    if job_profile.extracted_skills:
+        job_skills.update(s.lower() for s in job_profile.extracted_skills)
+    if job_profile.must_have_capabilities:
+        job_skills.update(c.lower() for c in job_profile.must_have_capabilities)
+
+    scored_engagements = []
+
+    for eng in experience.engagements:
+        # Domain tag overlap (50%)
+        eng_domains = set((t.lower() for t in (eng.domain_tags or [])))
+        domain_overlap = len(eng_domains & job_domains)
+        domain_score = min(domain_overlap * 0.15, 0.50)  # Cap at 50%
+
+        # Tech tag overlap (30%)
+        eng_techs = set((t.lower() for t in (eng.tech_tags or [])))
+        tech_overlap = len(eng_techs & job_skills)
+        tech_score = min(tech_overlap * 0.10, 0.30)  # Cap at 30%
+
+        # Order/recency bonus (20%) - lower order = more recent
+        order_score = max(0.20 - (eng.order * 0.02), 0.0)
+
+        total_score = domain_score + tech_score + order_score
+        scored_engagements.append((total_score, eng))
+
+    # Sort by score descending
+    scored_engagements.sort(key=lambda x: x[0], reverse=True)
+
+    # Select top N
+    selected = [eng for _, eng in scored_engagements[:max_engagements]]
+
+    logger.debug(
+        f"Selected {len(selected)}/{len(experience.engagements)} engagements "
+        f"for {experience.employer_name}"
+    )
 
     return selected
 
@@ -477,6 +659,8 @@ async def tailor_resume(
     max_skills: int = 12,
     custom_instructions: Optional[str] = None,
     llm: Optional[BaseLLM] = None,
+    enable_bullet_rewriting: bool = False,
+    rewrite_strategy: Optional[str] = "both"
 ) -> TailoredResume:
     """
     Main orchestrator: Generate complete tailored resume for specific job.
@@ -485,10 +669,11 @@ async def tailor_resume(
     1. Fetch job profile and user data
     2. Analyze skill gaps
     3. Select optimal bullets for each role
-    4. Select and order skills
-    5. Generate tailored summary
-    6. Build comprehensive rationale
-    7. Validate constraints
+    4. Apply bullet rewriting if enabled (integrates JD keywords)
+    5. Select and order skills
+    6. Generate tailored summary
+    7. Build comprehensive rationale
+    8. Validate constraints
 
     Args:
         job_profile_id: ID of target job profile
@@ -498,6 +683,8 @@ async def tailor_resume(
         max_skills: Maximum skills in skills section (5-20)
         custom_instructions: Optional user instructions for tailoring
         llm: Optional LLM instance (will use MockLLM if not provided)
+        enable_bullet_rewriting: If True, rewrite bullets to include JD keywords
+        rewrite_strategy: Strategy for rewriting - "keywords", "star_enrichment", or "both"
 
     Returns:
         Complete tailored resume with rationale
@@ -538,6 +725,18 @@ async def tailor_resume(
         Bullet.retired == False
     ).all()
 
+    # Add portfolio bullets for AI-heavy jobs
+    portfolio_bullets = get_portfolio_bullets(user, job_profile, db)
+    if portfolio_bullets:
+        all_bullets = list(all_bullets) + portfolio_bullets  # Convert to list if needed
+        logger.info(f"Added {len(portfolio_bullets)} portfolio bullets for AI-heavy job {job_profile.id}")
+
+    # Initialize OpenAI client for bullet rewriting if enabled
+    llm_client = None
+    if enable_bullet_rewriting:
+        import openai
+        llm_client = openai.AsyncOpenAI()
+
     # Analyze skill gap
     skill_gap_result = await analyze_skill_gap(
         job_profile_id=job_profile_id,
@@ -553,28 +752,78 @@ async def tailor_resume(
         # Get bullets for this experience
         exp_bullets = [b for b in all_bullets if b.experience_id == experience.id]
 
-        if not exp_bullets:
-            # Skip experiences with no bullets
+        if not exp_bullets and not experience.engagements:
+            # Skip experiences with no bullets and no engagements
             continue
 
-        # Select optimal bullets
-        selected_bullets = select_bullets_for_role(
-            experience=experience,
-            bullets=exp_bullets,
-            job_profile=job_profile,
-            skill_gap_result=skill_gap_result,
-            max_bullets=max_bullets_per_role,
-        )
+        # Determine if this is a consulting role with engagements
+        selected_engagements = []
+        direct_bullets = []
 
-        if not selected_bullets:
+        if experience.engagements:
+            # This is a consulting role - select engagements and their bullets
+            eng_list = select_engagements_for_experience(
+                experience=experience,
+                job_profile=job_profile,
+                max_engagements=3
+            )
+
+            for eng in eng_list:
+                # Get bullets for this engagement
+                eng_bullets = [b for b in all_bullets if b.engagement_id == eng.id]
+
+                if not eng_bullets:
+                    continue
+
+                # Select best bullets for this engagement
+                selected_eng_bullets = select_bullets_for_role(
+                    experience=experience,
+                    bullets=eng_bullets,
+                    job_profile=job_profile,
+                    skill_gap_result=skill_gap_result,
+                    max_bullets=3,  # Fewer bullets per engagement
+                )
+
+                if selected_eng_bullets:
+                    selected_engagements.append(SelectedEngagement(
+                        engagement_id=eng.id,
+                        client=eng.client,
+                        project_name=eng.project_name,
+                        date_range_label=eng.date_range_label,
+                        selected_bullets=selected_eng_bullets
+                    ))
+
+            # For consulting roles, bullets come from engagements, not directly
+            direct_bullets = []
+        else:
+            # Non-consulting role - use direct bullets
+            direct_bullets = select_bullets_for_role(
+                experience=experience,
+                bullets=exp_bullets,
+                job_profile=job_profile,
+                skill_gap_result=skill_gap_result,
+                max_bullets=max_bullets_per_role,
+            )
+
+        # Skip if we have neither direct bullets nor engagements
+        if not direct_bullets and not selected_engagements:
             continue
 
         # Build rationale for this role
-        bullet_reasons = [sb.selection_reason for sb in selected_bullets]
-        role_rationale = (
-            f"Selected {len(selected_bullets)} bullets emphasizing: "
-            f"{'; '.join(set([r.split(';')[0] for r in bullet_reasons]))}"
-        )
+        if direct_bullets:
+            bullet_reasons = [sb.selection_reason for sb in direct_bullets]
+            role_rationale = (
+                f"Selected {len(direct_bullets)} bullets emphasizing: "
+                f"{'; '.join(set([r.split(';')[0] for r in bullet_reasons]))}"
+            )
+        elif selected_engagements:
+            total_bullets = sum(len(eng.selected_bullets) for eng in selected_engagements)
+            role_rationale = (
+                f"Selected {len(selected_engagements)} engagements with {total_bullets} total bullets "
+                f"for consulting role"
+            )
+        else:
+            role_rationale = "No bullets selected"
 
         # Determine role emphasis
         if experience.start_date and experience.end_date:
@@ -596,9 +845,49 @@ async def tailor_resume(
             location=experience.location,  # IMMUTABLE
             start_date=experience.start_date.isoformat(),
             end_date=experience.end_date.isoformat() if experience.end_date else None,
-            selected_bullets=selected_bullets,
+            selected_bullets=direct_bullets,
+            selected_engagements=selected_engagements,
             bullet_selection_rationale=role_rationale,
         ))
+
+    # Apply bullet rewriting if enabled
+    if enable_bullet_rewriting and llm_client:
+        # Build bullets_db lookup for all bullets
+        all_bullet_ids = set()
+        for role in selected_roles:
+            for bullet in role.selected_bullets:
+                all_bullet_ids.add(bullet.bullet_id)
+            for eng in role.selected_engagements:
+                for bullet in eng.selected_bullets:
+                    all_bullet_ids.add(bullet.bullet_id)
+
+        # Fetch actual Bullet objects for STAR notes and version history
+        bullets_db_query = db.query(Bullet).filter(Bullet.id.in_(all_bullet_ids)).all()
+        bullets_db = {b.id: b for b in bullets_db_query}
+
+        # Rewrite bullets for each role
+        for role in selected_roles:
+            if role.selected_bullets:
+                role.selected_bullets = await rewrite_bullets_for_job(
+                    selected_bullets=role.selected_bullets,
+                    job_profile=job_profile,
+                    llm_client=llm_client,
+                    db=db,
+                    bullets_db=bullets_db,
+                    strategy=rewrite_strategy or "both"
+                )
+
+            # Rewrite bullets within engagements
+            for eng in role.selected_engagements:
+                if eng.selected_bullets:
+                    eng.selected_bullets = await rewrite_bullets_for_job(
+                        selected_bullets=eng.selected_bullets,
+                        job_profile=job_profile,
+                        llm_client=llm_client,
+                        db=db,
+                        bullets_db=bullets_db,
+                        strategy=rewrite_strategy or "both"
+                    )
 
     # Select and order skills
     selected_skills = select_and_order_skills(
@@ -623,6 +912,13 @@ async def tailor_resume(
     )
 
     # Build comprehensive rationale
+    # Calculate total bullets across direct bullets and engagement bullets
+    total_bullets = sum(len(r.selected_bullets) for r in selected_roles)
+    total_bullets += sum(
+        sum(len(eng.selected_bullets) for eng in r.selected_engagements)
+        for r in selected_roles
+    )
+
     rationale = TailoringRationale(
         summary_approach=(
             f"Generated summary emphasizing {len(selected_skills[:5])} top matched skills "
@@ -631,7 +927,7 @@ async def tailor_resume(
         ),
         bullet_selection_strategy=(
             f"Multi-factor scoring (40% tag matching, 30% relevance, 20% freshness, 10% diversity). "
-            f"Selected {sum(len(r.selected_bullets) for r in selected_roles)} total bullets "
+            f"Selected {total_bullets} total bullets "
             f"across {len(selected_roles)} roles, prioritizing matched skills: "
             f"{', '.join(skill_gap_result.bullet_selection_guidance.get('prioritize_tags', [])[:5])}"
         ),
@@ -655,9 +951,9 @@ async def tailor_resume(
     # Calculate match score (use skill gap score + adjustments)
     base_match_score = skill_gap_result.skill_match_score
 
-    # Bonus for having enough bullets and skills
+    # Bonus for having enough bullets and skills (use total_bullets calculated earlier)
     content_bonus = 0.0
-    if len(selected_roles) >= 2 and sum(len(r.selected_bullets) for r in selected_roles) >= 8:
+    if len(selected_roles) >= 2 and total_bullets >= 8:
         content_bonus += 5.0
     if len(selected_skills) >= max_skills * 0.8:
         content_bonus += 3.0

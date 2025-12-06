@@ -7,7 +7,7 @@ ATS compliance, banned phrase detection, tone matching, and rule enforcement.
 
 import re
 from datetime import datetime
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from db.models import Experience, JobProfile
@@ -2360,6 +2360,138 @@ def check_hallucination(
     return passed, concerns
 
 
+async def validate_resume_truthfulness(
+    resume_json: Dict[str, Any],
+    user_id: int,
+    db: Session,
+) -> Tuple[bool, List[CriticIssue]]:
+    """
+    Validate that a tailored resume does not contain fabricated information.
+
+    Checks:
+    1. All employer names match stored employment_history
+    2. All job titles match exactly
+    3. All employment dates match exactly
+    4. All locations are not altered
+
+    Args:
+        resume_json: The tailored resume as a dictionary
+        user_id: User ID to validate against
+        db: Database session
+
+    Returns:
+        (is_truthful, list_of_issues)
+    """
+    from db.models import Experience  # Local import to avoid circular
+
+    issues = []
+
+    # Fetch user's stored experiences
+    experiences = db.query(Experience).filter(
+        Experience.user_id == user_id
+    ).all()
+
+    # Build lookup by ID
+    stored_experiences = {exp.id: exp for exp in experiences}
+
+    # Check each selected_role in resume
+    selected_roles = resume_json.get('selected_roles', [])
+
+    for role in selected_roles:
+        exp_id = role.get('experience_id')
+
+        if exp_id is None:
+            continue  # Skip portfolio bullets without experience_id
+
+        # Handle synthetic portfolio bullet IDs (negative)
+        if exp_id < 0:
+            continue  # Portfolio bullets don't need truthfulness validation
+
+        if exp_id not in stored_experiences:
+            issues.append(CriticIssue(
+                issue_type='truthfulness',
+                severity='error',
+                section='experience',
+                message=f"Experience ID {exp_id} not found in stored employment history",
+                recommended_fix="Remove this fabricated experience or verify experience_id",
+                original_text=None
+            ))
+            continue
+
+        stored = stored_experiences[exp_id]
+
+        # Check employer name
+        role_employer = role.get('employer_name', '')
+        if role_employer and role_employer != stored.employer_name:
+            issues.append(CriticIssue(
+                issue_type='truthfulness',
+                severity='error',
+                section='experience',
+                message=f"Employer name mismatch: '{role_employer}' vs stored '{stored.employer_name}'",
+                recommended_fix=f"Change employer_name to '{stored.employer_name}'",
+                original_text=role_employer
+            ))
+
+        # Check job title
+        role_title = role.get('job_title', '')
+        if role_title and role_title != stored.job_title:
+            issues.append(CriticIssue(
+                issue_type='truthfulness',
+                severity='error',
+                section='experience',
+                message=f"Job title mismatch: '{role_title}' vs stored '{stored.job_title}'",
+                recommended_fix=f"Change job_title to '{stored.job_title}'",
+                original_text=role_title
+            ))
+
+        # Check start date
+        role_start = role.get('start_date', '')
+        stored_start = stored.start_date.isoformat() if stored.start_date else None
+        if role_start and stored_start and role_start != stored_start:
+            issues.append(CriticIssue(
+                issue_type='truthfulness',
+                severity='error',
+                section='experience',
+                message=f"Start date mismatch for {stored.employer_name}: '{role_start}' vs stored '{stored_start}'",
+                recommended_fix=f"Change start_date to '{stored_start}'",
+                original_text=role_start
+            ))
+
+        # Check end date (if provided)
+        role_end = role.get('end_date')
+        stored_end = stored.end_date.isoformat() if stored.end_date else None
+        if role_end and stored_end and role_end != stored_end:
+            issues.append(CriticIssue(
+                issue_type='truthfulness',
+                severity='error',
+                section='experience',
+                message=f"End date mismatch for {stored.employer_name}: '{role_end}' vs stored '{stored_end}'",
+                recommended_fix=f"Change end_date to '{stored_end}'",
+                original_text=role_end
+            ))
+
+        # Check location (if provided in both)
+        role_location = role.get('location')
+        if role_location and stored.location and role_location != stored.location:
+            issues.append(CriticIssue(
+                issue_type='truthfulness',
+                severity='warning',  # Location is less critical
+                section='experience',
+                message=f"Location mismatch for {stored.employer_name}: '{role_location}' vs stored '{stored.location}'",
+                recommended_fix=f"Change location to '{stored.location}'",
+                original_text=role_location
+            ))
+
+    is_truthful = len([i for i in issues if i.severity == 'error']) == 0
+
+    if issues:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Truthfulness validation found {len(issues)} issues for user {user_id}")
+
+    return is_truthful, issues
+
+
 async def evaluate_resume(
     resume_json: Dict,
     job_profile: JobProfile,
@@ -2516,6 +2648,16 @@ async def evaluate_resume(
     all_issues.extend(rule_issues)
 
     # ==========================================================================
+    # 11. TRUTHFULNESS VALIDATION
+    # ==========================================================================
+    truthful, truthfulness_issues = await validate_resume_truthfulness(
+        resume_json=resume_json,
+        user_id=user_id,
+        db=db,
+    )
+    all_issues.extend(truthfulness_issues)
+
+    # ==========================================================================
     # PASS/FAIL DETERMINATION
     # ==========================================================================
     error_count = sum(1 for issue in all_issues if issue.severity == "error")
@@ -2523,9 +2665,9 @@ async def evaluate_resume(
     info_count = sum(1 for issue in all_issues if issue.severity == "info")
 
     if strict_mode:
-        passed = error_count == 0 and warning_count == 0
+        passed = error_count == 0 and warning_count == 0 and truthful
     else:
-        passed = error_count == 0
+        passed = error_count == 0 and truthful
 
     # ==========================================================================
     # QUALITY SCORE CALCULATION
@@ -2543,6 +2685,8 @@ async def evaluate_resume(
     # Penalties for errors and hallucinations
     if not hallucination_passed:
         quality_score = max(0, quality_score - 30)  # Major penalty
+    if not truthful:
+        quality_score = min(quality_score, 60.0)  # Cap score if truthfulness fails
     quality_score = max(0, quality_score - (error_count * 5) - (warning_count * 2))
     quality_score = min(100, max(0, quality_score))
 

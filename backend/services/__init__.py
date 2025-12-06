@@ -12,8 +12,18 @@ TODO: Implement the following services:
 """
 
 from services.skill_gap import analyze_skill_gap, build_user_skill_profile
+from services.bullet_rewriter import (
+    rewrite_bullet,
+    rewrite_bullets_for_job,
+    validate_rewrite,
+    store_version_history,
+)
 
 __all__ = [
     'analyze_skill_gap',
     'build_user_skill_profile',
+    'rewrite_bullet',
+    'rewrite_bullets_for_job',
+    'validate_rewrite',
+    'store_version_history',
 ]

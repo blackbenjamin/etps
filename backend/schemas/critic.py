@@ -29,6 +29,7 @@ ISSUE_TYPES = Literal[
     "emotional_opening_violation",
     "generic_statement_violation",
     "structure_gap_violation",
+    "truthfulness",
 ]
 
 

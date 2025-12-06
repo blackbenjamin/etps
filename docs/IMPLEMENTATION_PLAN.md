@@ -31,7 +31,7 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 2: Skill-Gap Analysis | ✅ COMPLETE | Dec 2025 | Semantic matching with OpenAI embeddings, positioning strategies |
 | Sprint 3: Cover Letter Critic | ✅ COMPLETE | Dec 2025 | Critic iteration loop, banned phrase detection, LLM revision |
 | Sprint 4: Schema & Data Migration | ✅ COMPLETE | Dec 2025 | v1.3.0 schema, engagement structure, 8 engagements |
-| Sprint 5: Bullet Rewriting & Selection | 🔲 NOT STARTED | - | LLM-powered rewriting, bullet selection algorithm, truthfulness checks |
+| Sprint 5: Bullet Rewriting & Selection | ✅ COMPLETE | Dec 2025 | LLM-powered rewriting, bullet selection algorithm, truthfulness checks |
 | Sprint 5B: Summary Rewrite Engine | 🔲 NOT STARTED | - | Summary tailoring per job with PRD 2.10 |
 | Sprint 6: Version History & Plain Text | 🔲 NOT STARTED | - | DOCX template refinement included |
 | Sprint 7: Qdrant Integration | 🔲 NOT STARTED | - | Vector search setup |

@@ -45,6 +45,14 @@ class TailorResumeRequest(BaseModel):
         None,
         description="User-provided custom instructions for tailoring"
     )
+    enable_bullet_rewriting: bool = Field(
+        default=False,
+        description="Enable LLM-powered bullet rewriting to optimize for JD keywords"
+    )
+    rewrite_strategy: Optional[Literal["keywords", "star_enrichment", "both"]] = Field(
+        default="both",
+        description="Strategy for bullet rewriting: keywords (add JD keywords), star_enrichment (use STAR notes), both"
+    )
 
 
 class SelectedBullet(BaseModel):
