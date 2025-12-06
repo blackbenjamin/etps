@@ -22,7 +22,7 @@ This document provides a detailed implementation plan to build ETPS to full PRD 
 | Sprint 1: Resume Critic Agent | ✅ COMPLETE | Dec 2025 | Full critic loop with iteration, ATS scoring, style enforcement |
 | Sprint 2: Skill-Gap Analysis | ✅ COMPLETE | Dec 2025 | Semantic matching with OpenAI embeddings, positioning strategies |
 | Sprint 3: Cover Letter Critic | ✅ COMPLETE | Dec 2025 | Critic iteration loop, banned phrase detection, LLM revision |
-| Sprint 4: Schema & Data Migration | 🔲 NOT STARTED | - | v1.3.0 schema, engagement structure |
+| Sprint 4: Schema & Data Migration | ✅ COMPLETE | Dec 2025 | v1.3.0 schema, engagement structure, 8 engagements |
 | Sprint 5: Bullet Rewriting | 🔲 NOT STARTED | - | LLM-powered rewriting with STAR notes |
 | Sprint 6: Version History & Plain Text | 🔲 NOT STARTED | - | |
 | Sprint 7: Qdrant Integration | 🔲 NOT STARTED | - | Vector search setup |
@@ -60,7 +60,8 @@ This document provides a detailed implementation plan to build ETPS to full PRD 
 **Commit History:**
 | Commit | Sprint | Description |
 |--------|--------|-------------|
-| `5c7fe89` | 3 | Cover Letter Critic + rename to ETPS |
+| `9f8a8c5` | - | Git workflow conventions |
+| `5c7fe89` | 3,4 | Cover Letter Critic + rename + Schema Migration |
 | `37738df` | 2 | Tune embedding threshold |
 | `ce14e48` | 2 | Skill Gap Analyzer enhancements |
 | `eca075f` | 1 | Resume Critic Agent |
