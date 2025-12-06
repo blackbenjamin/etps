@@ -38,6 +38,11 @@ vector_store:
   port: 6333
   collection_prefix: "etps_"
 
+# Embeddings configuration
+embeddings:
+  similarity_threshold: 0.75  # Minimum cosine similarity for semantic matches
+  batch_size: 100             # Maximum batch size for embedding generation
+
 # Feature flags
 features:
   multi_user: false

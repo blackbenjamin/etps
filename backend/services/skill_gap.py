@@ -3,11 +3,16 @@ Skill Gap Analysis Service
 
 Analyzes skill gaps between user profiles and job requirements,
 providing positioning strategies and evidence-based match scoring.
+
+Enhanced with semantic matching, LLM-based categorization, and
+job-specific positioning strategies.
 """
 
 from datetime import datetime
+from threading import Lock
 from typing import Dict, List, Optional, Set, Tuple
 from sqlalchemy.orm import Session
+import logging
 
 from db.models import Bullet, Experience, JobProfile
 from schemas.skill_gap import (
@@ -17,6 +22,212 @@ from schemas.skill_gap import (
     WeakSignal,
     UserSkillProfile,
 )
+from services.embeddings import create_embedding_service, BaseEmbeddingService
+
+# Logger for debugging
+logger = logging.getLogger(__name__)
+
+
+# Thread-safe singleton for embedding service
+_embedding_service: Optional[BaseEmbeddingService] = None
+_embedding_lock = Lock()
+
+
+def get_embedding_service() -> BaseEmbeddingService:
+    """Get or create the embedding service instance (thread-safe)."""
+    global _embedding_service
+    with _embedding_lock:
+        if _embedding_service is None:
+            _embedding_service = create_embedding_service(use_mock=True)
+    return _embedding_service
+
+
+# Mock LLM Service for development
+class MockLLMService:
+    """
+    Mock LLM service for development without API calls.
+    Returns heuristic-based responses for skill analysis.
+    """
+
+    async def classify_skill_importance(
+        self,
+        skill: str,
+        jd_text: str,
+        must_have_skills: List[str],
+        nice_to_have_skills: List[str]
+    ) -> str:
+        """
+        Classify skill importance based on JD context.
+
+        Mock implementation uses keyword position and frequency.
+        Real implementation would use LLM to understand context.
+
+        Args:
+            skill: The skill to classify
+            jd_text: Full job description text
+            must_have_skills: List of explicitly marked must-have skills
+            nice_to_have_skills: List of explicitly marked nice-to-have skills
+
+        Returns:
+            Importance level: 'critical', 'important', or 'nice-to-have'
+        """
+        # Check explicit lists first
+        skill_lower = skill.lower()
+        if any(skill_lower in mh.lower() for mh in must_have_skills):
+            return 'critical'
+        if any(skill_lower in nth.lower() for nth in nice_to_have_skills):
+            return 'nice-to-have'
+
+        # Analyze JD position and context
+        jd_lower = jd_text.lower()
+
+        # Check if in requirements section (high importance)
+        requirements_keywords = ['required', 'must have', 'essential', 'mandatory', 'minimum qualifications']
+        nice_keywords = ['nice to have', 'preferred', 'bonus', 'plus', 'desired']
+
+        # Find skill mentions
+        skill_positions = []
+        idx = 0
+        while idx < len(jd_lower):
+            idx = jd_lower.find(skill_lower, idx)
+            if idx == -1:
+                break
+            skill_positions.append(idx)
+            idx += len(skill_lower)
+
+        if not skill_positions:
+            return 'nice-to-have'
+
+        # Check context around each mention
+        critical_signals = 0
+        nice_signals = 0
+
+        for pos in skill_positions:
+            # Check 200 chars before and after
+            context_start = max(0, pos - 200)
+            context_end = min(len(jd_lower), pos + 200)
+            context = jd_lower[context_start:context_end]
+
+            for keyword in requirements_keywords:
+                if keyword in context:
+                    critical_signals += 1
+
+            for keyword in nice_keywords:
+                if keyword in context:
+                    nice_signals += 1
+
+        # Determine importance
+        if critical_signals > nice_signals:
+            return 'critical'
+        elif nice_signals > 0:
+            return 'nice-to-have'
+        elif skill_positions[0] < len(jd_lower) // 2:
+            # Mentioned in first half - likely important
+            return 'important'
+        else:
+            return 'nice-to-have'
+
+    async def generate_positioning_strategy(
+        self,
+        skill: str,
+        importance: str,
+        user_skills: List[str],
+        job_priorities: List[str]
+    ) -> str:
+        """
+        Generate job-specific positioning strategy for a skill gap.
+
+        Mock implementation uses template-based generation with context.
+        Real implementation would use LLM for dynamic, nuanced strategies.
+
+        Args:
+            skill: The missing skill
+            importance: Skill importance level
+            user_skills: User's actual skills
+            job_priorities: Job's core priorities
+
+        Returns:
+            Personalized positioning strategy
+        """
+        # Find related user skills
+        related_user_skills = []
+        skill_lower = skill.lower()
+
+        for user_skill in user_skills[:10]:  # Top 10 user skills
+            # Simple relatedness check
+            user_skill_words = set(user_skill.lower().split())
+            skill_words = set(skill_lower.split())
+
+            if user_skill_words & skill_words:  # Has overlap
+                related_user_skills.append(user_skill)
+
+        # Get related skills from mapping
+        mapped_related = get_related_skills(skill)
+        related_in_user = [
+            rs for rs in mapped_related
+            if any(normalize_skill(rs) == normalize_skill(us) for us in user_skills)
+        ]
+
+        # Build context-aware strategy
+        if importance == 'critical':
+            if related_user_skills or related_in_user:
+                foundation_skills = related_user_skills[:2] if related_user_skills else related_in_user[:2]
+                return (
+                    f"While you don't have direct {skill} experience, emphasize your strong foundation in "
+                    f"{', '.join(foundation_skills)} which demonstrates the technical aptitude needed. "
+                    f"Highlight your proven ability to quickly master new technologies and your commitment "
+                    f"to rapidly developing {skill} expertise through dedicated learning and hands-on practice."
+                )
+            else:
+                return (
+                    f"Acknowledge the {skill} requirement directly and position it as a growth opportunity. "
+                    f"Emphasize your track record of quickly acquiring new skills and your enthusiasm for "
+                    f"expanding into {skill}. Consider completing relevant certifications or projects before applying."
+                )
+
+        elif importance == 'important':
+            if related_user_skills or related_in_user:
+                bridge_skills = related_user_skills[:2] if related_user_skills else related_in_user[:2]
+                return (
+                    f"Bridge to {skill} by emphasizing your hands-on experience with {', '.join(bridge_skills)}, "
+                    f"which share key concepts and principles. Frame your background as providing a solid "
+                    f"foundation that will accelerate your {skill} learning curve."
+                )
+            else:
+                return (
+                    f"Address the {skill} gap by highlighting transferable capabilities and demonstrating "
+                    f"learning agility. Consider showcasing any side projects, coursework, or self-study "
+                    f"related to {skill} to show genuine interest and initiative."
+                )
+
+        else:  # nice-to-have
+            if related_user_skills or related_in_user:
+                return (
+                    f"Briefly mention familiarity with concepts related to {skill} through your work with "
+                    f"{related_user_skills[0] if related_user_skills else related_in_user[0]}. "
+                    f"Focus your narrative on stronger skill matches while noting {skill} as an area "
+                    f"you're interested in developing further."
+                )
+            else:
+                return (
+                    f"Don't over-emphasize the {skill} gap. Instead, focus on your core strengths and "
+                    f"unique value proposition. If relevant, mention {skill} as an area of professional "
+                    f"interest you're exploring."
+                )
+
+
+# Thread-safe singleton for LLM service
+_llm_service: Optional[MockLLMService] = None
+_llm_lock = Lock()
+
+
+def get_llm_service() -> MockLLMService:
+    """Get or create the LLM service instance (thread-safe)."""
+    global _llm_service
+    with _llm_lock:
+        if _llm_service is None:
+            _llm_service = MockLLMService()
+    return _llm_service
 
 
 # Skill synonym mapping for flexible matching
@@ -146,11 +357,62 @@ def normalize_skill(skill: str) -> str:
     return skill.lower().strip()
 
 
-def find_skill_match(skill: str, user_skills: List[str]) -> Optional[str]:
+async def compute_semantic_skill_match(
+    skill: str,
+    user_skills: List[str],
+    threshold: float = 0.6
+) -> Optional[Tuple[str, float]]:
     """
-    Find if skill matches any user skill (including synonyms).
+    Find semantic match between a skill and user skills using embeddings.
 
-    Returns the matched user skill if found, None otherwise.
+    Uses embedding similarity to find matches beyond exact string matching.
+    Falls back to simple word overlap if embedding service is unavailable.
+
+    Args:
+        skill: The job skill to match
+        user_skills: List of user's skills
+        threshold: Minimum similarity threshold (0-1)
+
+    Returns:
+        Tuple of (matched_user_skill, similarity_score) if found, None otherwise
+    """
+    if not user_skills:
+        return None
+
+    try:
+        embedding_service = get_embedding_service()
+        best_match = None
+        best_score = 0.0
+
+        for user_skill in user_skills:
+            similarity = await embedding_service.compute_similarity(skill, user_skill)
+            if similarity > best_score:
+                best_score = similarity
+                best_match = user_skill
+
+        if best_score >= threshold:
+            logger.debug(f"Semantic match: '{skill}' -> '{best_match}' (score: {best_score:.2f})")
+            return (best_match, best_score)
+
+    except Exception as e:
+        logger.warning(f"Semantic matching failed for '{skill}': {e}")
+
+    return None
+
+
+def find_skill_match_sync(skill: str, user_skills: List[str]) -> Optional[str]:
+    """
+    Find if skill matches any user skill (synchronous version - no semantic matching).
+
+    Uses direct matching and synonym mapping only.
+    For semantic matching, use the async version `find_skill_match`.
+
+    Args:
+        skill: The job skill to match
+        user_skills: List of user's skills
+
+    Returns:
+        The matched user skill if found, None otherwise
     """
     normalized_skill = normalize_skill(skill)
 
@@ -161,14 +423,39 @@ def find_skill_match(skill: str, user_skills: List[str]) -> Optional[str]:
 
     # Synonym match
     for canonical_skill, synonyms in SKILL_SYNONYMS.items():
-        normalized_canonical = normalize_skill(canonical_skill)
-
         # Check if job skill is a synonym of canonical
         if normalized_skill in [normalize_skill(s) for s in synonyms]:
             # Check if user has the canonical skill
             for user_skill in user_skills:
                 if normalize_skill(user_skill) in [normalize_skill(s) for s in [canonical_skill] + synonyms]:
                     return user_skill
+
+    return None
+
+
+async def find_skill_match(skill: str, user_skills: List[str]) -> Optional[str]:
+    """
+    Find if skill matches any user skill (including synonyms and semantic similarity).
+
+    Enhanced with semantic matching when direct and synonym matching fails.
+
+    Args:
+        skill: The job skill to match
+        user_skills: List of user's skills
+
+    Returns:
+        The matched user skill if found, None otherwise
+    """
+    # Try sync matching first (direct + synonyms)
+    sync_match = find_skill_match_sync(skill, user_skills)
+    if sync_match:
+        return sync_match
+
+    # Semantic match (Task 2.1)
+    semantic_match = await compute_semantic_skill_match(skill, user_skills, threshold=0.7)
+    if semantic_match:
+        matched_skill, _ = semantic_match
+        return matched_skill
 
     return None
 
@@ -247,7 +534,7 @@ async def build_user_skill_profile(user_id: int, db: Session) -> UserSkillProfil
     )
 
 
-def compute_matched_skills(
+async def compute_matched_skills(
     job_skills: List[str],
     user_profile: UserSkillProfile,
     user_bullets: List[Bullet]
@@ -257,12 +544,14 @@ def compute_matched_skills(
 
     For each job skill that matches, calculates match strength based on
     frequency and relevance scores, and finds supporting evidence.
+
+    Enhanced with semantic matching support.
     """
     matched_skills: List[SkillMatch] = []
     user_skills = user_profile.skills + user_profile.capabilities + user_profile.bullet_tags
 
     for job_skill in job_skills:
-        matched_user_skill = find_skill_match(job_skill, user_skills)
+        matched_user_skill = await find_skill_match(job_skill, user_skills)
 
         if matched_user_skill:
             # Calculate match strength based on relevance and frequency
@@ -296,46 +585,178 @@ def compute_matched_skills(
     return matched_skills
 
 
-def compute_missing_skills(
+async def classify_skill_importance_with_context(
+    skill: str,
+    jd_text: str,
+    job_must_have: List[str],
+    job_nice_to_have: List[str]
+) -> str:
+    """
+    Classify skill importance using LLM with JD context analysis (Task 2.2).
+
+    Analyzes skill position in JD (requirements vs nice-to-have sections),
+    frequency, and contextual importance signals.
+
+    Args:
+        skill: The skill to classify
+        jd_text: Full job description text
+        job_must_have: Explicitly marked must-have skills
+        job_nice_to_have: Explicitly marked nice-to-have skills
+
+    Returns:
+        Importance level: 'critical', 'important', or 'nice-to-have'
+    """
+    try:
+        llm_service = get_llm_service()
+        importance = await llm_service.classify_skill_importance(
+            skill=skill,
+            jd_text=jd_text,
+            must_have_skills=job_must_have,
+            nice_to_have_skills=job_nice_to_have
+        )
+        logger.debug(f"LLM classified '{skill}' as '{importance}'")
+        return importance
+
+    except Exception as e:
+        logger.warning(f"LLM classification failed for '{skill}': {e}. Using fallback.")
+
+        # Fallback to rule-based classification
+        if any(normalize_skill(skill) == normalize_skill(mh) for mh in job_must_have):
+            return 'critical'
+        elif any(normalize_skill(skill) == normalize_skill(nth) for nth in job_nice_to_have):
+            return 'nice-to-have'
+        else:
+            return 'important'
+
+
+async def generate_job_specific_positioning(
+    skill: str,
+    importance: str,
+    user_skills: List[str],
+    job_priorities: List[str]
+) -> str:
+    """
+    Generate job-specific positioning strategy using LLM (Task 2.3).
+
+    Creates dynamic, context-aware positioning strategies that reference
+    the user's actual skills and the job's specific priorities.
+
+    Args:
+        skill: The missing skill
+        importance: Skill importance level
+        user_skills: User's actual skills
+        job_priorities: Job's core priorities
+
+    Returns:
+        Personalized positioning strategy
+    """
+    try:
+        llm_service = get_llm_service()
+        strategy = await llm_service.generate_positioning_strategy(
+            skill=skill,
+            importance=importance,
+            user_skills=user_skills,
+            job_priorities=job_priorities
+        )
+        logger.debug(f"Generated LLM positioning for '{skill}'")
+        return strategy
+
+    except Exception as e:
+        logger.warning(f"LLM positioning generation failed for '{skill}': {e}. Using fallback.")
+
+        # Fallback to template-based strategy
+        related = get_related_skills(skill)
+        templates = POSITIONING_TEMPLATES.get(importance, POSITIONING_TEMPLATES['important'])
+
+        if related:
+            return templates[0].format(
+                related_skills=', '.join(related[:3]),
+                skill_area=skill,
+                skill=skill
+            )
+        else:
+            return templates[1].format(
+                related_skills='related experience',
+                skill_area=skill,
+                skill=skill
+            )
+
+
+async def compute_missing_skills(
     job_skills: List[str],
     job_must_have: List[str],
     job_nice_to_have: List[str],
-    matched_skill_names: Set[str]
+    matched_skill_names: Set[str],
+    jd_text: str = "",
+    user_skills: List[str] = None,
+    job_priorities: List[str] = None
 ) -> List[SkillGap]:
     """
     Compute missing skills not present in matched set.
 
-    Assigns importance level and generates positioning strategy for each gap.
+    Enhanced with LLM-based importance classification and job-specific
+    positioning strategies (Tasks 2.2, 2.3).
+
+    Args:
+        job_skills: All job skills
+        job_must_have: Must-have capabilities
+        job_nice_to_have: Nice-to-have capabilities
+        matched_skill_names: Set of already matched skill names
+        jd_text: Full job description text (for LLM context)
+        user_skills: User's skills (for personalized positioning)
+        job_priorities: Job's core priorities (for contextual strategies)
+
+    Returns:
+        List of skill gaps with enhanced categorization and positioning
     """
     missing_skills: List[SkillGap] = []
+    user_skills = user_skills or []
+    job_priorities = job_priorities or []
 
     for skill in job_skills:
         if normalize_skill(skill) not in {normalize_skill(s) for s in matched_skill_names}:
-            # Determine importance
-            if any(normalize_skill(skill) == normalize_skill(mh) for mh in job_must_have):
-                importance = 'critical'
-            elif any(normalize_skill(skill) == normalize_skill(req) for req in job_skills[:len(job_skills)//2]):
-                importance = 'important'
-            else:
-                importance = 'nice-to-have'
-
-            # Generate positioning strategy
-            related = get_related_skills(skill)
-            templates = POSITIONING_TEMPLATES.get(importance, POSITIONING_TEMPLATES['important'])
-
-            # Select appropriate template
-            if related:
-                strategy = templates[0].format(
-                    related_skills=', '.join(related[:3]),
-                    skill_area=skill,
-                    skill=skill
+            # Enhanced importance classification (Task 2.2)
+            if jd_text:
+                importance = await classify_skill_importance_with_context(
+                    skill=skill,
+                    jd_text=jd_text,
+                    job_must_have=job_must_have,
+                    job_nice_to_have=job_nice_to_have
                 )
             else:
-                strategy = templates[1].format(
-                    related_skills='related experience',
-                    skill_area=skill,
-                    skill=skill
+                # Fallback to original logic
+                if any(normalize_skill(skill) == normalize_skill(mh) for mh in job_must_have):
+                    importance = 'critical'
+                elif any(normalize_skill(skill) == normalize_skill(req) for req in job_skills[:len(job_skills)//2]):
+                    importance = 'important'
+                else:
+                    importance = 'nice-to-have'
+
+            # Job-specific positioning strategy (Task 2.3)
+            if user_skills:
+                strategy = await generate_job_specific_positioning(
+                    skill=skill,
+                    importance=importance,
+                    user_skills=user_skills,
+                    job_priorities=job_priorities
                 )
+            else:
+                # Fallback to template-based strategy
+                related = get_related_skills(skill)
+                templates = POSITIONING_TEMPLATES.get(importance, POSITIONING_TEMPLATES['important'])
+
+                if related:
+                    strategy = templates[0].format(
+                        related_skills=', '.join(related[:3]),
+                        skill_area=skill,
+                        skill=skill
+                    )
+                else:
+                    strategy = templates[1].format(
+                        related_skills='related experience',
+                        skill_area=skill,
+                        skill=skill
+                    )
 
             missing_skills.append(SkillGap(
                 skill=skill,
@@ -346,51 +767,119 @@ def compute_missing_skills(
     return missing_skills
 
 
-def compute_weak_signals(
+async def compute_weak_signals(
     job_skills: List[str],
     user_profile: UserSkillProfile,
     matched_skill_names: Set[str],
-    missing_skill_names: Set[str]
+    missing_skill_names: Set[str],
+    user_bullets: List[Bullet] = None
 ) -> List[WeakSignal]:
     """
     Identify weak signals: skills where user has related capability but not direct match.
 
-    Uses RELATED_SKILLS mapping to find adjacent capabilities.
+    Enhanced with semantic similarity detection (Task 2.4):
+    - Uses semantic matching to find adjacent capabilities
+    - Extracts actual bullet text as evidence
+    - Ranks weak signals by similarity score
+    - Generates specific strengthening strategies
+
+    Args:
+        job_skills: All job skills
+        user_profile: User's skill profile
+        matched_skill_names: Already matched skills
+        missing_skill_names: Skills with no match
+        user_bullets: User's bullets for extracting evidence
+
+    Returns:
+        List of weak signals with ranked evidence and strategies
     """
     weak_signals: List[WeakSignal] = []
     user_skills = user_profile.skills + user_profile.capabilities
+    user_bullets = user_bullets or []
+
+    # Prepare embedding service for semantic matching
+    embedding_service = get_embedding_service()
 
     for job_skill in job_skills:
         normalized_job_skill = normalize_skill(job_skill)
 
-        # Skip if already matched or missing
+        # Skip if already matched
         if normalized_job_skill in {normalize_skill(s) for s in matched_skill_names}:
             continue
-        if normalized_job_skill in {normalize_skill(s) for s in missing_skill_names}:
-            # Check for adjacent capabilities
-            related_skills = get_related_skills(job_skill)
-            user_related = [
-                skill for skill in user_skills
-                if any(normalize_skill(skill) == normalize_skill(rel) for rel in related_skills)
-            ]
 
-            if user_related:
-                current_evidence = [
-                    f"Experience with {skill} (related to {job_skill})"
-                    for skill in user_related[:3]
+        # Only process missing skills
+        if normalized_job_skill not in {normalize_skill(s) for s in missing_skill_names}:
+            continue
+
+        # Find related skills using both mapping and semantic similarity
+        related_skills_mapping = get_related_skills(job_skill)
+        user_related_from_mapping = [
+            skill for skill in user_skills
+            if any(normalize_skill(skill) == normalize_skill(rel) for rel in related_skills_mapping)
+        ]
+
+        # Semantic similarity with user skills (Task 2.4)
+        semantic_matches = []
+        try:
+            for user_skill in user_skills:
+                similarity = await embedding_service.compute_similarity(job_skill, user_skill)
+                if 0.4 <= similarity < 0.7:  # Weak signal range
+                    semantic_matches.append((user_skill, similarity))
+
+            # Sort by similarity score
+            semantic_matches.sort(key=lambda x: x[1], reverse=True)
+
+        except Exception as e:
+            logger.warning(f"Semantic weak signal detection failed for '{job_skill}': {e}")
+
+        # Combine mapping-based and semantic matches
+        all_related = list(set(user_related_from_mapping + [skill for skill, _ in semantic_matches[:3]]))
+
+        if all_related:
+            # Extract actual bullet text as evidence (Task 2.4)
+            current_evidence = []
+
+            for related_skill in all_related[:3]:
+                # Find bullets that mention this related skill
+                related_bullets = [
+                    bullet for bullet in user_bullets
+                    if bullet.tags and related_skill in bullet.tags
                 ]
 
+                if related_bullets:
+                    # Use actual bullet text (first bullet for this skill)
+                    bullet = related_bullets[0]
+                    current_evidence.append(f"{bullet.text[:100]}..." if len(bullet.text) > 100 else bullet.text)
+                else:
+                    # Fallback to generic evidence
+                    current_evidence.append(f"Experience with {related_skill} (related to {job_skill})")
+
+            # Generate specific strengthening strategy (Task 2.4)
+            if semantic_matches:
+                top_match_skill, top_similarity = semantic_matches[0]
                 strengthening_strategy = (
-                    f"Emphasize how experience with {', '.join(user_related[:2])} "
-                    f"provides strong foundation for {job_skill}. Consider adding specific examples "
-                    f"of how these skills were applied in ways relevant to {job_skill}."
+                    f"Your experience with {top_match_skill} (similarity: {top_similarity:.0%}) provides "
+                    f"a foundation for {job_skill}. To strengthen this connection: "
+                    f"1) Add bullets that explicitly bridge from {top_match_skill} to {job_skill}-related work, "
+                    f"2) Highlight transferable concepts and methodologies, "
+                    f"3) Consider adding a side project or certification in {job_skill} to demonstrate commitment."
+                )
+            else:
+                strengthening_strategy = (
+                    f"Emphasize how experience with {', '.join(all_related[:2])} "
+                    f"provides strong foundation for {job_skill}. Reframe existing bullets to "
+                    f"explicitly connect these skills to {job_skill}-relevant outcomes. "
+                    f"Add specific examples showing conceptual overlap and learning agility."
                 )
 
-                weak_signals.append(WeakSignal(
-                    skill=job_skill,
-                    current_evidence=current_evidence,
-                    strengthening_strategy=strengthening_strategy,
-                ))
+            weak_signals.append(WeakSignal(
+                skill=job_skill,
+                current_evidence=current_evidence[:3],  # Top 3 evidence items
+                strengthening_strategy=strengthening_strategy,
+            ))
+
+    # Rank weak signals by number of evidence items (more evidence = stronger weak signal)
+    weak_signals.sort(key=lambda ws: len(ws.current_evidence), reverse=True)
 
     return weak_signals
 
@@ -512,11 +1001,106 @@ def determine_recommendation(score: float, critical_gaps: int) -> Tuple[str, flo
         return ('weak_match', 0.5)
 
 
+def save_skill_gap_analysis(
+    db: Session,
+    job_profile_id: int,
+    user_id: int,
+    analysis: SkillGapResponse
+) -> None:
+    """
+    Persist skill gap analysis to JobProfile.skill_gap_analysis JSON column.
+
+    Stores the analysis results with timestamp for caching and retrieval.
+
+    Args:
+        db: Database session
+        job_profile_id: ID of the job profile
+        user_id: ID of the user
+        analysis: Skill gap analysis result to save
+
+    Raises:
+        ValueError: If job profile not found
+    """
+    job_profile = db.query(JobProfile).filter(JobProfile.id == job_profile_id).first()
+    if not job_profile:
+        raise ValueError(f"Job profile {job_profile_id} not found")
+
+    # Convert analysis to dict and add metadata
+    analysis_dict = analysis.model_dump()
+    analysis_dict['user_id'] = user_id
+    analysis_dict['cached_at'] = datetime.utcnow().isoformat()
+
+    # Initialize skill_gap_analysis as dict if None
+    if job_profile.skill_gap_analysis is None:
+        job_profile.skill_gap_analysis = {}
+
+    # Store analysis keyed by user_id
+    job_profile.skill_gap_analysis[str(user_id)] = analysis_dict
+
+    db.commit()
+    logger.info(f"Saved skill gap analysis for job_profile_id={job_profile_id}, user_id={user_id}")
+
+
+def get_cached_skill_gap_analysis(
+    db: Session,
+    job_profile_id: int,
+    user_id: int,
+    max_age_hours: int = 24
+) -> Optional[SkillGapResponse]:
+    """
+    Retrieve cached skill gap analysis from database if available and fresh.
+
+    Args:
+        db: Database session
+        job_profile_id: ID of the job profile
+        user_id: ID of the user
+        max_age_hours: Maximum age of cached analysis in hours (default 24)
+
+    Returns:
+        SkillGapResponse if cached and fresh, None otherwise
+    """
+    job_profile = db.query(JobProfile).filter(JobProfile.id == job_profile_id).first()
+    if not job_profile or not job_profile.skill_gap_analysis:
+        return None
+
+    # Get analysis for this user
+    user_analysis = job_profile.skill_gap_analysis.get(str(user_id))
+    if not user_analysis:
+        return None
+
+    # Check cache freshness
+    cached_at_str = user_analysis.get('cached_at')
+    if not cached_at_str:
+        logger.warning(f"Cached analysis for job_profile_id={job_profile_id}, user_id={user_id} missing timestamp")
+        return None
+
+    try:
+        cached_at = datetime.fromisoformat(cached_at_str)
+        age_hours = (datetime.utcnow() - cached_at).total_seconds() / 3600
+
+        if age_hours > max_age_hours:
+            logger.info(f"Cached analysis expired (age: {age_hours:.1f}h > {max_age_hours}h)")
+            return None
+
+        # Reconstruct SkillGapResponse from cached dict
+        # Remove metadata fields before reconstructing
+        analysis_data = {k: v for k, v in user_analysis.items() if k not in ['user_id', 'cached_at']}
+        cached_analysis = SkillGapResponse(**analysis_data)
+
+        logger.info(f"Retrieved cached skill gap analysis (age: {age_hours:.1f}h)")
+        return cached_analysis
+
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Failed to parse cached analysis: {e}")
+        return None
+
+
 async def analyze_skill_gap(
     job_profile_id: int,
     user_id: int,
     db: Session,
-    user_skill_profile: Optional[UserSkillProfile] = None
+    user_skill_profile: Optional[UserSkillProfile] = None,
+    use_cache: bool = True
 ) -> SkillGapResponse:
     """
     Compute comprehensive skill gap analysis between job requirements and user profile.
@@ -524,11 +1108,19 @@ async def analyze_skill_gap(
     Main entry point for skill gap analysis. Analyzes matched skills, identifies gaps,
     detects weak signals, and generates positioning strategies.
 
+    Enhanced with:
+    - Semantic skill matching (Task 2.1)
+    - LLM-based importance classification (Task 2.2)
+    - Job-specific positioning strategies (Task 2.3)
+    - Enhanced weak signal detection (Task 2.4)
+    - Database caching (Task 2.6)
+
     Args:
         job_profile_id: ID of the job profile to analyze against
         user_id: ID of the user
         db: Database session
         user_skill_profile: Optional pre-built user skill profile (if None, will be built from DB)
+        use_cache: Whether to use cached analysis if available (default True)
 
     Returns:
         SkillGapResponse with comprehensive analysis and positioning guidance
@@ -536,6 +1128,13 @@ async def analyze_skill_gap(
     Raises:
         ValueError: If job profile not found or missing required data
     """
+    # Check for cached analysis first
+    if use_cache:
+        cached_analysis = get_cached_skill_gap_analysis(db, job_profile_id, user_id)
+        if cached_analysis:
+            logger.info(f"Using cached skill gap analysis for job_profile_id={job_profile_id}, user_id={user_id}")
+            return cached_analysis
+
     # Fetch job profile
     job_profile = db.query(JobProfile).filter(JobProfile.id == job_profile_id).first()
     if not job_profile:
@@ -545,6 +1144,8 @@ async def analyze_skill_gap(
     job_skills = job_profile.extracted_skills or []
     job_must_have = job_profile.must_have_capabilities or []
     job_nice_to_have = job_profile.nice_to_have_capabilities or []
+    job_priorities = job_profile.core_priorities or []
+    jd_text = job_profile.raw_jd_text or ""
 
     if not job_skills:
         raise ValueError(f"Job profile {job_profile_id} has no extracted skills")
@@ -559,25 +1160,30 @@ async def analyze_skill_gap(
         Bullet.retired == False
     ).all()
 
-    # Compute matched skills
-    matched_skills = compute_matched_skills(job_skills, user_skill_profile, user_bullets)
+    # Compute matched skills (now async with semantic matching)
+    matched_skills = await compute_matched_skills(job_skills, user_skill_profile, user_bullets)
     matched_skill_names = {m.skill for m in matched_skills}
 
-    # Compute missing skills (gaps)
-    missing_skills = compute_missing_skills(
-        job_skills,
-        job_must_have,
-        job_nice_to_have,
-        matched_skill_names
+    # Compute missing skills (gaps) with enhanced categorization and positioning
+    user_all_skills = user_skill_profile.skills + user_skill_profile.capabilities + user_skill_profile.bullet_tags
+    missing_skills = await compute_missing_skills(
+        job_skills=job_skills,
+        job_must_have=job_must_have,
+        job_nice_to_have=job_nice_to_have,
+        matched_skill_names=matched_skill_names,
+        jd_text=jd_text,
+        user_skills=user_all_skills,
+        job_priorities=job_priorities
     )
     missing_skill_names = {g.skill for g in missing_skills}
 
-    # Compute weak signals
-    weak_signals = compute_weak_signals(
-        job_skills,
-        user_skill_profile,
-        matched_skill_names,
-        missing_skill_names
+    # Compute weak signals with semantic similarity
+    weak_signals = await compute_weak_signals(
+        job_skills=job_skills,
+        user_profile=user_skill_profile,
+        matched_skill_names=matched_skill_names,
+        missing_skill_names=missing_skill_names,
+        user_bullets=user_bullets
     )
 
     # Calculate overall match score
@@ -660,7 +1266,7 @@ async def analyze_skill_gap(
         )
 
     # Build response
-    return SkillGapResponse(
+    analysis_result = SkillGapResponse(
         job_profile_id=job_profile_id,
         user_id=user_id,
         skill_match_score=skill_match_score,
@@ -677,3 +1283,12 @@ async def analyze_skill_gap(
         mitigation_strategies=mitigation_strategies,
         analysis_timestamp=datetime.utcnow().isoformat(),
     )
+
+    # Save analysis to database for caching
+    try:
+        save_skill_gap_analysis(db, job_profile_id, user_id, analysis_result)
+    except Exception as e:
+        logger.warning(f"Failed to cache skill gap analysis: {e}")
+        # Don't fail the entire analysis if caching fails
+
+    return analysis_result

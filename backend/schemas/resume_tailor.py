@@ -265,6 +265,10 @@ class TailoredResume(BaseModel):
         ...,
         description="Comprehensive rationale for tailoring decisions"
     )
+    skill_gap_summary: Optional[Dict] = Field(
+        None,
+        description="Summary of skill gap analysis including match score, gaps, and positioning strategies"
+    )
     ats_score_estimate: Optional[float] = Field(
         None,
         ge=0.0,

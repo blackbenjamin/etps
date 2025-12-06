@@ -456,7 +456,13 @@ def determine_capabilities(
     nice_to_haves_section: List[str]
 ) -> Tuple[List[str], List[str]]:
     """
-    Extract must-have and nice-to-have capabilities.
+    Extract must-have and nice-to-have capabilities with enhanced detection.
+
+    Enhanced in Task 2.7 to better identify and categorize capabilities:
+    - Stronger signal detection for must-haves vs nice-to-haves
+    - Extracts specific skills and experiences from requirement text
+    - Validates capabilities are substantive
+    - Removes duplicates and overly generic statements
 
     Args:
         requirements: List of requirement strings
@@ -468,39 +474,160 @@ def determine_capabilities(
     """
     must_haves = []
     nice_to_haves = []
+    seen_capabilities = set()  # Track to avoid duplicates
 
-    # Keywords indicating must-have requirements
+    # Enhanced keywords indicating must-have requirements
     must_have_indicators = [
-        'required', 'must have', 'must be', 'essential', 'mandatory',
-        'minimum', 'necessary', 'need to have', 'needs to have'
+        'required', 'must have', 'must be', 'must possess', 'essential', 'mandatory',
+        'minimum', 'necessary', 'need to have', 'needs to have', 'critical',
+        'you will need', 'you must', 'required to have', 'should have',
+        'requires', 'required:', 'requirements:', 'qualifications:'
     ]
 
-    # Keywords indicating nice-to-have requirements
+    # Enhanced keywords indicating nice-to-have requirements
     nice_to_have_indicators = [
-        'preferred', 'nice to have', 'bonus', 'plus', 'ideal',
-        'desirable', 'would be great', 'advantage'
+        'preferred', 'nice to have', 'bonus', 'plus', 'ideal', 'ideally',
+        'desirable', 'would be great', 'advantage', 'beneficial',
+        'a plus', 'is a plus', 'nice-to-have', 'optional',
+        'preferred qualifications', 'we would love', 'great if you'
     ]
 
-    # Process requirements
+    # Generic phrases to filter out (too vague to be useful capabilities)
+    generic_phrases = [
+        'communication skills',
+        'strong communication',
+        'team player',
+        'self-starter',
+        'fast-paced environment',
+        'detail-oriented',
+        'problem solver',
+        'problem solving',
+        'quick learner',
+        'work independently',
+        'self-motivated',
+        'highly motivated'
+    ]
+
+    def is_substantive(capability: str) -> bool:
+        """Check if capability is substantive enough to include."""
+        # Must be at least 15 characters
+        if len(capability) < 15:
+            return False
+
+        # Reject if it's a generic phrase
+        cap_lower = capability.lower()
+        for generic in generic_phrases:
+            if generic in cap_lower:
+                return False
+
+        # Should contain at least one meaningful word (skill, experience, knowledge)
+        meaningful_keywords = [
+            'experience', 'knowledge', 'understanding', 'proficiency',
+            'expertise', 'degree', 'certification', 'years', 'skill',
+            'ability to', 'working with', 'development', 'design',
+            'implementation', 'management', 'analysis', 'framework',
+            'language', 'tool', 'platform', 'system'
+        ]
+
+        return any(keyword in cap_lower for keyword in meaningful_keywords)
+
+    def extract_key_capability(text: str) -> str:
+        """Extract the core capability from requirement text."""
+        # Clean up common prefixes first (before removing years)
+        text = re.sub(r'^(proven|strong|excellent|demonstrated|solid)\s+', '', text, flags=re.IGNORECASE)
+
+        # Remove leading numbers (e.g., "5+ years of Python" -> "Python experience")
+        text = re.sub(r'^\d+[\+]?\s+(years?|yrs?)\s+(of\s+)?', '', text, flags=re.IGNORECASE)
+
+        # Truncate at common ending phrases
+        for ending in [' in a fast-paced', ' with the ability', ' and ability to']:
+            if ending in text.lower():
+                text = text[:text.lower().index(ending)]
+
+        return text.strip()
+
+    def normalize_capability(text: str) -> str:
+        """Normalize capability for deduplication."""
+        # Convert to lowercase and remove extra whitespace
+        normalized = ' '.join(text.lower().split())
+        # Remove punctuation at the end
+        normalized = normalized.rstrip('.,;:')
+        return normalized
+
+    # Process requirements with enhanced categorization
     for req in requirements:
+        if not req or len(req.strip()) < 10:
+            continue
+
+        req_stripped = req.strip()
         req_lower = req.lower()
 
-        # Check for nice-to-have indicators first
-        if any(indicator in req_lower for indicator in nice_to_have_indicators):
-            nice_to_haves.append(req)
-        else:
-            # Default requirements to must-haves
-            must_haves.append(req)
+        # Extract core capability
+        capability = extract_key_capability(req_stripped)
 
-    # Add items from nice-to-haves section
-    nice_to_haves.extend(nice_to_haves_section)
+        # Skip if not substantive
+        if not is_substantive(capability):
+            continue
 
-    # Add key responsibilities as capabilities
+        # Check for duplicates
+        normalized = normalize_capability(capability)
+        if normalized in seen_capabilities:
+            continue
+        seen_capabilities.add(normalized)
+
+        # Strong nice-to-have indicators take precedence
+        is_nice_to_have = any(indicator in req_lower for indicator in nice_to_have_indicators)
+        is_must_have = any(indicator in req_lower for indicator in must_have_indicators)
+
+        if is_nice_to_have:
+            nice_to_haves.append(capability)
+        elif is_must_have or not is_nice_to_have:
+            # Default requirements to must-haves if not explicitly nice-to-have
+            must_haves.append(capability)
+
+    # Process nice-to-haves section
+    for nth in nice_to_haves_section:
+        if not nth or len(nth.strip()) < 10:
+            continue
+
+        capability = extract_key_capability(nth.strip())
+
+        if not is_substantive(capability):
+            continue
+
+        normalized = normalize_capability(capability)
+        if normalized in seen_capabilities:
+            continue
+        seen_capabilities.add(normalized)
+
+        nice_to_haves.append(capability)
+
+    # Add key responsibilities as must-have capabilities
+    # These represent what you'll actually be doing in the role
     for resp in responsibilities[:5]:  # Top 5 responsibilities
-        if len(resp) > 30:  # Only substantial responsibilities
-            must_haves.append(resp)
+        if not resp or len(resp.strip()) < 20:
+            continue
 
-    return must_haves, nice_to_haves
+        capability = extract_key_capability(resp.strip())
+
+        # Responsibilities should be substantial
+        if len(capability) < 20:
+            continue
+
+        normalized = normalize_capability(capability)
+        if normalized in seen_capabilities:
+            continue
+        seen_capabilities.add(normalized)
+
+        # Responsibilities are implicit must-haves (you'll be doing this)
+        must_haves.append(capability)
+
+    # Validate that we have at least some capabilities
+    if not must_haves and not nice_to_haves:
+        # Fallback: use raw requirements if extraction failed
+        must_haves = [req for req in requirements if len(req) > 15][:10]
+
+    return must_haves[:20], nice_to_haves[:15]  # Cap at reasonable limits
 
 
 async def parse_job_description(
@@ -563,10 +690,32 @@ async def parse_job_description(
     # Determine job type tags
     job_type_tags = determine_job_type_tags(jd_text, skills, job_title)
 
-    # Determine capabilities
+    # Determine capabilities with enhanced extraction
     must_have_capabilities, nice_to_have_capabilities = determine_capabilities(
         requirements, responsibilities, nice_to_haves
     )
+
+    # Validate capabilities are populated (Task 2.7)
+    if not must_have_capabilities and not nice_to_have_capabilities:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            f"No capabilities extracted for job profile: {job_title}. "
+            f"Requirements: {len(requirements)}, Responsibilities: {len(responsibilities)}"
+        )
+
+        # Fallback: use raw requirements and responsibilities
+        if requirements:
+            must_have_capabilities = requirements[:10]
+        elif responsibilities:
+            must_have_capabilities = responsibilities[:10]
+        else:
+            # Last resort: extract from full JD text
+            must_have_capabilities = [
+                line.strip() for line in jd_text.split('\n')
+                if 15 < len(line.strip()) < 200 and
+                any(keyword in line.lower() for keyword in ['experience', 'knowledge', 'skill', 'ability'])
+            ][:10]
 
     # Use LLM for core priorities and tone
     llm = MockLLM()

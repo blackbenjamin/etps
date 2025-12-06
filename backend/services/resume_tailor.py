@@ -7,7 +7,7 @@ to maximize alignment with specific job requirements.
 
 import re
 from datetime import datetime
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from sqlalchemy.orm import Session
 
 from db.models import Bullet, Experience, JobProfile, User
@@ -23,7 +23,7 @@ from services.skill_gap import (
     SKILL_SYNONYMS,
     analyze_skill_gap,
     normalize_skill,
-    find_skill_match,
+    find_skill_match_sync,
 )
 from services.llm.base import BaseLLM
 
@@ -98,7 +98,7 @@ def select_bullets_for_role(
             for tag in bullet.tags:
                 # Check against matched skills
                 for job_skill in job_skills:
-                    if find_skill_match(job_skill, [tag]):
+                    if find_skill_match_sync(job_skill, [tag]):
                         tag_score += 1.0
                         matching_tags.append(tag)
                         break
@@ -118,7 +118,7 @@ def select_bullets_for_role(
             # Average relevance for matched skills
             relevant_scores = [
                 score for skill, score in bullet.relevance_scores.items()
-                if any(find_skill_match(ms, [skill]) for ms in matched_skills)
+                if any(find_skill_match_sync(ms, [skill]) for ms in matched_skills)
             ]
             if relevant_scores:
                 relevance_score = (sum(relevant_scores) / len(relevant_scores)) * 0.3
@@ -354,6 +354,7 @@ async def generate_tailored_summary(
     matched_skills = [m.skill for m in skill_gap_result.matched_skills[:3]]
     seniority = job_profile.seniority or "experienced"
     job_title = job_profile.job_title
+    positioning_angles = skill_gap_result.key_positioning_angles[:2]  # Top 2 positioning strategies
 
     # Calculate years of experience
     years_exp = 0
@@ -370,6 +371,7 @@ async def generate_tailored_summary(
         'matched_skills': matched_skills,
         'years_experience': years_exp,
         'job_priorities': job_profile.core_priorities or [],
+        'positioning_angles': positioning_angles,
     }
 
     # Generate summary using LLM
@@ -387,12 +389,16 @@ Key skills that match job requirements:
 Job priorities to address:
 {', '.join(job_profile.core_priorities[:3]) if job_profile.core_priorities else 'N/A'}
 
+Positioning strategies to incorporate:
+{', '.join(positioning_angles) if positioning_angles else 'N/A'}
+
 Write a compelling summary that:
 1. Emphasizes matched skills and relevant experience
 2. Aligns with job seniority level
 3. Addresses 1-2 key job priorities
-4. Is concrete and achievement-focused (avoid generic phrases)
-5. Is exactly 60-80 words
+4. Incorporates the positioning strategies subtly
+5. Is concrete and achievement-focused (avoid generic phrases)
+6. Is exactly 60-80 words
 
 Summary:"""
 
@@ -679,6 +685,20 @@ async def tailor_resume(
     if len(selected_skills) > max_skills:
         constraints_validated = False
 
+    # Build skill gap summary for response
+    skill_gap_summary = {
+        'skill_match_score': skill_gap_result.skill_match_score,
+        'recommendation': skill_gap_result.recommendation,
+        'confidence': skill_gap_result.confidence,
+        'matched_skills_count': len(skill_gap_result.matched_skills),
+        'skill_gaps_count': len(skill_gap_result.skill_gaps),
+        'critical_gaps_count': len([g for g in skill_gap_result.skill_gaps if g.importance == 'critical']),
+        'weak_signals_count': len(skill_gap_result.weak_signals),
+        'key_positioning_angles': skill_gap_result.key_positioning_angles[:3],
+        'top_matched_skills': [m.skill for m in skill_gap_result.matched_skills[:5]],
+        'critical_gaps': [g.skill for g in skill_gap_result.skill_gaps if g.importance == 'critical'][:3],
+    }
+
     # Build final response
     return TailoredResume(
         job_profile_id=job_profile_id,
@@ -688,6 +708,7 @@ async def tailor_resume(
         selected_roles=selected_roles,
         selected_skills=selected_skills,
         rationale=rationale,
+        skill_gap_summary=skill_gap_summary,
         ats_score_estimate=None,  # TODO: Implement ATS scoring
         match_score=round(match_score, 1),
         generated_at=datetime.utcnow().isoformat(),
@@ -897,7 +918,7 @@ async def log_critic_result(
 
 def get_critic_feedback_for_revision(
     critic_result: "ResumeCriticResult"
-) -> Dict[str, any]:
+) -> Dict[str, Any]:
     """
     Extract actionable feedback from critic result for resume revision.
 
