@@ -103,9 +103,9 @@ All services in `backend/services/` follow this pattern:
 
 ## Current Status
 
-**Completed Sprints:** 1-8C (Core quality, semantic search, learning, pagination)
-**Next:** Sprint 9-10 (Frontend MVP)
-**Test Count:** 344 passing
+**Completed Sprints:** 1-10C (Core quality, semantic search, learning, pagination, frontend MVP, JD parsing)
+**Next:** Sprint 11-14 (Company Intelligence)
+**Test Count:** 550 passing
 
 ## Useful Commands
 

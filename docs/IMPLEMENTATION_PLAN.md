@@ -39,15 +39,17 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 8B: Gap Remediation | ✅ COMPLETE | Dec 2025 | Integration gaps, truthfulness validation, skill-gap connection |
 | Sprint 8C: Pagination-Aware Layout | ✅ COMPLETE | Dec 2025 | Line budgeting, value-per-line allocation, page split rules, security hardening |
 | Sprint 9-10: Frontend MVP | ✅ COMPLETE | Dec 2025 | Next.js + Job Intake UI, Zustand, TanStack Query, shadcn/ui |
+| Sprint 10B: JD Extraction Quality | ✅ COMPLETE | Dec 2025 | URL extraction validation, parser improvements, user-friendly errors |
+| Sprint 10C: Parser & Skill Gap Fixes | ✅ COMPLETE | Dec 2025 | Company/Title/Location extraction, skill gap score calculation fix |
 | Sprint 11-14: Company Intelligence | 🔲 NOT STARTED | - | Phase 2 |
 | Sprint 15-17: Application Tracking | 🔲 NOT STARTED | - | Phase 3 |
 | Sprint 18: Production Hardening | 🔲 NOT STARTED | - | ⚠️ Security & reliability (8 P0 tasks) |
 | Sprint 19: Deployment | 🔲 NOT STARTED | - | Railway + Vercel |
 
 ### Test Coverage
-- **Total Tests:** 344 passing
-- **Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_sprint_8b_integration.py, test_pagination_allocation.py, test_sprint_8c_regression.py
-- **Coverage:** All Sprint 1-8C functionality tested
+- **Total Tests:** 550 passing
+- **Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_sprint_8b_integration.py, test_pagination_allocation.py, test_sprint_8c_regression.py, test_job_parser_extraction.py
+- **Coverage:** All Sprint 1-10C functionality tested
 
 ### Git Workflow & Commit Checkpoints
 
@@ -128,11 +130,12 @@ All checks must pass before `git push`.
 │ - Learning from Approved Outputs                                │
 │ - Gap Remediation (Sprint 8B)                                   │
 ├─────────────────────────────────────────────────────────────────┤
-│ PHASE 1E: Frontend MVP (Sprints 9-10)                          │
-│ - Next.js Setup                                                 │
-│ - Job Intake Page                                               │
-│ - Generate & Download Workflow                                  │
-│ - Skill-Gap Display                                             │
+│ PHASE 1E: Frontend MVP (Sprints 9-10B)              ✅ COMPLETE │
+│ - Next.js Setup                                     ✅          │
+│ - Job Intake Page                                   ✅          │
+│ - Generate & Download Workflow                      ✅          │
+│ - Skill-Gap Display                                 ✅          │
+│ - JD Extraction Quality Validation (Sprint 10B)    ✅          │
 ├─────────────────────────────────────────────────────────────────┤
 │ PHASE 2: Company Intelligence (Sprints 11-14)                  │
 │ - Company Profile Enrichment                                    │
@@ -759,12 +762,58 @@ value_per_line = relevance_score / estimated_lines
 | 1.10.11 | Pass context notes from UI to backend generation endpoints | `frontend/src/app/page.tsx`, `backend/routers/resume.py`, `backend/routers/cover_letter.py` | PRD 1.6, 6.6 | P0 |
 
 #### Acceptance Criteria
-- [ ] User can paste JD text or URL
-- [ ] Generate buttons trigger backend calls
-- [ ] Download buttons work for all formats
-- [ ] Skill-gap analysis displayed clearly
-- [ ] ATS score shown with numeric score (0-100), color coding (red/yellow/green), and brief explanation
-- [ ] Context notes field available and passed to backend generation endpoints
+- [x] User can paste JD text or URL
+- [x] Generate buttons trigger backend calls
+- [x] Download buttons work for all formats
+- [x] Skill-gap analysis displayed clearly
+- [x] ATS score shown with numeric score (0-100), color coding (red/yellow/green), and brief explanation
+- [x] Context notes field available and passed to backend generation endpoints
+
+---
+
+### Sprint 10B: JD Extraction Quality & Parser Improvements ✅ COMPLETE
+
+**Goal:** Implement automatic quality validation for URL-based job description extraction, improve job parser accuracy, and provide user-friendly error messages when extraction fails.
+
+**Status:** ✅ Completed December 2025
+
+#### Tasks
+
+| ID | Task | File(s) | PRD Ref | Status |
+|----|------|---------|---------|--------|
+| 10B.1 | Add ExtractionQuality dataclass | `utils/text_processing.py` | 1.6 | ✅ |
+| 10B.2 | Implement validate_extraction_quality() | `utils/text_processing.py` | 1.6 | ✅ |
+| 10B.3 | Add ExtractionFailedError exception | `utils/text_processing.py` | 1.6 | ✅ |
+| 10B.4 | Add URL normalization (Lever, Greenhouse) | `utils/text_processing.py` | 1.6 | ✅ |
+| 10B.5 | Add EEO/boilerplate content filtering | `utils/text_processing.py` | 1.6 | ✅ |
+| 10B.6 | Add meta tag extraction for JS-rendered pages | `utils/text_processing.py` | 1.6 | ✅ |
+| 10B.7 | Update job parser exception handling | `services/job_parser.py` | 1.6 | ✅ |
+| 10B.8 | Add SECTION_STOP_PATTERNS for parser | `services/job_parser.py` | 2.7 | ✅ |
+| 10B.9 | Fix nice-to-have header patterns | `services/job_parser.py` | 2.7 | ✅ |
+| 10B.10 | Remove HTTPS from skills taxonomy | `services/job_parser.py` | 2.7 | ✅ |
+| 10B.11 | Add API error handler for ExtractionFailedError | `routers/job.py` | 1.6 | ✅ |
+| 10B.12 | Add ExtractionFailedError to frontend API | `frontend/src/lib/api.ts` | 6.6 | ✅ |
+| 10B.13 | Update JobIntakeForm error display | `frontend/src/components/job-intake/JobIntakeForm.tsx` | 6.6 | ✅ |
+
+#### Acceptance Criteria
+- [x] URL extraction validates content quality (length, job keywords, error indicators)
+- [x] Extraction quality score computed (0-100) with configurable threshold (50)
+- [x] ExtractionFailedError raised with user-friendly message when quality too low
+- [x] Lever/Greenhouse /apply URLs normalized to job description pages
+- [x] EEO statements and legal boilerplate filtered from extraction
+- [x] Meta tags extracted as fallback for JS-rendered pages
+- [x] API returns HTTP 422 with structured error for extraction failures
+- [x] Frontend displays amber warning with suggestion to paste JD text directly
+- [x] Job parser stops at salary/benefits/success metrics sections
+- [x] Nice-to-have patterns don't match mid-sentence "preferred"
+- [x] Skills taxonomy doesn't match false positives from URLs (HTTPS removed)
+
+#### Implementation Notes
+- `ExtractionQuality` dataclass with `is_valid`, `score`, `issues`, `suggestions`
+- Quality checks: minimum length, job keywords, error indicators (login walls, CAPTCHA, etc.), boilerplate ratio, skill indicators
+- `SECTION_STOP_PATTERNS` added to stop parsing at salary, benefits, success metrics, EEO sections
+- Frontend shows distinct amber warning for extraction failures vs. red error for other failures
+- All 432 tests passing
 
 ---
 
@@ -998,9 +1047,10 @@ Sprint 5 (Rewriting) → depends on → Sprint 4 (Schema) ✅
 Sprint 8 (Learning) → depends on → Sprint 7 (Qdrant) ✅
 Sprint 8B (Gap Remediation) → depends on → Sprint 8 (Learning) ✅
 Sprint 8C (Pagination) → depends on → Sprint 8B (Gap Remediation) ✅
-Sprint 9 (Frontend) → depends on → Sprint 8C (Pagination)
-Sprint 10 (UI) → depends on → Sprint 9 (Next.js setup)
-Phase 2 → depends on → Phase 1E complete
+Sprint 9 (Frontend) → depends on → Sprint 8C (Pagination) ✅
+Sprint 10 (UI) → depends on → Sprint 9 (Next.js setup) ✅
+Sprint 10B (Extraction Quality) → depends on → Sprint 10 (UI) ✅
+Phase 2 → depends on → Phase 1E complete (Sprint 10B) ✅
 Phase 3 → depends on → Phase 1E complete
 Sprint 18 (Security) → depends on → Phase 1A complete ✅
 Sprint 19 (Deployment) → depends on → Sprint 18 (Security)
