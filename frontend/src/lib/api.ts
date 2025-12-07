@@ -82,7 +82,7 @@ export const api = {
       body: JSON.stringify({
         tailored_resume: resume,
         user_name: 'Benjamin Black',
-        user_email: 'benjamin@etps.dev',
+        user_email: 'ben@benjaminblack.consulting',
         user_phone: '555-0123',
         user_linkedin: 'linkedin.com/in/benjaminblack',
         user_portfolio: 'github.com/benjaminblack',
@@ -104,7 +104,7 @@ export const api = {
       body: JSON.stringify({
         tailored_resume: resume,
         user_name: 'Benjamin Black',
-        user_email: 'benjamin@etps.dev',
+        user_email: 'ben@benjaminblack.consulting',
         user_phone: '555-0123',
         user_linkedin: 'linkedin.com/in/benjaminblack',
         user_portfolio: 'github.com/benjaminblack',
@@ -140,9 +140,39 @@ export const api = {
   },
 
   downloadCoverLetterDocx: async (jobProfileId: number): Promise<Blob> => {
-    const response = await fetch(`${API_BASE}/api/v1/cover-letter/docx?job_profile_id=${jobProfileId}`);
-    if (!response.ok) throw new Error('Download failed');
-    return response.blob();
+    const response = await fetch(`${API_BASE}/api/v1/cover-letter/docx?format=docx`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        job_profile_id: jobProfileId,
+        user_id: 1,
+      }),
+    })
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Download failed: ${errorText}`)
+    }
+    return response.blob()
+  },
+
+  downloadCoverLetterText: async (jobProfileId: number): Promise<Blob> => {
+    const response = await fetch(`${API_BASE}/api/v1/cover-letter/docx?format=text`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        job_profile_id: jobProfileId,
+        user_id: 1,
+      }),
+    })
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Download failed: ${errorText}`)
+    }
+    return response.blob()
   },
 }
 

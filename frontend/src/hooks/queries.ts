@@ -148,3 +148,20 @@ export function useDownloadCoverLetter() {
     },
   })
 }
+
+// Download cover letter text mutation
+export function useDownloadCoverLetterText() {
+  return useMutation({
+    mutationFn: async (jobProfileId: number) => {
+      const blob = await api.downloadCoverLetterText(jobProfileId)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `cover_letter_${jobProfileId}.txt`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    },
+  })
+}

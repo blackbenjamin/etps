@@ -2,7 +2,7 @@
 
 import { Download, Code, FileText, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useDownloadResume, useDownloadCoverLetter, useDownloadResumeText } from '@/hooks/queries'
+import { useDownloadResume, useDownloadCoverLetter, useDownloadResumeText, useDownloadCoverLetterText } from '@/hooks/queries'
 import type { TailoredResume, GeneratedCoverLetter } from '@/types'
 
 interface DownloadButtonsProps {
@@ -15,8 +15,9 @@ export function DownloadButtons({ type, jobProfileId, jsonData }: DownloadButton
   const downloadResume = useDownloadResume()
   const downloadResumeText = useDownloadResumeText()
   const downloadCoverLetter = useDownloadCoverLetter()
+  const downloadCoverLetterText = useDownloadCoverLetterText()
 
-  const isDownloading = downloadResume.isPending || downloadCoverLetter.isPending || downloadResumeText.isPending
+  const isDownloading = downloadResume.isPending || downloadCoverLetter.isPending || downloadResumeText.isPending || downloadCoverLetterText.isPending
 
   const handleDownloadDocx = async () => {
     if (type === 'resume') {
@@ -44,19 +45,7 @@ export function DownloadButtons({ type, jobProfileId, jsonData }: DownloadButton
     if (type === 'resume') {
       await downloadResumeText.mutateAsync(jsonData as TailoredResume)
     } else {
-      // Client-side text generation for cover letter (simple enough)
-      const cl = jsonData as GeneratedCoverLetter
-      const text = cl.draft_cover_letter
-
-      const blob = new Blob([text], { type: 'text/plain' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `cover_letter_${jobProfileId}.txt`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      await downloadCoverLetterText.mutateAsync(jobProfileId)
     }
   }
 
