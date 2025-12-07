@@ -81,11 +81,33 @@ export const api = {
       },
       body: JSON.stringify({
         tailored_resume: resume,
-        user_name: 'Demo User',
-        user_email: 'demo@example.com',
+        user_name: 'Benjamin Black',
+        user_email: 'benjamin@etps.dev',
         user_phone: '555-0123',
-        user_linkedin: 'linkedin.com/in/demouser',
-        user_portfolio: 'github.com/demouser',
+        user_linkedin: 'linkedin.com/in/benjaminblack',
+        user_portfolio: 'github.com/benjaminblack',
+      }),
+    })
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Download failed: ${errorText}`)
+    }
+    return response.blob()
+  },
+
+  downloadResumeText: async (resume: TailoredResume): Promise<Blob> => {
+    const response = await fetch(`${API_BASE}/api/v1/resume/docx?format=text`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        tailored_resume: resume,
+        user_name: 'Benjamin Black',
+        user_email: 'benjamin@etps.dev',
+        user_phone: '555-0123',
+        user_linkedin: 'linkedin.com/in/benjaminblack',
+        user_portfolio: 'github.com/benjaminblack',
       }),
     })
     if (!response.ok) {

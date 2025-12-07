@@ -115,6 +115,23 @@ export function useDownloadResume() {
   })
 }
 
+// Download resume text mutation
+export function useDownloadResumeText() {
+  return useMutation({
+    mutationFn: async (resume: TailoredResume) => {
+      const blob = await api.downloadResumeText(resume)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `resume_${resume.job_profile_id}.txt`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    },
+  })
+}
+
 // Download cover letter mutation
 export function useDownloadCoverLetter() {
   return useMutation({

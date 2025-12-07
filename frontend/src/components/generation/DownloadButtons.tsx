@@ -2,7 +2,7 @@
 
 import { Download, Code, FileText, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useDownloadResume, useDownloadCoverLetter } from '@/hooks/queries'
+import { useDownloadResume, useDownloadCoverLetter, useDownloadResumeText } from '@/hooks/queries'
 import type { TailoredResume, GeneratedCoverLetter } from '@/types'
 
 interface DownloadButtonsProps {
@@ -13,9 +13,10 @@ interface DownloadButtonsProps {
 
 export function DownloadButtons({ type, jobProfileId, jsonData }: DownloadButtonsProps) {
   const downloadResume = useDownloadResume()
+  const downloadResumeText = useDownloadResumeText()
   const downloadCoverLetter = useDownloadCoverLetter()
 
-  const isDownloading = downloadResume.isPending || downloadCoverLetter.isPending
+  const isDownloading = downloadResume.isPending || downloadCoverLetter.isPending || downloadResumeText.isPending
 
   const handleDownloadDocx = async () => {
     if (type === 'resume') {
@@ -39,35 +40,24 @@ export function DownloadButtons({ type, jobProfileId, jsonData }: DownloadButton
     URL.revokeObjectURL(url)
   }
 
-  const handleDownloadTxt = () => {
-    let text = ''
+  const handleDownloadTxt = async () => {
     if (type === 'resume') {
-      const resume = jsonData as TailoredResume
-      text = `PROFESSIONAL SUMMARY\n\n${resume.tailored_summary}\n\n`
-      text += `EXPERIENCE\n\n`
-      resume.selected_roles?.forEach(role => {
-        text += `${role.job_title} | ${role.employer_name}\n`
-        text += `${role.start_date} - ${role.end_date || 'Present'}\n\n`
-        role.selected_bullets?.forEach(bullet => {
-          text += `• ${bullet.text}\n`
-        })
-        text += '\n'
-      })
-      text += `SKILLS\n\n${resume.selected_skills?.join(', ') || ''}`
+      await downloadResumeText.mutateAsync(jsonData as TailoredResume)
     } else {
+      // Client-side text generation for cover letter (simple enough)
       const cl = jsonData as GeneratedCoverLetter
-      text = cl.draft_cover_letter
-    }
+      const text = cl.draft_cover_letter
 
-    const blob = new Blob([text], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${type}_${jobProfileId}.txt`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+      const blob = new Blob([text], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `cover_letter_${jobProfileId}.txt`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }
   }
 
   return (
@@ -84,11 +74,11 @@ export function DownloadButtons({ type, jobProfileId, jsonData }: DownloadButton
         )}
         DOCX
       </Button>
-      <Button onClick={handleDownloadTxt} variant="outline" size="sm">
+      <Button onClick={handleDownloadTxt} variant="outline" size="sm" disabled={isDownloading}>
         <FileText className="mr-2 h-4 w-4" />
         TXT
       </Button>
-      <Button onClick={handleDownloadJson} variant="outline" size="sm">
+      <Button onClick={handleDownloadJson} variant="outline" size="sm" disabled={isDownloading}>
         <Code className="mr-2 h-4 w-4" />
         JSON
       </Button>
