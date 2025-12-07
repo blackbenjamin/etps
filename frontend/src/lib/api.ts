@@ -83,9 +83,9 @@ export const api = {
         tailored_resume: resume,
         user_name: 'Benjamin Black',
         user_email: 'ben@benjaminblack.consulting',
-        user_phone: '555-0123',
+        user_phone: '617-504-5529',
         user_linkedin: 'linkedin.com/in/benjaminblack',
-        user_portfolio: 'github.com/benjaminblack',
+        user_portfolio: 'benjaminblack.consulting/projects',
       }),
     })
     if (!response.ok) {
@@ -105,9 +105,9 @@ export const api = {
         tailored_resume: resume,
         user_name: 'Benjamin Black',
         user_email: 'ben@benjaminblack.consulting',
-        user_phone: '555-0123',
+        user_phone: '617-504-5529',
         user_linkedin: 'linkedin.com/in/benjaminblack',
-        user_portfolio: 'github.com/benjaminblack',
+        user_portfolio: 'benjaminblack.consulting/projects',
       }),
     })
     if (!response.ok) {
