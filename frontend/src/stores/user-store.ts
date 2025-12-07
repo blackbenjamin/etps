@@ -17,7 +17,7 @@ interface UserState {
 export const useUserStore = create<UserState>()(
   persist(
     (set) => ({
-      userId: 1, // Default user ID for single-user mode
+      userId: 2, // Default user ID for single-user mode (User 2 has actual bullet data)
       preferences: {
         defaultCoverLetterStyle: 'standard',
         autoDownloadAfterGenerate: false,

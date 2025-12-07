@@ -11,6 +11,7 @@ import { ContextNotesField } from './ContextNotesField'
 import { useParseJobDescription } from '@/hooks/queries'
 import { useJobStore } from '@/stores/job-store'
 import { useGenerationStore } from '@/stores/generation-store'
+import { ExtractionFailedError } from '@/lib/api'
 import type { JobProfile } from '@/types'
 
 interface JobIntakeFormProps {
@@ -73,7 +74,7 @@ export function JobIntakeForm({ onJobParsed }: JobIntakeFormProps) {
       const result = await parseJob.mutateAsync({
         jd_text: jdText || undefined,
         jd_url: sourceUrl || undefined,
-        user_id: 1, // Default user for single-user mode
+        user_id: 2, // Default user for single-user mode (User 2 has actual bullet data)
       })
 
       // Store in Zustand
@@ -158,13 +159,28 @@ Include:
         </Button>
 
         {parseJob.isError && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Parsing Failed</AlertTitle>
-            <AlertDescription>
-              {getErrorMessage(parseJob.error)}
-            </AlertDescription>
-          </Alert>
+          parseJob.error instanceof ExtractionFailedError ? (
+            <Alert variant="default" className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertTitle className="text-amber-800 dark:text-amber-200">Unable to Extract Job Description</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p className="text-amber-700 dark:text-amber-300">{parseJob.error.userMessage}</p>
+                {parseJob.error.suggestions.length > 0 && (
+                  <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                    {parseJob.error.suggestions[0]}
+                  </p>
+                )}
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Parsing Failed</AlertTitle>
+              <AlertDescription>
+                {getErrorMessage(parseJob.error)}
+              </AlertDescription>
+            </Alert>
+          )
         )}
       </CardContent>
     </Card>
