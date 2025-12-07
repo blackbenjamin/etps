@@ -449,8 +449,8 @@ async def find_skill_match(skill: str, user_skills: List[str]) -> Optional[str]:
     if sync_match:
         return sync_match
 
-    # Semantic match (Task 2.1)
-    semantic_match = await compute_semantic_skill_match(skill, user_skills, threshold=0.7)
+    # Semantic match (Task 2.1) - lowered threshold from 0.7 to 0.6 for better matching
+    semantic_match = await compute_semantic_skill_match(skill, user_skills, threshold=0.6)
     if semantic_match:
         matched_skill, _ = semantic_match
         return matched_skill
@@ -848,7 +848,10 @@ async def compute_weak_signals(
                 if related_bullets:
                     # Use actual bullet text (first bullet for this skill)
                     bullet = related_bullets[0]
-                    current_evidence.append(f"{bullet.text[:100]}..." if len(bullet.text) > 100 else bullet.text)
+                    # Handle None case safely
+                    text = bullet.text or ""
+                    truncated = text[:100] + "..." if len(text) > 100 else text
+                    current_evidence.append(truncated)
                 else:
                     # Fallback to generic evidence
                     current_evidence.append(f"Experience with {related_skill} (related to {job_skill})")
@@ -892,41 +895,56 @@ def compute_skill_match_score(
     """
     Calculate overall skill match score (0-100).
 
-    Weighted formula:
-    - Must-have skills matched: 60% weight
-    - Nice-to-have skills matched: 20% weight
-    - Weak signals: 15% weight
-    - Match strength quality: 5% weight
+    Revised formula to better reflect actual qualification:
+    - Overall match ratio: 50% weight (matched vs total requirements)
+    - Match strength quality: 25% weight (average strength of matches)
+    - Gap severity: 15% weight (fewer critical gaps = higher score)
+    - Weak signals: 10% weight (adjacent capabilities)
     """
-    if not matched and not weak:
+    total_requirements = len(matched) + len(missing)
+
+    if total_requirements == 0:
         return 0.0
 
-    # Identify must-have matches
-    must_have_normalized = {normalize_skill(s) for s in job_must_have}
-    must_have_matches = [
-        m for m in matched
-        if normalize_skill(m.skill) in must_have_normalized
-    ]
+    # Overall match ratio (50% weight)
+    # This is the primary indicator - what fraction of requirements are matched
+    match_ratio = len(matched) / total_requirements
+    match_ratio_score = match_ratio * 50.0
 
-    # Must-have coverage (60% weight)
-    must_have_score = 0.0
-    if job_must_have:
-        must_have_score = (len(must_have_matches) / len(job_must_have)) * 60.0
+    # Match strength quality (25% weight)
+    # Higher average match strength means better quality matches
+    if matched:
+        avg_match_strength = sum(m.match_strength for m in matched) / len(matched)
     else:
-        must_have_score = 60.0  # No must-haves specified
+        avg_match_strength = 0.0
+    quality_score = avg_match_strength * 25.0
 
-    # Nice-to-have coverage (20% weight)
-    other_matches = [m for m in matched if m not in must_have_matches]
-    nice_to_have_score = min((len(other_matches) / max(len(matched), 1)) * 20.0, 20.0)
+    # Gap severity (15% weight)
+    # Fewer critical gaps = higher score
+    critical_gaps = len([g for g in missing if g.importance == 'critical'])
+    important_gaps = len([g for g in missing if g.importance == 'important'])
 
-    # Weak signals (15% weight)
-    weak_signal_score = min((len(weak) / max((len(matched) + len(missing)), 1)) * 15.0, 15.0)
+    if not missing:
+        gap_score = 15.0  # No gaps = full points
+    else:
+        # Weight critical gaps more heavily
+        weighted_gaps = (critical_gaps * 2) + important_gaps
+        max_weighted = len(missing) * 2  # Worst case: all critical
+        gap_ratio = 1 - (weighted_gaps / max(max_weighted, 1))
+        gap_score = gap_ratio * 15.0
 
-    # Match strength quality (5% weight)
-    avg_match_strength = sum(m.match_strength for m in matched) / len(matched) if matched else 0.0
-    quality_score = avg_match_strength * 5.0
+    # Weak signals (10% weight)
+    # Having weak signals shows adjacent capabilities
+    if weak:
+        weak_signal_score = min((len(weak) / max(len(missing), 1)) * 10.0, 10.0)
+    else:
+        weak_signal_score = 0.0
 
-    total_score = must_have_score + nice_to_have_score + weak_signal_score + quality_score
+    total_score = match_ratio_score + quality_score + gap_score + weak_signal_score
+
+    logger.debug(f"Score breakdown: match_ratio={match_ratio_score:.1f}, "
+                 f"quality={quality_score:.1f}, gap={gap_score:.1f}, "
+                 f"weak_signal={weak_signal_score:.1f}, total={total_score:.1f}")
 
     return round(min(total_score, 100.0), 1)
 
@@ -1146,8 +1164,12 @@ async def analyze_skill_gap(
     job_priorities = job_profile.core_priorities or []
     jd_text = job_profile.raw_jd_text or ""
 
-    if not job_skills:
-        raise ValueError(f"Job profile {job_profile_id} has no extracted skills")
+    # Combine extracted skills with must-have capabilities for comprehensive matching
+    # Must-haves are often textual descriptions that contain matchable keywords
+    all_job_requirements = list(set(job_skills + job_must_have))
+
+    if not all_job_requirements:
+        raise ValueError(f"Job profile {job_profile_id} has no extracted skills or capabilities")
 
     # Build user skill profile if not provided
     if user_skill_profile is None:
@@ -1160,13 +1182,18 @@ async def analyze_skill_gap(
     ).all()
 
     # Compute matched skills (now async with semantic matching)
-    matched_skills = await compute_matched_skills(job_skills, user_skill_profile, user_bullets)
+    # Use all_job_requirements to match against both extracted skills AND must-have capabilities
+    matched_skills = await compute_matched_skills(all_job_requirements, user_skill_profile, user_bullets)
     matched_skill_names = {m.skill for m in matched_skills}
+
+    logger.info(f"Skill gap analysis: {len(all_job_requirements)} job requirements, "
+                f"{len(user_skill_profile.skills)} user skills, "
+                f"{len(matched_skills)} matches found")
 
     # Compute missing skills (gaps) with enhanced categorization and positioning
     user_all_skills = user_skill_profile.skills + user_skill_profile.capabilities + user_skill_profile.bullet_tags
     missing_skills = await compute_missing_skills(
-        job_skills=job_skills,
+        job_skills=all_job_requirements,  # Use combined list for gap analysis
         job_must_have=job_must_have,
         job_nice_to_have=job_nice_to_have,
         matched_skill_names=matched_skill_names,
@@ -1178,7 +1205,7 @@ async def analyze_skill_gap(
 
     # Compute weak signals with semantic similarity
     weak_signals = await compute_weak_signals(
-        job_skills=job_skills,
+        job_skills=all_job_requirements,  # Use combined list for weak signal detection
         user_profile=user_skill_profile,
         matched_skill_names=matched_skill_names,
         missing_skill_names=missing_skill_names,

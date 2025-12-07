@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from db.models import JobProfile
 from services.llm.mock_llm import MockLLM
-from utils.text_processing import fetch_url_content, clean_text, extract_bullets
+from utils.text_processing import fetch_url_content, clean_text, extract_bullets, ExtractionFailedError
 
 
 # Comprehensive skill taxonomy organized by category
@@ -101,7 +101,7 @@ SKILL_TAXONOMY = {
 
     # Security
     'security': [
-        'OAuth', 'JWT', 'SSL', 'TLS', 'HTTPS', 'Encryption', 'PKI', 'SAML',
+        'OAuth', 'JWT', 'SSL', 'TLS', 'Encryption', 'PKI', 'SAML',
         'Active Directory', 'LDAP', 'Penetration Testing', 'Vulnerability Assessment',
         'SIEM', 'Firewall', 'VPN', 'Zero Trust', 'SAST', 'DAST', 'Security Auditing'
     ],
@@ -195,13 +195,12 @@ SECTION_HEADERS = {
         r'the role'
     ],
     'nice_to_haves': [
-        r'nice[- ]to[- ]haves?',
-        r'preferred qualifications',
-        r'preferred',
-        r'bonus',
-        r'plus',
-        r'ideal',
-        r'it would be great if'
+        r'^nice[- ]to[- ]haves?',  # Line starts with "nice to have"
+        r'^preferred\s*(qualifications|skills)?$',  # "Preferred" or "Preferred Qualifications" as header
+        r'^bonus\s*(points)?$',  # "Bonus" or "Bonus Points" as header
+        r'^ideal\s+candidate',
+        r'^it would be great if',
+        r'^(a\s+)?plus$',  # "Plus" or "A Plus" as section header
     ],
     'requirements': [
         r'requirements',
@@ -216,6 +215,26 @@ SECTION_HEADERS = {
         r'qualifications'  # Generic fallback
     ]
 }
+
+# Patterns that signal end of job requirements (salary, benefits, company info, etc.)
+SECTION_STOP_PATTERNS = [
+    r'^\$\d+',  # Salary lines starting with $
+    r'\d+[,\d]*\s*(k|K)?\s*(a year|per year|annually)',  # Salary patterns
+    r'^(why|about)\s+(us|[a-z]+\s*(company|here))',  # "Why us", "About [Company]"
+    r'^(our\s+)?benefits',  # Benefits section
+    r'^what we offer',
+    r'^perks',
+    r'^compensation',
+    r'^salary',
+    r'^(usa\s+)?employment benefits',
+    r'^success metrics',  # End of qualifications, start of metrics
+    r'^equal\s+(opportunity|employment)',
+    r'^eeo\b',
+    r'^we\s+are\s+an?\s+equal',
+    r'^diversity',
+    r'^location',
+    r'^work\s+environment',
+]
 
 
 # Job type tag keywords
@@ -259,6 +278,170 @@ JOB_TYPE_KEYWORDS = {
 }
 
 
+def extract_company_name(jd_text: str, job_title: str = None) -> Optional[str]:
+    """
+    Extract company name from job description.
+
+    Strategies:
+    1. Look for "Company: <name>" pattern
+    2. Look for "at <Company>" or "join <Company>" patterns
+    3. Check first few lines for company name patterns
+    4. Parse from "Company - Title" format in title
+
+    Args:
+        jd_text: Job description text
+        job_title: Optional extracted job title for context
+
+    Returns:
+        Company name if found, None otherwise
+    """
+    lines = jd_text.split('\n')
+
+    # Strategy 1: Explicit "Company:" pattern
+    company_patterns = [
+        r'^company:\s*(.+)$',
+        r'^employer:\s*(.+)$',
+        r'^organization:\s*(.+)$',
+    ]
+
+    for line in lines[:15]:
+        line_stripped = line.strip()
+        for pattern in company_patterns:
+            match = re.search(pattern, line_stripped, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+
+    # Strategy 2: Look for "at <Company>" or "join <Company>" patterns
+    # Note: Regex patterns include length limits ({1,30}) to prevent ReDoS attacks
+    at_patterns = [
+        r'\bat\s+([A-Z][A-Za-z0-9]{1,30}(?:\s+[A-Z][A-Za-z0-9]{1,30})?),\s+we',  # "At AHEAD, we"
+        r'join\s+([A-Z][A-Za-z0-9]{1,30}(?:\s+[A-Z][A-Za-z0-9]{1,30})?)\s+(?:as|and)',  # "Join AHEAD as"
+        r'^([A-Z][A-Za-z0-9]{1,30}(?:\s+[A-Z][A-Za-z0-9]{1,30})?)\s+(?:builds|is|offers|provides)',  # "AHEAD builds"
+    ]
+
+    for line in lines[:10]:
+        line_stripped = line.strip()
+        # Skip very long lines to prevent regex issues
+        if len(line_stripped) > 200:
+            continue
+        for pattern in at_patterns:
+            match = re.search(pattern, line_stripped)
+            if match:
+                company = match.group(1).strip()
+                # Filter out common false positives
+                if company.lower() not in ['we', 'the', 'our', 'this', 'an', 'a']:
+                    return company
+
+    # Strategy 3: Check first line if it looks like a company name (all caps or title case, short)
+    if lines:
+        first_line = lines[0].strip()
+        # Company names are often short and capitalized
+        if first_line and len(first_line) <= 50 and first_line[0].isupper():
+            # Check if it's NOT a job title (doesn't contain common title words)
+            title_words = ['engineer', 'manager', 'consultant', 'analyst', 'developer',
+                          'director', 'specialist', 'lead', 'architect', 'designer',
+                          'coordinator', 'administrator', 'associate', 'senior', 'junior']
+            if not any(word in first_line.lower() for word in title_words):
+                # If it's a short capitalized phrase without title words, it might be company name
+                if len(first_line.split()) <= 4:
+                    return first_line
+
+    return None
+
+
+def extract_job_title(jd_text: str) -> Optional[str]:
+    """
+    Extract job title from job description text.
+
+    Enhanced patterns to catch various title formats including
+    "As an X, you will..." format.
+
+    Args:
+        jd_text: Job description text
+
+    Returns:
+        Job title if found, None otherwise
+    """
+    lines = jd_text.split('\n')
+
+    # Title patterns in order of specificity
+    title_patterns = [
+        # Explicit title labels
+        r'^(?:job\s+title|position|role):\s*(.+)$',
+        # "As an X, you will..." pattern - common in JDs
+        r'^as\s+an?\s+([^,]+),\s+you\s+will',
+        # "We are seeking/hiring/looking for..."
+        r'^we\s+are\s+(?:seeking|hiring|looking\s+for)\s+an?\s+([^.]+?)(?:\s+to|\s+who|\.|$)',
+        # "The <Title> will..."
+        r'^the\s+([A-Z][^.]+?)\s+will\s+',
+    ]
+
+    # Check lines for title patterns
+    for line in lines[:20]:  # Check more lines
+        line_stripped = line.strip()
+        if not line_stripped or len(line_stripped) < 5:
+            continue
+
+        for pattern in title_patterns:
+            match = re.search(pattern, line_stripped, re.IGNORECASE)
+            if match:
+                job_title = match.group(1).strip()
+                # Validate it looks like a job title
+                if is_likely_job_title(job_title):
+                    return job_title
+
+    # Fallback: look for first substantial line that looks like a title
+    for line in lines[:10]:
+        line_stripped = line.strip()
+        if not line_stripped or len(line_stripped) < 5:
+            continue
+
+        # Skip lines that are too long (likely descriptions)
+        if len(line_stripped) > 100:
+            continue
+
+        # Check if line looks like a job title
+        if is_likely_job_title(line_stripped):
+            return line_stripped
+
+    return None
+
+
+def is_likely_job_title(text: str) -> bool:
+    """
+    Check if text looks like a job title.
+
+    Args:
+        text: Text to check
+
+    Returns:
+        True if text looks like a job title
+    """
+    # Reject if too long
+    if len(text) > 100:
+        return False
+
+    # Reject if contains multiple sentences
+    if text.count('.') > 1:
+        return False
+
+    # Reject if it's a full description sentence (starts lowercase or is very long)
+    if text and text[0].islower() and len(text) > 30:
+        return False
+
+    # Common job title words
+    title_words = [
+        'engineer', 'manager', 'consultant', 'analyst', 'developer',
+        'director', 'specialist', 'lead', 'architect', 'designer',
+        'coordinator', 'administrator', 'associate', 'scientist',
+        'advisor', 'strategist', 'officer', 'executive', 'president',
+        'head', 'chief', 'vp', 'partner', 'principal'
+    ]
+
+    text_lower = text.lower()
+    return any(word in text_lower for word in title_words)
+
+
 def extract_basic_fields(jd_text: str) -> Dict[str, Any]:
     """
     Extract basic job fields from job description text.
@@ -267,49 +450,50 @@ def extract_basic_fields(jd_text: str) -> Dict[str, Any]:
         jd_text: Job description text
 
     Returns:
-        Dict with job_title, location, and seniority
+        Dict with job_title, company_name, location, and seniority
     """
     lines = jd_text.split('\n')
+    jd_lower = jd_text.lower()
 
-    # Extract job title (usually first non-empty line or after "Job Title:", "Position:", etc.)
-    job_title = None
-    title_patterns = [
-        r'^(?:job\s+title|position|role):\s*(.+)$',
-        r'^(.+?)(?:\s*[-–—]\s*|$)'  # First line up to dash or end
-    ]
+    # Extract job title using enhanced function
+    job_title = extract_job_title(jd_text)
+    if not job_title:
+        job_title = 'Unknown Position'
 
-    for line in lines[:10]:  # Check first 10 lines
-        line = line.strip()
-        if not line or len(line) < 3:
-            continue
-
-        # Check explicit title patterns
-        for pattern in title_patterns[:-1]:
-            match = re.search(pattern, line, re.IGNORECASE)
-            if match:
-                job_title = match.group(1).strip()
-                break
-
-        # If no explicit pattern, use first substantial line
-        if not job_title and len(line) > 10 and len(line) < 100:
-            job_title = line
-            break
+    # Extract company name
+    company_name = extract_company_name(jd_text, job_title)
 
     # Extract location
     location = None
+
+    # Common non-location words that might match location patterns
+    non_location_words = {
+        'software', 'delivery', 'business', 'digital', 'cloud', 'analytics',
+        'infrastructure', 'automation', 'development', 'engineering', 'design',
+        'consulting', 'advisory', 'strategy', 'management', 'technology'
+    }
+
     location_patterns = [
-        r'location:\s*([^\n]+)',
-        r'\b((?:remote|hybrid|on-?site)[^\n,;]*)',
-        r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?,\s*[A-Z]{2})\b',  # City, ST
-        r'\b([A-Z][a-z]+,\s*[A-Z][a-z]+)\b'  # City, Country
+        r'location:\s*([^\n]{1,100})',  # Length-limited explicit location
+        r'\b((?:remote|hybrid|on-?site)[^\n,;]{0,50})',  # Work arrangement with limit
+        r'\b([A-Z][a-z]{1,30}(?:\s+[A-Z][a-z]{1,30})?,\s*[A-Z]{2})\b',  # City, ST
     ]
 
-    jd_lower = jd_text.lower()
     for pattern in location_patterns:
         match = re.search(pattern, jd_text, re.IGNORECASE)
         if match:
-            location = match.group(1).strip()
-            break
+            candidate = match.group(1).strip()
+            # Validate it's not a false positive
+            # Check if any word before the comma is a non-location word
+            words_before_comma = candidate.split(',')[0].strip().lower().split()
+            is_false_positive = any(word in non_location_words for word in words_before_comma)
+            if not is_false_positive:
+                location = candidate
+                break
+
+    # Default to "unknown" if no location found
+    if not location:
+        location = "unknown"
 
     # Extract seniority (check in priority order)
     seniority = None
@@ -322,7 +506,8 @@ def extract_basic_fields(jd_text: str) -> Dict[str, Any]:
             break
 
     return {
-        'job_title': job_title or 'Unknown Position',
+        'job_title': job_title,
+        'company_name': company_name,
         'location': location,
         'seniority': seniority
     }
@@ -353,6 +538,16 @@ def extract_sections(jd_text: str) -> Dict[str, List[str]]:
 
         # Skip empty lines
         if not line_stripped:
+            continue
+
+        # Check if we've hit a stop pattern (salary, benefits, company info, etc.)
+        is_stop = False
+        for pattern in SECTION_STOP_PATTERNS:
+            if re.search(pattern, line_lower):
+                current_section = None  # Stop collecting
+                is_stop = True
+                break
+        if is_stop:
             continue
 
         # Check if this line is a section header
@@ -418,7 +613,6 @@ def extract_skills_keywords(jd_text: str) -> List[str]:
     jd_lower = jd_text.lower()
     found_skills = set()
 
-    # Case-insensitive matching for each skill in taxonomy
     # Case-insensitive matching for each skill in taxonomy
     for skill in ALL_SKILLS:
         skill_lower = skill.lower()
@@ -683,6 +877,9 @@ async def parse_job_description(
     if jd_url:
         try:
             jd_text = fetch_url_content(jd_url)
+        except ExtractionFailedError:
+            # Re-raise with the user-friendly message intact
+            raise
         except Exception as e:
             raise ValueError(f"Failed to fetch content from URL: {str(e)}")
 
@@ -695,6 +892,7 @@ async def parse_job_description(
     # Extract basic fields
     basic_fields = extract_basic_fields(jd_text)
     job_title = basic_fields['job_title']
+    company_name = basic_fields.get('company_name')
     location = basic_fields['location']
     seniority = basic_fields['seniority']
 
@@ -755,6 +953,7 @@ async def parse_job_description(
         raw_jd_text=jd_text,
         jd_url=jd_url,
         job_title=job_title,
+        company_name=company_name,
         location=location,
         seniority=seniority,
         responsibilities='\n'.join(responsibilities) if responsibilities else None,

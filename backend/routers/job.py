@@ -14,6 +14,7 @@ from schemas.job_parser import JobParseRequest, JobParseResponse
 from schemas.skill_gap import SkillGapRequest, SkillGapResponse
 from services.job_parser import parse_job_description
 from services.skill_gap import analyze_skill_gap
+from utils.text_processing import ExtractionFailedError
 
 
 router = APIRouter()
@@ -67,7 +68,7 @@ async def parse_job_endpoint(
             raw_jd_text=job_profile.raw_jd_text,
             jd_url=job_profile.jd_url,
             job_title=job_profile.job_title,
-            company_name=None,  # Not extracted in current implementation
+            company_name=job_profile.company_name,
             location=job_profile.location,
             seniority=job_profile.seniority,
             responsibilities=job_profile.responsibilities,
@@ -86,6 +87,18 @@ async def parse_job_endpoint(
 
     except HTTPException:
         raise
+    except ExtractionFailedError as e:
+        # Handle extraction quality failure - return user-friendly message
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": "extraction_failed",
+                "message": e.message,
+                "score": e.quality.score,
+                "issues": e.quality.issues,
+                "suggestions": e.quality.suggestions
+            }
+        )
     except ValueError as e:
         # Handle validation errors (invalid input)
         raise HTTPException(

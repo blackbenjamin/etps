@@ -272,6 +272,7 @@ class JobProfile(Base):
     raw_jd_text: Mapped[str] = mapped_column(Text, nullable=False)
     jd_url: Mapped[Optional[str]] = mapped_column(String(1000))
     job_title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    company_name: Mapped[Optional[str]] = mapped_column(String(255), index=True)  # Extracted company name from JD text
     location: Mapped[Optional[str]] = mapped_column(String(255))
     seniority: Mapped[Optional[str]] = mapped_column(String(100))
     responsibilities: Mapped[Optional[str]] = mapped_column(Text)
