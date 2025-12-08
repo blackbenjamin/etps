@@ -470,7 +470,9 @@ def extract_basic_fields(jd_text: str) -> Dict[str, Any]:
     non_location_words = {
         'software', 'delivery', 'business', 'digital', 'cloud', 'analytics',
         'infrastructure', 'automation', 'development', 'engineering', 'design',
-        'consulting', 'advisory', 'strategy', 'management', 'technology'
+        'consulting', 'advisory', 'strategy', 'management', 'technology',
+        'at', 'the', 'we', 'an', 'a', 'or', 'and', 'is', 'are', 'in', 'on',
+        'ahead', 'join', 'company', 'team', 'our', 'your', 'you'
     }
 
     location_patterns = [

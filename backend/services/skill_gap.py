@@ -1164,9 +1164,10 @@ async def analyze_skill_gap(
     job_priorities = job_profile.core_priorities or []
     jd_text = job_profile.raw_jd_text or ""
 
-    # Combine extracted skills with must-have capabilities for comprehensive matching
-    # Must-haves are often textual descriptions that contain matchable keywords
-    all_job_requirements = list(set(job_skills + job_must_have))
+    # Use extracted skills for matching (these are actual skill names like "AI Strategy")
+    # Note: must_have_capabilities contain full sentences (e.g., "3-6 years of experience...")
+    # which don't match well against skill tags, so we only use extracted_skills
+    all_job_requirements = list(set(job_skills))
 
     if not all_job_requirements:
         raise ValueError(f"Job profile {job_profile_id} has no extracted skills or capabilities")
