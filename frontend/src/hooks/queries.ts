@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { generateDownloadFilename } from '@/lib/utils'
 import type {
   JobParseRequest,
   SkillGapRequest,
@@ -101,12 +102,12 @@ export function useGenerateCoverLetterWithCritic() {
 // Download resume mutation
 export function useDownloadResume() {
   return useMutation({
-    mutationFn: async (resume: TailoredResume) => {
+    mutationFn: async ({ resume, companyName }: { resume: TailoredResume; companyName?: string }) => {
       const blob = await api.downloadResumeDocx(resume)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `resume_${resume.job_profile_id}.docx`
+      a.download = generateDownloadFilename('resume', companyName, 'docx')
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -118,12 +119,12 @@ export function useDownloadResume() {
 // Download resume text mutation
 export function useDownloadResumeText() {
   return useMutation({
-    mutationFn: async (resume: TailoredResume) => {
+    mutationFn: async ({ resume, companyName }: { resume: TailoredResume; companyName?: string }) => {
       const blob = await api.downloadResumeText(resume)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `resume_${resume.job_profile_id}.txt`
+      a.download = generateDownloadFilename('resume', companyName, 'txt')
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -135,12 +136,12 @@ export function useDownloadResumeText() {
 // Download cover letter mutation
 export function useDownloadCoverLetter() {
   return useMutation({
-    mutationFn: async (jobProfileId: number) => {
+    mutationFn: async ({ jobProfileId, companyName }: { jobProfileId: number; companyName?: string }) => {
       const blob = await api.downloadCoverLetterDocx(jobProfileId)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `cover_letter_${jobProfileId}.docx`
+      a.download = generateDownloadFilename('cover-letter', companyName, 'docx')
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -152,12 +153,12 @@ export function useDownloadCoverLetter() {
 // Download cover letter text mutation
 export function useDownloadCoverLetterText() {
   return useMutation({
-    mutationFn: async (jobProfileId: number) => {
+    mutationFn: async ({ jobProfileId, companyName }: { jobProfileId: number; companyName?: string }) => {
       const blob = await api.downloadCoverLetterText(jobProfileId)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `cover_letter_${jobProfileId}.txt`
+      a.download = generateDownloadFilename('cover-letter', companyName, 'txt')
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)

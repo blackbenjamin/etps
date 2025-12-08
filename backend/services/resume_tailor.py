@@ -521,11 +521,13 @@ def select_and_order_skills(
             ))
             selected_skill_names.add(normalized)
 
-    # Tier 3: Important job requirements (from job profile)
+    # Tier 3: Important job skills from job profile (extracted skill names only)
+    # Note: We use extracted_skills here, NOT must_have_capabilities, because
+    # must_have_capabilities contains full requirement sentences (e.g., "3-6 years
+    # of experience in consulting...") which are not suitable as skill names.
     job_skills = job_profile.extracted_skills or []
-    must_have = job_profile.must_have_capabilities or []
 
-    for skill in must_have[:max_skills - len(selected_skills)]:
+    for skill in job_skills[:max_skills - len(selected_skills)]:
         normalized = normalize_skill(skill)
         if normalized not in selected_skill_names:
             selected_skills.append(SelectedSkill(

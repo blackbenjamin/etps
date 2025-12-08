@@ -11,10 +11,10 @@ interface ResultsPanelProps {
   resume: TailoredResume | null
   coverLetter: GeneratedCoverLetter | null
   jobProfileId: number
+  companyName?: string
 }
 
-export function ResultsPanel({ resume, coverLetter, jobProfileId }: ResultsPanelProps) {
-  console.log('ResultsPanel rendered', { resume, coverLetter })
+export function ResultsPanel({ resume, coverLetter, jobProfileId, companyName }: ResultsPanelProps) {
   if (!resume && !coverLetter) {
     return null
   }
@@ -33,9 +33,9 @@ export function ResultsPanel({ resume, coverLetter, jobProfileId }: ResultsPanel
                 <h3 className="font-semibold">Resume</h3>
               </div>
               <div className="flex items-center gap-2">
-                {resume.ats_score && (
-                  <Badge variant={resume.ats_score > 75 ? 'default' : 'secondary'}>
-                    ATS: {Math.round(resume.ats_score)}/100
+                {(resume.ats_score_estimate ?? resume.ats_score) && (
+                  <Badge variant={(resume.ats_score_estimate ?? resume.ats_score)! > 75 ? 'default' : 'secondary'}>
+                    ATS: {Math.round((resume.ats_score_estimate ?? resume.ats_score)!)}/100
                   </Badge>
                 )}
               </div>
@@ -45,6 +45,7 @@ export function ResultsPanel({ resume, coverLetter, jobProfileId }: ResultsPanel
               type="resume"
               jobProfileId={jobProfileId}
               jsonData={resume}
+              companyName={companyName}
             />
 
             <Tabs defaultValue="summary" className="w-full">
@@ -68,8 +69,8 @@ export function ResultsPanel({ resume, coverLetter, jobProfileId }: ResultsPanel
                         {role.start_date} - {role.end_date || 'Present'}
                       </p>
                       <ul className="mt-2 space-y-1">
-                        {role.selected_bullets?.map((bullet, bIdx) => (
-                          <li key={bIdx} className="text-sm flex gap-2">
+                        {role.selected_bullets?.map((bullet) => (
+                          <li key={bullet.bullet_id} className="text-sm flex gap-2">
                             <span className="text-muted-foreground">•</span>
                             <span>{bullet.text}</span>
                           </li>
@@ -106,6 +107,7 @@ export function ResultsPanel({ resume, coverLetter, jobProfileId }: ResultsPanel
               type="cover-letter"
               jobProfileId={jobProfileId}
               jsonData={coverLetter}
+              companyName={companyName}
             />
 
             <div className="bg-muted p-4 rounded-lg">

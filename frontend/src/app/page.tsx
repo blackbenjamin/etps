@@ -117,10 +117,10 @@ export default function Home() {
             )}
 
             {/* ATS Score */}
-            {resume?.ats_score && (
+            {(resume?.ats_score_estimate ?? resume?.ats_score) && (
               <ATSScoreCard
-                score={resume.ats_score}
-                explanation={resume.tailoring_rationale}
+                score={(resume.ats_score_estimate ?? resume.ats_score)!}
+                explanation={resume.tailoring_rationale ?? resume.rationale?.summary_approach}
                 suggestions={resume.critic_result?.improvement_suggestions}
               />
             )}
@@ -131,6 +131,7 @@ export default function Home() {
                 resume={resume}
                 coverLetter={coverLetter}
                 jobProfileId={jobId}
+                companyName={currentJob.company_name}
               />
             )}
           </div>

@@ -3,7 +3,7 @@
 Author: Benjamin Black
 Version: 1.0 — December 2025
 
-> **Implementation Status:** The data model has evolved to v1.4.0 (see `docs/DATA_MODEL.md`) with additional fields for engagements, PII handling, and learning systems. Core PRD requirements remain stable.
+> **Implementation Status:** The data model has evolved to v1.4.0 (see `docs/DATA_MODEL.md`) with additional fields for engagements, PII handling, and learning systems. Core PRD requirements remain stable. Phase 1E (Frontend MVP) is complete including Sprint 10B improvements to JD extraction quality validation and job parser accuracy.
 
 ---
 
@@ -72,11 +72,21 @@ For a single job application, ETPS must follow this pipeline:
 1. **Job Intake**
    - User provides: JD text and/or URL, optional context notes.
    - System fetches JD text when URL is provided (with SSRF-safe fetch).
+   - **Extraction Quality Validation:** When fetching from URL, the system validates extraction quality by checking:
+     - Minimum content length
+     - Presence of job-related keywords (responsibilities, requirements, skills, etc.)
+     - Absence of error indicators (login walls, JavaScript-required, CAPTCHA, etc.)
+     - Boilerplate ratio (EEO/legal content vs. job content)
+     - Skill indicators presence
+   - If extraction quality fails (score < 50), the system returns a user-friendly error with the suggestion: "Please copy and paste the full job description text directly instead of using the URL."
+   - URL normalization is applied for common job boards (e.g., removing `/apply` suffix from Lever URLs).
 
 2. **JD Parsing → job_profile**
    - Extract title, location, seniority, responsibilities, requirements, skills.
    - Distill 2–3 core priorities for the role.
    - Classify must-have vs nice-to-have capabilities.
+   - **Section Boundary Detection:** Parser stops at non-qualification sections (salary, benefits, success metrics, EEO statements) to avoid contaminating requirements with unrelated content.
+   - **Nice-to-Have Detection:** Requirements containing indicators like "preferred" are correctly categorized as nice-to-haves.
    - Store as `job_profile`.
 
 3. **Company Enrichment → company_profile** (Phase 2)

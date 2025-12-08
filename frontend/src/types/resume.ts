@@ -1,17 +1,34 @@
 export interface SelectedBullet {
-  id: number
+  bullet_id: number
   text: string
   relevance_score: number
-  tags?: string[]
+  was_rewritten: boolean
+  original_text?: string
+  tags: string[]
+  selection_reason: string
+  engagement_id?: number
+}
+
+export interface SelectedEngagement {
+  engagement_id: number
+  client?: string
+  project_name?: string
+  date_range_label?: string
+  selected_bullets: SelectedBullet[]
 }
 
 export interface SelectedRole {
   experience_id: number
-  employer_name: string
   job_title: string
+  employer_name: string
+  location?: string
   start_date: string
   end_date?: string
+  employer_type?: string
+  role_summary?: string
   selected_bullets: SelectedBullet[]
+  selected_engagements: SelectedEngagement[]
+  bullet_selection_rationale: string
 }
 
 export interface SelectedSkill {
@@ -21,15 +38,33 @@ export interface SelectedSkill {
   source: string
 }
 
+export interface TailoringRationale {
+  summary_approach: string
+  bullet_selection_strategy: string
+  skills_ordering_logic: string
+  role_emphasis: Record<number, string>
+  gaps_addressed: string[]
+  strengths_highlighted: string[]
+}
+
 export interface TailoredResume {
   job_profile_id: number
+  user_id: number
+  application_id?: number
   tailored_summary: string
   selected_roles: SelectedRole[]
   selected_skills: SelectedSkill[]
-  tailoring_rationale: string
+  rationale: TailoringRationale
+  skill_gap_summary?: Record<string, unknown>
+  ats_score_estimate?: number
+  match_score: number
+  generated_at: string
+  constraints_validated: boolean
+  // Frontend-only field for backward compatibility
+  tailoring_rationale?: string
+  // Frontend-only alias for ats_score_estimate
   ats_score?: number
   critic_result?: import('./api').CriticResult
-  generated_at: string
 }
 
 export interface ResumeGenerateRequest {

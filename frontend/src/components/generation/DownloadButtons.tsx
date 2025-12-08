@@ -3,15 +3,17 @@
 import { Download, Code, FileText, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useDownloadResume, useDownloadCoverLetter, useDownloadResumeText, useDownloadCoverLetterText } from '@/hooks/queries'
+import { generateDownloadFilename } from '@/lib/utils'
 import type { TailoredResume, GeneratedCoverLetter } from '@/types'
 
 interface DownloadButtonsProps {
   type: 'resume' | 'cover-letter'
   jobProfileId: number
   jsonData: TailoredResume | GeneratedCoverLetter
+  companyName?: string
 }
 
-export function DownloadButtons({ type, jobProfileId, jsonData }: DownloadButtonsProps) {
+export function DownloadButtons({ type, jobProfileId, jsonData, companyName }: DownloadButtonsProps) {
   const downloadResume = useDownloadResume()
   const downloadResumeText = useDownloadResumeText()
   const downloadCoverLetter = useDownloadCoverLetter()
@@ -21,9 +23,9 @@ export function DownloadButtons({ type, jobProfileId, jsonData }: DownloadButton
 
   const handleDownloadDocx = async () => {
     if (type === 'resume') {
-      await downloadResume.mutateAsync(jsonData as TailoredResume)
+      await downloadResume.mutateAsync({ resume: jsonData as TailoredResume, companyName })
     } else {
-      await downloadCoverLetter.mutateAsync(jobProfileId)
+      await downloadCoverLetter.mutateAsync({ jobProfileId, companyName })
     }
   }
 
@@ -34,7 +36,7 @@ export function DownloadButtons({ type, jobProfileId, jsonData }: DownloadButton
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${type}_${jobProfileId}.json`
+    a.download = generateDownloadFilename(type, companyName, 'json')
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -43,9 +45,9 @@ export function DownloadButtons({ type, jobProfileId, jsonData }: DownloadButton
 
   const handleDownloadTxt = async () => {
     if (type === 'resume') {
-      await downloadResumeText.mutateAsync(jsonData as TailoredResume)
+      await downloadResumeText.mutateAsync({ resume: jsonData as TailoredResume, companyName })
     } else {
-      await downloadCoverLetterText.mutateAsync(jobProfileId)
+      await downloadCoverLetterText.mutateAsync({ jobProfileId, companyName })
     }
   }
 
