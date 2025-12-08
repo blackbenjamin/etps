@@ -469,22 +469,11 @@ def _add_consulting_experience_entry(doc: Document, role: SelectedRole, continue
         for i, engagement in enumerate(role.selected_engagements):
             is_last = (i == len(role.selected_engagements) - 1)
             _add_engagement_entry(doc, engagement, keep_together=not is_last)
-    else:
-        # Fallback to legacy BBC_CLIENTS matching
-        all_bullets = role.selected_bullets or []
-        for i, client_info in enumerate(BBC_CLIENTS):
-            client_name = client_info["name"]
-            client_date_range = f"{client_info['start']}-{client_info['end']}"
-
-            # Get bullets for this client
-            client_bullets = _get_client_bullets(all_bullets, client_name)
-
-            # Add client entry (keep together for all but possibly last)
-            is_last = (i == len(BBC_CLIENTS) - 1)
-            _add_bbc_client_entry(
-                doc, client_name, client_date_range,
-                client_bullets, keep_together=not is_last
-            )
+    elif role.selected_bullets:
+        # No engagements but has direct bullets - render like a normal role
+        # This handles BBC periods without client engagements (e.g., current period)
+        for bullet in role.selected_bullets:
+            _add_bullet_point(doc, bullet.text)
 
 
 def _add_bbc_experience_entry(doc: Document, role: SelectedRole):
