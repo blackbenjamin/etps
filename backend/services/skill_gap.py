@@ -287,7 +287,9 @@ SKILL_SYNONYMS: Dict[str, List[str]] = {
 
     # Governance & Strategy
     'AI Governance': ['ai governance', 'ai-governance', 'artificial intelligence governance'],
-    'Data Governance': ['data governance', 'data-governance'],
+    'Data Governance': ['data governance', 'data-governance', 'information governance'],
+    'Data Catalog': ['data catalog', 'data-catalog', 'data cataloging', 'enterprise data catalog'],
+    'Collibra': ['collibra', 'collibra data catalog', 'collibra platform'],
     'Risk Management': ['risk management', 'risk-management'],
     'Compliance': ['compliance', 'regulatory compliance'],
     'Model Risk Management': ['model risk management', 'mrm', 'model risk'],
@@ -326,6 +328,16 @@ RELATED_SKILLS: Dict[str, List[str]] = {
     'NLP': ['Machine Learning', 'Deep Learning', 'Text Analysis', 'LLM'],
     'LLM': ['NLP', 'Generative AI', 'OpenAI', 'LangChain'],
     'Generative AI': ['LLM', 'NLP', 'Machine Learning', 'OpenAI'],
+    # Data Governance domain - these skills are highly related
+    'Data Governance': ['Data Catalog', 'Data Quality', 'Data Stewardship', 'Metadata Management',
+                        'Data Lineage', 'Collibra', 'Alation', 'Enterprise Data', 'Data Strategy'],
+    'Data Catalog': ['Data Governance', 'Metadata Management', 'Data Lineage', 'Collibra',
+                     'Alation', 'Data Stewardship', 'Enterprise Data'],
+    'Collibra': ['Data Catalog', 'Data Governance', 'Data Quality', 'Metadata Management',
+                 'Data Lineage', 'Data Stewardship', 'Enterprise Data'],
+    'Data Quality': ['Data Governance', 'Data Stewardship', 'Data Catalog', 'ETL'],
+    'Metadata Management': ['Data Catalog', 'Data Governance', 'Data Lineage', 'Collibra'],
+    'Enterprise Data': ['Data Governance', 'Data Strategy', 'Data Architecture', 'Data Catalog'],
 }
 
 
@@ -1212,6 +1224,13 @@ async def analyze_skill_gap(
         missing_skill_names=missing_skill_names,
         user_bullets=user_bullets
     )
+
+    # Filter skill_gaps to exclude skills that are in weak_signals
+    # This makes the two categories mutually exclusive:
+    # - skill_gaps: missing skills with NO adjacent capabilities
+    # - weak_signals: missing skills where user has related experience
+    weak_signal_skill_names = {ws.skill for ws in weak_signals}
+    missing_skills = [g for g in missing_skills if g.skill not in weak_signal_skill_names]
 
     # Calculate overall match score
     skill_match_score = compute_skill_match_score(

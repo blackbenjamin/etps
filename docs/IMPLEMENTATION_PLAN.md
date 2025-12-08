@@ -1,6 +1,6 @@
 # ETPS Implementation Plan
 **Full PRD Implementation Roadmap**
-**Version 1.2 — December 2025**
+**Version 1.3 — December 2025**
 *Merged content from IMPLEMENTATION_ROADMAP.md (v1.3.0 Schema)*
 
 ---
@@ -41,6 +41,8 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 9-10: Frontend MVP | ✅ COMPLETE | Dec 2025 | Next.js + Job Intake UI, Zustand, TanStack Query, shadcn/ui |
 | Sprint 10B: JD Extraction Quality | ✅ COMPLETE | Dec 2025 | URL extraction validation, parser improvements, user-friendly errors |
 | Sprint 10C: Parser & Skill Gap Fixes | ✅ COMPLETE | Dec 2025 | Company/Title/Location extraction, skill gap score calculation fix |
+| Sprint 10D: Debugging & Improvements | ✅ COMPLETE | Dec 2025 | Mock services audit, skill mappings, frontend fixes, user profile enrichment |
+| Sprint 10E: Interactive Skill Selection | 🔲 NOT STARTED | - | Drag-drop skill panel, key skills for cover letter |
 | Sprint 11-14: Company Intelligence | 🔲 NOT STARTED | - | Phase 2 |
 | Sprint 15-17: Application Tracking | 🔲 NOT STARTED | - | Phase 3 |
 | Sprint 18: Production Hardening | 🔲 NOT STARTED | - | ⚠️ Security & reliability (8 P0 tasks) |
@@ -130,12 +132,13 @@ All checks must pass before `git push`.
 │ - Learning from Approved Outputs                                │
 │ - Gap Remediation (Sprint 8B)                                   │
 ├─────────────────────────────────────────────────────────────────┤
-│ PHASE 1E: Frontend MVP (Sprints 9-10B)              ✅ COMPLETE │
+│ PHASE 1E: Frontend MVP (Sprints 9-10D)              ✅ COMPLETE │
 │ - Next.js Setup                                     ✅          │
 │ - Job Intake Page                                   ✅          │
 │ - Generate & Download Workflow                      ✅          │
 │ - Skill-Gap Display                                 ✅          │
 │ - JD Extraction Quality Validation (Sprint 10B)    ✅          │
+│ - Debugging & Improvements (Sprint 10D)            ✅          │
 ├─────────────────────────────────────────────────────────────────┤
 │ PHASE 2: Company Intelligence (Sprints 11-14)                  │
 │ - Company Profile Enrichment                                    │
@@ -817,6 +820,233 @@ value_per_line = relevance_score / estimated_lines
 
 ---
 
+### Sprint 10D: Debugging & Improvements ✅ COMPLETE
+
+**Goal:** Address various debugging issues, audit mock services, improve skill matching, and enhance frontend UX.
+
+**Status:** ✅ Completed December 2025
+
+#### Tasks
+
+| ID | Task | File(s) | Status |
+|----|------|---------|--------|
+| 10D.1 | Audit mock services usage across codebase | All services | ✅ |
+| 10D.2 | Document mock vs live service status | `docs/IMPLEMENTATION_PLAN.md` | ✅ |
+| 10D.3 | Add AI/consulting skill similarity mappings | `services/embeddings.py` | ✅ |
+| 10D.4 | Fix user_id defaulting to 2 in frontend API | `frontend/src/lib/api.ts` | ✅ |
+| 10D.5 | Enhance company name extraction patterns | `services/job_parser.py` | ✅ |
+| 10D.6 | Add editable company name field in frontend | `frontend/src/app/page.tsx` | ✅ |
+| 10D.7 | Add debug logging to job parse results | `frontend/src/components/job-intake/JobIntakeForm.tsx` | ✅ |
+| 10D.8 | Fix BBC experience DOCX rendering | `services/docx_resume.py` | ✅ |
+| 10D.9 | Fix frontend date formatting (M/YYYY) | `frontend/src/components/generation/ResultsPanel.tsx` | ✅ |
+| 10D.10 | Enrich user skill tags from bullet analysis | Database | ✅ |
+| 10D.11 | Fix Next.js CSS cache corruption | Frontend | ✅ |
+
+#### Mock Services Audit Results
+
+| Service | Location | Production Ready | Status |
+|---------|----------|-----------------|--------|
+| `MockLLM` | `services/llm/mock_llm.py` | ⚠️ Real LLM not implemented | Used in all generation |
+| `MockEmbeddingService` | `services/embeddings.py` | ✅ `OpenAIEmbeddingService` exists | `use_mock=True` in skill_gap.py |
+| `MockVectorStore` | `services/vector_store.py` | ✅ `QdrantVectorStore` exists | Production uses live |
+| `MockLLMService` | `services/skill_gap.py` | ⚠️ Real LLM not implemented | Used for skill gap |
+
+**Key Finding:** Only `skill_gap.py:41` has hardcoded `use_mock=True`. All other production code uses live services.
+
+#### Skill Similarity Mappings Added
+
+Added 22 new skill pairs to `MockEmbeddingService`:
+
+**AI-Related:**
+- `AI` ↔ `AI Strategy` (0.85)
+- `AI` ↔ `AI/ML` (0.92)
+- `AI` ↔ `AI Governance` (0.78)
+- `AI Strategy` ↔ `Strategy` (0.82)
+- `AI/ML` ↔ `Machine Learning` (0.95)
+- `Generative AI` ↔ `AI` (0.88)
+- `LLM` ↔ `AI` (0.82)
+
+**Consulting-Related:**
+- `Digital Transformation` ↔ `Strategy` (0.75)
+- `Digital Transformation` ↔ `Change Management` (0.76)
+- `Strategy` ↔ `Business Strategy` (0.93)
+- `Consulting` ↔ `Technology Consulting` (0.90)
+- `Stakeholder Management` ↔ `Client Management` (0.82)
+
+#### Company Name Extraction Improvements
+
+Enhanced `extract_company_name()` with additional patterns:
+- `about\s+([Company])(?:\s*:|\s*$)` - "About AHEAD:" format
+- `(?:work|working)\s+(?:at|for|with)\s+([Company])` - "work at AHEAD"
+- `posted\s+by\s*:?\s*([Company])` - "Posted by Company Name"
+- `hiring\s+company\s*:?\s*([Company])` - "Hiring Company: Name"
+
+#### User Profile Enrichment
+
+Added 13 new skill tags to User 1's bullet tags based on content analysis:
+- `Consulting` (6 bullets)
+- `Strategy` (4 bullets)
+- `Stakeholder Management` (1 bullet)
+- `Client Engagement` (3 bullets)
+- `Digital Transformation` (1 bullet)
+- `Machine Learning` (1 bullet)
+- `Team Leadership` (6 bullets)
+- `Enterprise Strategy` (2 bullets)
+- `Systems Integration` (1 bullet)
+- `Roadmapping` (1 bullet)
+- `Vector Search` (2 bullets)
+- `Go-to-Market` (1 bullet)
+- `Innovation` (3 bullets)
+- `Business Analysis` (1 bullet)
+
+**Result:** User skill tags increased from 74 → 87, skill match score improved from 53.5% → 82.2% for AI Consultant roles.
+
+#### Frontend Fixes
+
+1. **Editable Company Name:** Added pencil icon to edit company name when auto-extraction fails
+2. **Date Formatting:** Fixed ISO dates to display as M/YYYY format
+3. **Engagement Bullets:** Added `getRoleBullets()` helper to include engagement bullets in display
+4. **Debug Logging:** Added console.log for parsed job results
+5. **CSS Cache Fix:** Documented `.next` folder deletion to fix corrupted static assets
+
+#### Acceptance Criteria
+- [x] Mock services documented with production alternatives
+- [x] Skill matching improved for AI/consulting skills
+- [x] Company name can be manually edited in frontend
+- [x] User skill profile enriched with 13 new tags
+- [x] Frontend styling issues resolved
+
+#### Plan for Live Services
+
+**Quick Win (Ready Now):**
+- Change `skill_gap.py:41` from `use_mock=True` to `use_mock=False` for real embeddings
+
+**Future Work (New Sprint Required):**
+- Implement `ClaudeLLM` class for real LLM calls
+- Add API key configuration to `config/config.yaml`
+- Update `resume_tailor.py`, `cover_letter.py`, `critic.py` to use real LLM
+- Estimated effort: 8-12 hours
+
+---
+
+### Sprint 10E: Interactive Skill Selection Panel 🔲 NOT STARTED
+
+**Goal:** Replace passive skill gap display with an interactive skill selection UI that gives users control over which skills are used for resume/cover letter generation.
+
+**Problem Statement:** The current semantic skill matching is unreliable. Users see confusing results and have no control over skill prioritization. The proposed solution lets users curate skills themselves while the system provides match scores as guidance.
+
+**Status:** 🔲 Not Started
+
+#### Design Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Skills for This Application                    [Save]      │
+├─────────────────────────────────────────────────────────────┤
+│  ☐ Key  Skill                           Match   [drag] [×]  │
+│  ─────────────────────────────────────────────────────────  │
+│  ☑      Data Governance        ████████████████  92%        │
+│  ☑      Collibra               ░░░░░░░░░░░░░░░░   0%        │
+│  ☐      Stakeholder Mgmt       ████████████░░░░  78%        │
+│  ☐      Requirements Analysis  ██████████░░░░░░  65%        │
+│  ...                                                        │
+│                                                             │
+│  ⚠ 2/4 key skills selected (select 3-4 for cover letter)   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Features:**
+- Draggable rows to set priority order (affects bullet selection weight)
+- "Key" checkbox (max 3-4) → these become `key_skills` for cover letter focus
+- Color-coded match bars: green (70%+), yellow (40-70%), red (<40%)
+- Remove button (×) to exclude irrelevant extracted skills
+- Persisted per job profile in `selected_skills` and `key_skills` fields
+
+#### Tasks
+
+| ID | Task | File(s) | Priority |
+|----|------|---------|----------|
+| **Backend** | | | |
+| 10E.1 | Add `selected_skills` JSON field to JobProfile model | `db/models.py` | P0 |
+| 10E.2 | Add `key_skills` JSON field to JobProfile model | `db/models.py` | P0 |
+| 10E.3 | Create `PUT /job-profiles/{id}/skills` endpoint | `routers/job_profile.py` | P0 |
+| 10E.4 | Create SkillSelection schema | `schemas/job_profile.py` | P0 |
+| 10E.5 | Modify `cover_letter.py` to use `key_skills` for focus | `services/cover_letter.py` | P1 |
+| 10E.6 | Modify `resume_tailor.py` to use `selected_skills` for bullet weighting | `services/resume_tailor.py` | P1 |
+| 10E.7 | Add skill match % calculation endpoint (or include in parse response) | `services/skill_gap.py` | P1 |
+| **Frontend** | | | |
+| 10E.8 | Install `@dnd-kit/core` and `@dnd-kit/sortable` | `package.json` | P0 |
+| 10E.9 | Create `SkillSelectionPanel` component with drag-drop grid | `components/skills/SkillSelectionPanel.tsx` | P0 |
+| 10E.10 | Create `SkillRow` component with checkbox, bar, remove button | `components/skills/SkillRow.tsx` | P0 |
+| 10E.11 | Add key skill selection logic (max 3-4 enforcement) | `SkillSelectionPanel.tsx` | P1 |
+| 10E.12 | Wire up save button to `PUT /job-profiles/{id}/skills` | `SkillSelectionPanel.tsx` | P0 |
+| 10E.13 | Replace `SkillGapPanel` with `SkillSelectionPanel` in main page | `app/page.tsx` | P1 |
+| 10E.14 | Add match % display with color-coded progress bars | `SkillRow.tsx` | P1 |
+| **Testing** | | | |
+| 10E.15 | Add backend tests for skill selection endpoint | `tests/test_skill_selection.py` | P1 |
+| 10E.16 | Add integration test: selected skills → resume output | `tests/test_skill_selection.py` | P2 |
+
+#### Data Model Changes
+
+```python
+# JobProfile additions
+class JobProfile(Base):
+    # ... existing fields ...
+
+    # User-curated skill selections (Sprint 10E)
+    selected_skills: Mapped[Optional[List[Dict]]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="User-ordered list of skills: [{skill: str, match_pct: float, included: bool}]"
+    )
+    key_skills: Mapped[Optional[List[str]]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="3-4 skills to emphasize in cover letter"
+    )
+```
+
+#### API Schema
+
+```python
+class SkillSelectionUpdate(BaseModel):
+    """Request to update skill selections for a job profile."""
+    selected_skills: List[SelectedSkill]  # Ordered list
+    key_skills: List[str] = Field(max_length=4)  # Max 4 key skills
+
+class SelectedSkill(BaseModel):
+    skill: str
+    match_pct: float
+    included: bool = True  # False if user removed it
+```
+
+#### Acceptance Criteria
+
+- [ ] Users can drag-drop to reorder skills
+- [ ] Users can check 3-4 "key" skills for cover letter emphasis
+- [ ] Users can remove irrelevant skills from the list
+- [ ] Match percentages displayed with color-coded bars
+- [ ] Selections persisted to database per job profile
+- [ ] Cover letter generation uses `key_skills` for paragraph focus
+- [ ] Resume bullet selection uses `selected_skills` order for weighting
+- [ ] All existing tests continue to pass
+
+#### Estimated Effort
+
+| Component | Hours |
+|-----------|-------|
+| Backend (10E.1-10E.7) | 4-5h |
+| Frontend (10E.8-10E.14) | 8-10h |
+| Testing (10E.15-10E.16) | 2-3h |
+| **Total** | 14-18h |
+
+#### Dependencies
+
+- Requires: Sprint 10D complete ✅
+- Blocks: None (Phase 2 can proceed independently)
+
+---
+
 ## Phase 2: Company Intelligence
 
 ### Sprint 11: Company Profile Enrichment (PRD 5.1-5.2)
@@ -1050,7 +1280,8 @@ Sprint 8C (Pagination) → depends on → Sprint 8B (Gap Remediation) ✅
 Sprint 9 (Frontend) → depends on → Sprint 8C (Pagination) ✅
 Sprint 10 (UI) → depends on → Sprint 9 (Next.js setup) ✅
 Sprint 10B (Extraction Quality) → depends on → Sprint 10 (UI) ✅
-Phase 2 → depends on → Phase 1E complete (Sprint 10B) ✅
+Sprint 10D (Debugging) → depends on → Sprint 10B (Extraction) ✅
+Phase 2 → depends on → Phase 1E complete (Sprint 10D) ✅
 Phase 3 → depends on → Phase 1E complete
 Sprint 18 (Security) → depends on → Phase 1A complete ✅
 Sprint 19 (Deployment) → depends on → Sprint 18 (Security)
