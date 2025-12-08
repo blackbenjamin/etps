@@ -74,7 +74,7 @@ export function JobIntakeForm({ onJobParsed }: JobIntakeFormProps) {
       const result = await parseJob.mutateAsync({
         jd_text: jdText || undefined,
         jd_url: sourceUrl || undefined,
-        user_id: 2, // Default user for single-user mode (User 2 has actual bullet data)
+        user_id: 1, // Default user for single-user mode
       })
 
       // Store in Zustand

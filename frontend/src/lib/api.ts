@@ -118,7 +118,7 @@ export const api = {
   generateResume: (data: { job_profile_id: number; context_notes?: string }) =>
     apiFetch<TailoredResume>('/api/v1/resume/generate', {
       method: 'POST',
-      body: JSON.stringify({ ...data, user_id: 2 }),
+      body: JSON.stringify({ ...data, user_id: 1 }),
     }),
 
   downloadResumeDocx: async (resume: TailoredResume): Promise<Blob> => {
@@ -169,7 +169,7 @@ export const api = {
   generateCoverLetter: (data: { job_profile_id: number; context_notes?: string }) =>
     apiFetch<GeneratedCoverLetter>('/api/v1/cover-letter/generate', {
       method: 'POST',
-      body: JSON.stringify({ ...data, user_id: 2 }),
+      body: JSON.stringify({ ...data, user_id: 1 }),
     }),
 
   generateCoverLetterWithCritic: async (data: CoverLetterGenerateRequest) => {
@@ -179,7 +179,7 @@ export const api = {
       accepted: boolean
     }>('/api/v1/cover-letter/generate-with-critic', {
       method: 'POST',
-      body: JSON.stringify({ ...data, user_id: 2 }),
+      body: JSON.stringify({ ...data, user_id: 1 }),
     })
     return {
       ...response.cover_letter,
@@ -195,7 +195,7 @@ export const api = {
       },
       body: JSON.stringify({
         job_profile_id: jobProfileId,
-        user_id: 2,
+        user_id: 1,
       }),
     })
     if (!response.ok) {
@@ -213,7 +213,7 @@ export const api = {
       },
       body: JSON.stringify({
         job_profile_id: jobProfileId,
-        user_id: 2,
+        user_id: 1,
       }),
     })
     if (!response.ok) {
