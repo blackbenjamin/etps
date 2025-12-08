@@ -325,7 +325,7 @@ def extract_company_name(jd_text: str, job_title: str = None) -> Optional[str]:
         if len(line_stripped) > 200:
             continue
         for pattern in at_patterns:
-            match = re.search(pattern, line_stripped)
+            match = re.search(pattern, line_stripped, re.IGNORECASE)
             if match:
                 company = match.group(1).strip()
                 # Filter out common false positives
