@@ -286,6 +286,19 @@ class JobProfile(Base):
     tone_style: Mapped[Optional[str]] = mapped_column(String(50))
     job_type_tags: Mapped[Optional[List[str]]] = mapped_column(JSON)  # e.g., ["ai_governance", "consulting"]
     embedding: Mapped[Optional[List[float]]] = mapped_column(JSON)  # vector for similarity search
+
+    # User-curated skill selections (Sprint 10E)
+    selected_skills: Mapped[Optional[List[dict]]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="User-ordered list of skills: [{skill: str, match_pct: float, included: bool, order: int}]"
+    )
+    key_skills: Mapped[Optional[List[str]]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="3-4 skills to emphasize in cover letter (max 4)"
+    )
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, onupdate=func.now())
 

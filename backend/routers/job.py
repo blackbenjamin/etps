@@ -5,12 +5,15 @@ FastAPI endpoints for job description parsing and skill-gap analysis.
 Provides job profile creation and skill matching capabilities.
 """
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from db.database import get_db
 from db.models import JobProfile, User
 from schemas.job_parser import JobParseRequest, JobParseResponse
+from schemas.job_profile import SkillSelectionUpdate, SkillSelectionResponse, SelectedSkill
 from schemas.skill_gap import SkillGapRequest, SkillGapResponse
 from services.job_parser import parse_job_description
 from services.skill_gap import analyze_skill_gap
@@ -162,3 +165,109 @@ async def analyze_skill_gap_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while analyzing skill gap"
         )
+
+
+@router.put("/job-profiles/{job_profile_id}/skills", response_model=SkillSelectionResponse)
+async def update_skill_selection(
+    job_profile_id: int,
+    request: SkillSelectionUpdate,
+    db: Session = Depends(get_db)
+) -> SkillSelectionResponse:
+    """
+    Update user-curated skill selections for a job profile.
+
+    Allows users to:
+    - Reorder skills by priority
+    - Select 3-4 "key skills" for cover letter emphasis
+    - Remove irrelevant skills from the list
+
+    **Path Parameters:**
+    - `job_profile_id` (int): ID of the job profile to update
+
+    **Request Body:**
+    - `selected_skills` (List[SelectedSkill]): Ordered list of skills with metadata
+    - `key_skills` (List[str]): 3-4 skills to emphasize (max 4)
+
+    **Returns:**
+    - Updated skill selection with timestamp
+
+    **Raises:**
+    - `404 Not Found`: Job profile not found
+    - `422 Unprocessable Entity`: Invalid skill selection (validation errors)
+    """
+    try:
+        # Fetch job profile
+        job_profile = db.query(JobProfile).filter(JobProfile.id == job_profile_id).first()
+        if not job_profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job profile {job_profile_id} not found"
+            )
+
+        # Convert selected_skills to dict format for JSON storage
+        selected_skills_dict = [s.model_dump() for s in request.selected_skills]
+
+        # Update job profile
+        job_profile.selected_skills = selected_skills_dict
+        job_profile.key_skills = request.key_skills
+
+        db.commit()
+        db.refresh(job_profile)
+
+        # Build response
+        return SkillSelectionResponse(
+            job_profile_id=job_profile.id,
+            selected_skills=request.selected_skills,
+            key_skills=request.key_skills,
+            updated_at=datetime.now(timezone.utc).isoformat()
+        )
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while updating skill selection"
+        )
+
+
+@router.get("/job-profiles/{job_profile_id}/skills", response_model=SkillSelectionResponse)
+async def get_skill_selection(
+    job_profile_id: int,
+    db: Session = Depends(get_db)
+) -> SkillSelectionResponse:
+    """
+    Get the current skill selection for a job profile.
+
+    **Path Parameters:**
+    - `job_profile_id` (int): ID of the job profile
+
+    **Returns:**
+    - Current skill selection or empty lists if not set
+
+    **Raises:**
+    - `404 Not Found`: Job profile not found
+    """
+    job_profile = db.query(JobProfile).filter(JobProfile.id == job_profile_id).first()
+    if not job_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job profile {job_profile_id} not found"
+        )
+
+    # Convert stored dict format back to SelectedSkill objects
+    selected_skills = []
+    if job_profile.selected_skills:
+        selected_skills = [SelectedSkill(**s) for s in job_profile.selected_skills]
+
+    return SkillSelectionResponse(
+        job_profile_id=job_profile.id,
+        selected_skills=selected_skills,
+        key_skills=job_profile.key_skills or [],
+        updated_at=job_profile.updated_at.isoformat() if job_profile.updated_at else job_profile.created_at.isoformat()
+    )

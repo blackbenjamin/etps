@@ -45,7 +45,7 @@ from schemas.cover_letter import (
 )
 from schemas.skill_gap import SkillGapResponse
 from services.llm.base import BaseLLM
-from services.llm.mock_llm import MockLLM
+from services.llm import create_llm
 from services.skill_gap import analyze_skill_gap, find_skill_match, normalize_skill
 # Sprint 8: Learning from approved outputs (available for future integration)
 from services.output_retrieval import (
@@ -196,14 +196,14 @@ EM_DASH_PATTERN = r'—'
 # Structure templates from style guide Section 3
 STRUCTURE_TEMPLATES = {
     "standard": {
-        "word_count_target": 300,
-        "word_count_range": (280, 320),
+        "word_count_target": 265,
+        "word_count_range": (250, 275),
         "paragraphs": 4,
-        "description": "Standard template: Hook + Positioning, Experience Alignment, Differentiator, Company Fit + Close"
+        "description": "Standard template: Hook + Positioning, Experience Alignment (bullets), Differentiator, Company Fit + Close"
     },
     "executive": {
-        "word_count_target": 250,
-        "word_count_range": (230, 270),
+        "word_count_target": 225,
+        "word_count_range": (210, 240),
         "paragraphs": 3,
         "description": "Executive template: Hook + Positioning, Experience + Differentiator, Company Fit + Close"
     },
@@ -588,12 +588,17 @@ def generate_outline(
     else:
         intro = f"I am writing to express my strong interest in the {clean_job_title} position. "
 
-    # Add hook about top qualifications with more detail
-    top_skills = [m.skill for m in sorted(
-        skill_gap_result.matched_skills,
-        key=lambda x: x.match_strength,
-        reverse=True
-    )[:3]]  # Get top 3 skills
+    # Sprint 10E: Use key_skills if user has curated them, otherwise fall back to skill gap analysis
+    if job_profile.key_skills and len(job_profile.key_skills) >= 2:
+        # User has curated key skills - prioritize these
+        top_skills = job_profile.key_skills[:3]
+    else:
+        # Fall back to skill gap analysis
+        top_skills = [m.skill for m in sorted(
+            skill_gap_result.matched_skills,
+            key=lambda x: x.match_strength,
+            reverse=True
+        )[:3]]  # Get top 3 skills
 
     if top_skills:
         if len(top_skills) >= 3:
@@ -622,7 +627,23 @@ def generate_outline(
     # Highlight top matched skills with evidence - as SEPARATE SENTENCES
     value_sentences = []
 
-    for match in skill_gap_result.matched_skills[:3]:
+    # Sprint 10E: Use key_skills for evidence if available
+    skills_to_highlight = []
+    if job_profile.key_skills and len(job_profile.key_skills) >= 2:
+        # Find matched_skills that correspond to key_skills
+        for key_skill in job_profile.key_skills[:3]:
+            match = next(
+                (m for m in skill_gap_result.matched_skills if m.skill.lower() == key_skill.lower()),
+                None
+            )
+            if match:
+                skills_to_highlight.append(match)
+
+    # Fall back to top matched skills if no key skills or no matches found
+    if not skills_to_highlight:
+        skills_to_highlight = skill_gap_result.matched_skills[:3]
+
+    for match in skills_to_highlight:
         if match.evidence:
             # Extract the bullet text after "Bullet N: " prefix
             raw_evidence = match.evidence[0].split(':')[-1].strip()
@@ -1191,6 +1212,7 @@ async def generate_cover_letter(
     company_profile_id: Optional[int] = None,
     context_notes: Optional[str] = None,
     referral_name: Optional[str] = None,
+    company_name: Optional[str] = None,
     llm: Optional[BaseLLM] = None,
     max_iterations: int = DEFAULT_MAX_ITERATIONS,
     quality_threshold: float = DEFAULT_QUALITY_THRESHOLD,
@@ -1210,6 +1232,7 @@ async def generate_cover_letter(
         company_profile_id: Optional company profile ID
         context_notes: Optional user-provided context
         referral_name: Optional referrer name
+        company_name: Optional company name override (takes priority over company_profile)
         llm: Optional LLM instance (defaults to MockLLM)
         max_iterations: Maximum critic iterations (default 3)
         quality_threshold: Minimum quality score to pass (default 75)
@@ -1221,9 +1244,9 @@ async def generate_cover_letter(
     Raises:
         ValueError: If user, job profile, or company profile not found
     """
-    # Initialize LLM
+    # Initialize LLM (uses ClaudeLLM if ANTHROPIC_API_KEY is set, otherwise MockLLM)
     if llm is None:
-        llm = MockLLM()
+        llm = create_llm()
 
     # Fetch user
     user = db.query(User).filter(User.id == user_id).first()
@@ -1320,8 +1343,11 @@ async def generate_cover_letter(
             include_quality_score=True
         )
 
+    # Use company_name override if provided, otherwise fall back to company_profile
+    effective_company_name = company_name or (company_profile.name if company_profile else None)
+
     company_context = {
-        "name": company_profile.name if company_profile else None,
+        "name": effective_company_name,
         "initiatives": company_profile.known_initiatives if company_profile else None,
         "culture": company_profile.culture_signals if company_profile else None,
         "referral_name": referral_name,
@@ -1342,7 +1368,7 @@ async def generate_cover_letter(
         company_context=company_context,
         tone=target_tone,
         user_name=user.full_name,
-        max_words=300
+        max_words=265  # Target: 250-275 words
     )
 
     # =============================================
@@ -1405,7 +1431,7 @@ async def generate_cover_letter(
             company_context=company_context,
             tone=target_tone,
             user_name=user.full_name,
-            max_words=300
+            max_words=265  # Target: 250-275 words
         )
 
         previous_result = critic_result
@@ -1450,13 +1476,11 @@ async def generate_cover_letter(
     # Extract ATS keywords used
     ats_keywords_used = ats_coverage.covered_keywords
 
-    company_name = company_profile.name if company_profile else None
-
     return GeneratedCoverLetter(
         job_profile_id=job_profile_id,
         user_id=user_id,
         company_profile_id=company_profile_id,
-        company_name=company_name,
+        company_name=effective_company_name,
         job_title=job_profile.job_title,
         draft_cover_letter=current_draft,
         outline=outline,

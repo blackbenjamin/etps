@@ -1,11 +1,15 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { JobIntakeForm } from '@/components/job-intake'
 import { GenerateButtons, ResultsPanel } from '@/components/generation'
-import { SkillGapPanel, ATSScoreCard } from '@/components/analysis'
+import { ATSScoreCard } from '@/components/analysis'
+import { SkillSelectionPanel } from '@/components/skills'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Pencil, Check } from 'lucide-react'
 import { useJobStore } from '@/stores/job-store'
 import { useGenerationStore } from '@/stores/generation-store'
 import { useSkillGapAnalysis } from '@/hooks/queries'
@@ -18,11 +22,27 @@ function getJobId(job: JobProfile | null): number | null {
 }
 
 export default function Home() {
-  const { currentJob, setSkillGapAnalysis } = useJobStore()
+  const { currentJob, setCurrentJob, setSkillGapAnalysis } = useJobStore()
   const { resume, coverLetter } = useGenerationStore()
+  const [editingCompany, setEditingCompany] = useState(false)
+  const [companyNameInput, setCompanyNameInput] = useState('')
 
   // Get the job ID safely
   const jobId = getJobId(currentJob)
+
+  // Sync company name input when job changes
+  useEffect(() => {
+    setCompanyNameInput(currentJob?.company_name || '')
+    setEditingCompany(false)
+  }, [currentJob?.job_profile_id])
+
+  // Handle saving edited company name
+  const handleSaveCompanyName = () => {
+    if (currentJob && companyNameInput.trim()) {
+      setCurrentJob({ ...currentJob, company_name: companyNameInput.trim() })
+    }
+    setEditingCompany(false)
+  }
 
   // Auto-fetch skill gap when job is parsed
   const { data: skillGap, isLoading: isAnalyzing } = useSkillGapAnalysis(jobId)
@@ -72,7 +92,36 @@ export default function Home() {
                       </div>
                       <div>
                         <p className="text-muted-foreground">Company</p>
-                        <p className="font-medium">{currentJob.company_name || 'Not specified'}</p>
+                        {editingCompany ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              value={companyNameInput}
+                              onChange={(e) => setCompanyNameInput(e.target.value)}
+                              placeholder="Enter company name"
+                              className="h-7 text-sm"
+                              onKeyDown={(e) => e.key === 'Enter' && handleSaveCompanyName()}
+                              autoFocus
+                            />
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleSaveCompanyName}>
+                              <Check className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <p className="font-medium">{currentJob.company_name || 'Not specified'}</p>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                setCompanyNameInput(currentJob.company_name || '')
+                                setEditingCompany(true)
+                              }}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                       {currentJob.location && (
                         <div>
@@ -103,7 +152,7 @@ export default function Home() {
 
                 {/* Generate Buttons */}
                 {jobId && (
-                  <GenerateButtons jobProfileId={jobId} />
+                  <GenerateButtons jobProfileId={jobId} companyName={currentJob.company_name} />
                 )}
               </>
             )}
@@ -111,9 +160,13 @@ export default function Home() {
 
           {/* Right Column: Analysis & Results */}
           <div className="space-y-6">
-            {/* Skill Gap Analysis */}
-            {(currentJob || isAnalyzing) && (
-              <SkillGapPanel analysis={skillGap ?? null} isLoading={isAnalyzing} />
+            {/* Skill Selection Panel (Sprint 10E - replaces passive Skill Gap display) */}
+            {(currentJob || isAnalyzing) && jobId && (
+              <SkillSelectionPanel
+                jobProfileId={jobId}
+                analysis={skillGap ?? null}
+                isLoading={isAnalyzing}
+              />
             )}
 
             {/* ATS Score */}

@@ -214,6 +214,21 @@ def select_bullets_for_role(
     matched_skills = {m.skill for m in skill_gap_result.matched_skills}
     priority_tags = skill_gap_result.bullet_selection_guidance.get('prioritize_tags', [])
 
+    # Sprint 10E: Use user-selected skills if available
+    user_selected_skills = set()
+    skill_priority_map = {}  # Maps skill -> priority weight (0.0-1.0)
+
+    if job_profile.selected_skills:
+        for selected in job_profile.selected_skills:
+            if selected.get('included', True):
+                skill = selected['skill']
+                user_selected_skills.add(skill.lower())
+                # Higher order (earlier in list) = higher priority
+                # Convert order (0-N) to weight (1.0 - 0.3)
+                max_order = len(job_profile.selected_skills)
+                priority_weight = 1.0 - (selected.get('order', 0) / max(max_order, 1) * 0.7)
+                skill_priority_map[skill.lower()] = priority_weight
+
     # Extract positioning keywords from skill gap analysis (Sprint 8B.3)
     positioning_keywords = set()
     if skill_gap_result and skill_gap_result.key_positioning_angles:
@@ -240,6 +255,16 @@ def select_bullets_for_role(
         matching_tags = []
         if bullet.tags:
             for tag in bullet.tags:
+                tag_lower = tag.lower()
+
+                # Sprint 10E: Bonus for user-selected skills (highest priority)
+                if user_selected_skills and tag_lower in user_selected_skills:
+                    priority_weight = skill_priority_map.get(tag_lower, 0.8)
+                    tag_score += priority_weight * 1.5  # 1.5x multiplier for user selection
+                    if tag not in matching_tags:
+                        matching_tags.append(tag)
+                    continue  # Skip other checks if user selected this skill
+
                 # Check against matched skills
                 for job_skill in job_skills:
                     if find_skill_match_sync(job_skill, [tag]):
@@ -896,7 +921,7 @@ async def tailor_resume(
                         engagement_id=eng.id,
                         client=eng.client,
                         project_name=eng.project_name,
-                        date_range_label=eng.date_range_label,
+                        # Note: date_range_label omitted for cleaner engagement display
                         selected_bullets=selected_eng_bullets
                     ))
 
@@ -952,6 +977,8 @@ async def tailor_resume(
             location=experience.location,  # IMMUTABLE
             start_date=experience.start_date.isoformat(),
             end_date=experience.end_date.isoformat() if experience.end_date else None,
+            employer_type=experience.employer_type,
+            role_summary=experience.role_summary,  # "Focused on..." line
             selected_bullets=direct_bullets,
             selected_engagements=selected_engagements,
             bullet_selection_rationale=role_rationale,

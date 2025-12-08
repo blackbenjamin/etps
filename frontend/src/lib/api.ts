@@ -111,7 +111,7 @@ export const api = {
   analyzeSkillGap: (data: { job_profile_id: number; user_id?: number }) =>
     apiFetch<SkillGapResponse>('/api/v1/job/skill-gap', {
       method: 'POST',
-      body: JSON.stringify({ ...data, user_id: data.user_id || 2 }),
+      body: JSON.stringify({ ...data, user_id: data.user_id || 1 }),
     }),
 
   // Resume
@@ -187,15 +187,18 @@ export const api = {
     }
   },
 
-  downloadCoverLetterDocx: async (jobProfileId: number): Promise<Blob> => {
+  downloadCoverLetterDocx: async (coverLetter: GeneratedCoverLetter): Promise<Blob> => {
     const response = await fetch(`${API_BASE}/api/v1/cover-letter/docx?format=docx`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        job_profile_id: jobProfileId,
-        user_id: 1,
+        generated_cover_letter: coverLetter,
+        user_name: USER_PROFILE.name,
+        user_email: USER_PROFILE.email,
+        user_phone: USER_PROFILE.phone,
+        user_linkedin: USER_PROFILE.linkedin,
       }),
     })
     if (!response.ok) {
@@ -205,15 +208,18 @@ export const api = {
     return response.blob()
   },
 
-  downloadCoverLetterText: async (jobProfileId: number): Promise<Blob> => {
+  downloadCoverLetterText: async (coverLetter: GeneratedCoverLetter): Promise<Blob> => {
     const response = await fetch(`${API_BASE}/api/v1/cover-letter/docx?format=text`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        job_profile_id: jobProfileId,
-        user_id: 1,
+        generated_cover_letter: coverLetter,
+        user_name: USER_PROFILE.name,
+        user_email: USER_PROFILE.email,
+        user_phone: USER_PROFILE.phone,
+        user_linkedin: USER_PROFILE.linkedin,
       }),
     })
     if (!response.ok) {
@@ -222,6 +228,58 @@ export const api = {
     }
     return response.blob()
   },
+}
+
+// Skill Selection Types
+export interface SelectedSkill {
+  skill: string
+  match_pct: number
+  included: boolean
+  order: number
+}
+
+export interface SkillSelectionUpdate {
+  selected_skills: SelectedSkill[]
+  key_skills: string[]
+}
+
+export interface SkillSelectionResponse {
+  job_profile_id: number
+  selected_skills: SelectedSkill[]
+  key_skills: string[]
+  updated_at: string
+}
+
+// Skill Selection API function
+export async function updateSkillSelection(
+  jobProfileId: number,
+  selection: SkillSelectionUpdate
+): Promise<SkillSelectionResponse> {
+  const response = await fetch(`${API_BASE}/api/v1/job/job-profiles/${jobProfileId}/skills`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(selection),
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to update skill selection' }))
+    throw new Error(typeof error.detail === 'string' ? error.detail : 'Failed to update skill selection')
+  }
+
+  return response.json()
+}
+
+export async function getSkillSelection(jobProfileId: number): Promise<SkillSelectionResponse> {
+  const response = await fetch(`${API_BASE}/api/v1/job/job-profiles/${jobProfileId}/skills`)
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to get skill selection' }))
+    throw new Error(typeof error.detail === 'string' ? error.detail : 'Failed to get skill selection')
+  }
+
+  return response.json()
 }
 
 export { ApiError, ExtractionFailedError }

@@ -42,16 +42,16 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 10B: JD Extraction Quality | ✅ COMPLETE | Dec 2025 | URL extraction validation, parser improvements, user-friendly errors |
 | Sprint 10C: Parser & Skill Gap Fixes | ✅ COMPLETE | Dec 2025 | Company/Title/Location extraction, skill gap score calculation fix |
 | Sprint 10D: Debugging & Improvements | ✅ COMPLETE | Dec 2025 | Mock services audit, skill mappings, frontend fixes, user profile enrichment |
-| Sprint 10E: Interactive Skill Selection | 🔲 NOT STARTED | - | Drag-drop skill panel, key skills for cover letter |
+| Sprint 10E: Interactive Skill Selection | ✅ COMPLETE | Dec 2025 | Drag-drop skill panel, key skills for cover letter |
 | Sprint 11-14: Company Intelligence | 🔲 NOT STARTED | - | Phase 2 |
 | Sprint 15-17: Application Tracking | 🔲 NOT STARTED | - | Phase 3 |
 | Sprint 18: Production Hardening | 🔲 NOT STARTED | - | ⚠️ Security & reliability (8 P0 tasks) |
 | Sprint 19: Deployment | 🔲 NOT STARTED | - | Railway + Vercel |
 
 ### Test Coverage
-- **Total Tests:** 550 passing
-- **Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_sprint_8b_integration.py, test_pagination_allocation.py, test_sprint_8c_regression.py, test_job_parser_extraction.py
-- **Coverage:** All Sprint 1-10C functionality tested
+- **Total Tests:** 560 passing
+- **Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_sprint_8b_integration.py, test_pagination_allocation.py, test_sprint_8c_regression.py, test_job_parser_extraction.py, test_skill_selection.py
+- **Coverage:** All Sprint 1-10E functionality tested
 
 ### Git Workflow & Commit Checkpoints
 
