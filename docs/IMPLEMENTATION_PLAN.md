@@ -43,10 +43,11 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 10C: Parser & Skill Gap Fixes | ✅ COMPLETE | Dec 2025 | Company/Title/Location extraction, skill gap score calculation fix |
 | Sprint 10D: Debugging & Improvements | ✅ COMPLETE | Dec 2025 | Mock services audit, skill mappings, frontend fixes, user profile enrichment |
 | Sprint 10E: Interactive Skill Selection | ✅ COMPLETE | Dec 2025 | Drag-drop skill panel, key skills for cover letter |
-| Sprint 11-14: Company Intelligence | 🔲 NOT STARTED | - | Phase 2 |
-| Sprint 15-17: Application Tracking | 🔲 NOT STARTED | - | Phase 3 |
-| Sprint 18: Production Hardening | 🔲 NOT STARTED | - | ⚠️ Security & reliability (8 P0 tasks) |
-| Sprint 19: Deployment | 🔲 NOT STARTED | - | Railway + Vercel |
+| Sprint 11: Capability-Aware Skill Extraction | 🔄 IN PROGRESS | - | LLM-based capability clusters, evidence mapping |
+| Sprint 12-15: Company Intelligence | 🔲 NOT STARTED | - | Phase 2 |
+| Sprint 16-18: Application Tracking | 🔲 NOT STARTED | - | Phase 3 |
+| Sprint 19: Production Hardening | 🔲 NOT STARTED | - | ⚠️ Security & reliability (8 P0 tasks) |
+| Sprint 20: Deployment | 🔲 NOT STARTED | - | Railway + Vercel |
 
 ### Test Coverage
 - **Total Tests:** 560 passing
@@ -929,13 +930,13 @@ Added 13 new skill tags to User 1's bullet tags based on content analysis:
 
 ---
 
-### Sprint 10E: Interactive Skill Selection Panel 🔲 NOT STARTED
+### Sprint 10E: Interactive Skill Selection Panel ✅ COMPLETE
 
 **Goal:** Replace passive skill gap display with an interactive skill selection UI that gives users control over which skills are used for resume/cover letter generation.
 
 **Problem Statement:** The current semantic skill matching is unreliable. Users see confusing results and have no control over skill prioritization. The proposed solution lets users curate skills themselves while the system provides match scores as guidance.
 
-**Status:** 🔲 Not Started
+**Status:** ✅ Complete (Dec 2025)
 
 #### Design Overview
 
@@ -1047,9 +1048,159 @@ class SelectedSkill(BaseModel):
 
 ---
 
+### Sprint 11: Capability-Aware Skill Extraction 🔄 IN PROGRESS
+
+**Goal:** Replace flat skill extraction with a three-tier capability model that better represents senior/strategic roles. Use LLM to extract capability clusters from JDs, cache mappings to reduce costs, and map resume bullets to clusters they demonstrate.
+
+**Problem Statement:** Current skill extraction uses keyword matching against a 200-skill taxonomy. This is insufficient for senior roles requiring compound capabilities (e.g., "AI Strategy + Stakeholder Management"). Skills are flat tokens without context about seniority, domain, or integration requirements.
+
+**Status:** 🔄 In Progress
+
+#### Three-Tier Capability Model
+
+```
+Tier 1: Capability Clusters (4-6 per role)
+   ├── AI & Data Strategy
+   ├── Solution Architecture
+   ├── Client Advisory
+   └── Domain Expertise
+
+Tier 2: Component Skills (3-8 per cluster)
+   ├── AI Strategy → [roadmap creation, value articulation, adoption guidance]
+   ├── Solution Architecture → [data architecture, cloud integration, IoT, digital twins]
+   └── ...
+
+Tier 3: Evidence Skills (atomic, matchable)
+   ├── TensorFlow, PyTorch, Databricks, AWS, etc.
+```
+
+#### Tasks
+
+| ID | Task | File(s) | Priority | Est. |
+|----|------|---------|----------|------|
+| **Phase 1: Data Model** | | | |
+| 11.1 | Create Capability Cluster Pydantic schemas | `schemas/capability.py` | P0 | 2h |
+| 11.2 | Add `capability_clusters` JSON field to JobProfile | `db/models.py` | P0 | 1h |
+| 11.3 | Create Capability Ontology (20-30 clusters) | `services/capability_ontology.py` | P0 | 4h |
+| **Phase 2: LLM Extraction** | | | |
+| 11.4 | Implement LLM Cluster Extraction Service | `services/capability_extractor.py` | P0 | 8h |
+| 11.5 | Implement Cluster Cache Service | `services/cluster_cache.py` | P0 | 3h |
+| **Phase 3: Evidence Mapping** | | | |
+| 11.6 | Implement Bullet-to-Cluster Mapper | `services/evidence_mapper.py` | P0 | 6h |
+| 11.7 | Integrate Cluster Analysis into Skill Gap Service | `services/skill_gap.py` | P0 | 4h |
+| **Phase 4: API** | | | |
+| 11.8 | Create Capability Cluster API Endpoints | `routers/capability.py` | P1 | 2h |
+| **Phase 5: Frontend** | | | |
+| 11.9 | Create CapabilityClusterPanel Component | `components/analysis/CapabilityClusterPanel.tsx` | P0 | 8h |
+| 11.10 | Update JobIntakeForm to fetch clusters | `components/job-intake/JobIntakeForm.tsx` | P1 | 2h |
+| 11.11 | Update API Client with cluster methods | `lib/api.ts` | P1 | 1h |
+| **Phase 6: Integration** | | | |
+| 11.12 | Update Resume Tailor to use cluster evidence | `services/resume_tailor.py` | P1 | 3h |
+| 11.13 | Update Cover Letter Service to use key skills | `services/cover_letter.py` | P1 | 3h |
+| 11.14 | Write Unit Tests (40+ tests) | `tests/test_capability_extraction.py` | P0 | 6h |
+
+#### Data Model Changes
+
+```python
+# schemas/capability.py
+class EvidenceSkill(BaseModel):
+    """Atomic, matchable skill (Tier 3)"""
+    name: str
+    category: str  # tech, domain, soft_skill
+    matched: bool = False
+
+class ComponentSkill(BaseModel):
+    """Component skill within cluster (Tier 2)"""
+    name: str
+    evidence_skills: List[EvidenceSkill] = []
+    required: bool = True
+
+class CapabilityCluster(BaseModel):
+    """High-level capability cluster (Tier 1)"""
+    name: str
+    description: str
+    component_skills: List[ComponentSkill]
+    match_percentage: float = 0.0
+    importance: str = "critical"  # critical, important, nice-to-have
+    user_evidence: List[str] = []  # bullet IDs
+    gaps: List[str] = []  # missing tech within this cluster
+    positioning: Optional[str] = None
+
+class CapabilityClusterAnalysis(BaseModel):
+    """Full cluster-based skill gap analysis"""
+    job_profile_id: int
+    clusters: List[CapabilityCluster]
+    overall_match_score: float
+    recommendation: str
+    positioning_summary: str
+```
+
+#### UI Mockup
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Capability Analysis                                    [Save]   │
+├─────────────────────────────────────────────────────────────────┤
+│ Overall Match: 78% | Recommendation: Strong Match               │
+│                                                                 │
+│ ▼ AI & Data Strategy (85% match) ─────────────────── Critical  │
+│   ☑️ AI/ML Strategy & Roadmaps          ████████████░░ 92%     │
+│   ☑️ Data Architecture & Governance     ████████████░░ 88%     │
+│   ☐ Value Articulation to Executives   ████████░░░░░░ 65%     │
+│                                                                 │
+│ ▼ Solution Architecture (72% match) ─────────────── Critical   │
+│   ☑️ Cloud Ecosystems (AWS/Azure/GCP)   █████████████░ 90%     │
+│   ⚠️ Digital Twins                      ░░░░░░░░░░░░░░  0% GAP │
+│   ⚠️ Smart City / Mobility              ░░░░░░░░░░░░░░  0% GAP │
+│                                                                 │
+│ ▶ Client Advisory (70% match) ──────────────────── Important   │
+│ ▶ Technical Depth (88% match) ──────────────────── Important   │
+│                                                                 │
+│ ─────────────────────────────────────────────────────────────── │
+│ ⭐ Key Skills for Cover Letter (select 3-4):                    │
+│   ☑️ AI/ML Strategy          ☑️ Cloud Architecture              │
+│   ☐ Data Governance          ☐ Technical Leadership            │
+│                                                                 │
+│ 🎯 Gaps to Address:                                             │
+│   • Digital Twins (position as growth area)                     │
+│   • Transportation domain (emphasize pattern transfer)          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Acceptance Criteria
+
+- [ ] LLM extracts 4-6 capability clusters from JDs
+- [ ] Cluster mappings cached with 24-hour TTL (configurable)
+- [ ] Resume bullets mapped to clusters with match percentages
+- [ ] UI displays hierarchical clusters with tech gaps visible
+- [ ] Key skill selection (3-4 max) for cover letter focus
+- [ ] Specific tech gaps surfaced within each cluster
+- [ ] Backward compatible with existing flat skill extraction
+- [ ] MockLLM works for testing (no real API calls in tests)
+- [ ] All existing tests continue to pass
+
+#### Estimated Effort
+
+| Phase | Hours |
+|-------|-------|
+| Phase 1: Data Model (11.1-11.3) | 7h |
+| Phase 2: LLM Extraction (11.4-11.5) | 11h |
+| Phase 3: Evidence Mapping (11.6-11.7) | 10h |
+| Phase 4: API (11.8) | 2h |
+| Phase 5: Frontend (11.9-11.11) | 11h |
+| Phase 6: Integration (11.12-11.14) | 12h |
+| **Total** | **53h** |
+
+#### Dependencies
+
+- Requires: Sprint 10E complete ✅
+- Blocks: Phase 2 Company Intelligence (uses capability clusters for company matching)
+
+---
+
 ## Phase 2: Company Intelligence
 
-### Sprint 11: Company Profile Enrichment (PRD 5.1-5.2)
+### Sprint 12: Company Profile Enrichment (PRD 5.1-5.2)
 
 **Goal:** Enrich company profiles with web data and intelligence.
 
@@ -1073,7 +1224,7 @@ class SelectedSkill(BaseModel):
 
 ---
 
-### Sprint 12: Hiring Manager Inference (PRD 5.3)
+### Sprint 13: Hiring Manager Inference (PRD 5.3)
 
 **Goal:** Infer likely hiring managers from job and company data.
 
@@ -1092,7 +1243,7 @@ class SelectedSkill(BaseModel):
 
 ---
 
-### Sprint 13: Warm Contact Identification (PRD 5.4)
+### Sprint 14: Warm Contact Identification (PRD 5.4)
 
 **Goal:** Identify warm contacts based on shared connections.
 
@@ -1112,7 +1263,7 @@ class SelectedSkill(BaseModel):
 
 ---
 
-### Sprint 14: Networking Outputs (PRD 5.5-5.6)
+### Sprint 15: Networking Outputs (PRD 5.5-5.6)
 
 **Goal:** Generate networking outputs and outreach messages.
 

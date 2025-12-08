@@ -299,6 +299,24 @@ class JobProfile(Base):
         comment="3-4 skills to emphasize in cover letter (max 4)"
     )
 
+    # Capability cluster analysis (Sprint 11)
+    capability_clusters: Mapped[Optional[List[dict]]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="LLM-extracted capability clusters with component skills and evidence mapping"
+    )
+    capability_cluster_cache_key: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+        index=True,
+        comment="SHA256 hash of JD text for cluster cache lookup"
+    )
+    capability_analysis_timestamp: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        nullable=True,
+        comment="When capability analysis was last performed"
+    )
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, onupdate=func.now())
 
