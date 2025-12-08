@@ -189,6 +189,57 @@ def _format_date_range(start_date: str, end_date: Optional[str]) -> str:
     return f"{start} – {end}"
 
 
+def _parse_company_name_with_parenthetical(name: str) -> tuple[str, str | None]:
+    """
+    Parse company name to extract parenthetical descriptor.
+
+    Examples:
+        "KeyLogic Associates (assigned to Kessel Run)" -> ("KeyLogic Associates", "assigned to Kessel Run")
+        "Capital Group | Los Angeles, CA" -> ("Capital Group | Los Angeles, CA", None)
+        "ACME Corp" -> ("ACME Corp", None)
+
+    Returns:
+        Tuple of (base_name, parenthetical_text or None)
+    """
+    import re
+    # Match pattern: "Company Name (parenthetical text)" at end of string
+    # But exclude simple location patterns like "(Boston, MA)" which are handled separately
+    match = re.match(r'^(.+?)\s+\(([^)]+)\)\s*$', name)
+    if match:
+        base_name = match.group(1)
+        paren_text = match.group(2)
+        # Don't split if it looks like a location (City, ST format)
+        if re.match(r'^[A-Z][a-z]+,\s*[A-Z]{2}$', paren_text):
+            return (name, None)
+        return (base_name, paren_text)
+    return (name, None)
+
+
+def _add_company_name_with_parenthetical(para, company_name: str, font_size=FONT_SIZE_COMPANY):
+    """
+    Add company name to paragraph, with parenthetical text in italics.
+
+    The base company name is bold+underlined, parenthetical descriptors are italic.
+    Example: "KeyLogic Associates (assigned to Kessel Run)"
+             -> KeyLogic Associates [bold, underlined] (assigned to Kessel Run) [italic]
+
+    Args:
+        para: The paragraph to add runs to
+        company_name: Full company name possibly with parenthetical
+        font_size: Font size to use
+    """
+    base_name, paren_text = _parse_company_name_with_parenthetical(company_name)
+
+    # Add base company name (bold, underlined)
+    company_run = para.add_run(base_name)
+    _set_run_font(company_run, FONT_NAME, font_size, bold=True, underline=True)
+
+    # Add parenthetical text if present (Georgia 10pt italic, not bold/underlined)
+    if paren_text:
+        paren_run = para.add_run(f" ({paren_text})")
+        _set_run_font(paren_run, FONT_NAME, FONT_SIZE_JOB_TITLE, italic=True)
+
+
 def _is_consulting_role(role: SelectedRole) -> bool:
     """
     Check if this role is a consulting role that should show engagements.
@@ -371,16 +422,15 @@ def _add_consulting_experience_entry(doc: Document, role: SelectedRole, continue
     company_para.paragraph_format.space_after = SPACE_AFTER_COMPANY
     company_para.paragraph_format.line_spacing = 1.17
 
-    # Company name (bold, underlined) with optional "(continued)"
+    # Company name with parenthetical in italics, with optional "(continued)"
     company_text = role.employer_name
     if continued:
         company_text = f"{company_text} (continued)"
-    company_run = company_para.add_run(company_text)
-    _set_run_font(company_run, FONT_NAME, FONT_SIZE_COMPANY, bold=True, underline=True)
+    _add_company_name_with_parenthetical(company_para, company_text)
 
-    # Location if present
+    # Location if present (separate from parenthetical in company name)
     if role.location:
-        loc_run = company_para.add_run(f" ({role.location})")
+        loc_run = company_para.add_run(f" | {role.location}")
         _set_run_font(loc_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL)
 
     # Date range
@@ -726,13 +776,12 @@ def _add_experience_entry(doc: Document, role: SelectedRole):
     company_para.paragraph_format.space_after = SPACE_AFTER_COMPANY
     company_para.paragraph_format.line_spacing = 1.17
 
-    # Company name (bold, underlined)
-    company_run = company_para.add_run(role.employer_name)
-    _set_run_font(company_run, FONT_NAME, FONT_SIZE_COMPANY, bold=True, underline=True)
+    # Company name with parenthetical in italics (e.g., "KeyLogic (assigned to Kessel Run)")
+    _add_company_name_with_parenthetical(company_para, role.employer_name)
 
-    # Location if present
+    # Location if present (separate from parenthetical in company name)
     if role.location:
-        loc_run = company_para.add_run(f" ({role.location})")
+        loc_run = company_para.add_run(f" | {role.location}")
         _set_run_font(loc_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL)
 
     # Tab and date range (right-aligned effect using tabs)
