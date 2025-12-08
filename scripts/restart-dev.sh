@@ -15,9 +15,10 @@ pkill -f "uvicorn main:app" 2>/dev/null || true
 pkill -f "next dev" 2>/dev/null || true
 sleep 1
 
-# Clear Next.js cache
-echo "Clearing Next.js cache..."
+# Clear Next.js and node caches
+echo "Clearing caches..."
 rm -rf "$PROJECT_ROOT/frontend/.next"
+rm -rf "$PROJECT_ROOT/frontend/node_modules/.cache"
 
 # Start backend
 echo "Starting backend on http://localhost:8000..."
