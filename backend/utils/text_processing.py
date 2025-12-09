@@ -293,6 +293,76 @@ def _normalize_job_url(url: str) -> str:
     return url
 
 
+def parse_workday_url(url: str) -> dict:
+    """
+    Extract job metadata from Workday URL structure.
+
+    Workday URLs follow patterns like:
+    - company.wd1.myworkdayjobs.com/site/job/LOCATION/Job-Title_ID
+    - company.wd5.myworkdayjobs.com/en-US/External/job/City/Job-Title_ID
+
+    Args:
+        url: Workday job URL
+
+    Returns:
+        Dict with company_name, job_title, location (any found)
+    """
+    result = {
+        'company_name': None,
+        'job_title': None,
+        'location': None,
+    }
+
+    if 'myworkdayjobs.com' not in url:
+        return result
+
+    try:
+        from urllib.parse import urlparse, unquote
+        parsed = urlparse(url)
+
+        # Extract company from subdomain (e.g., "statestreet" from statestreet.wd1.myworkdayjobs.com)
+        hostname = parsed.hostname or ''
+        if hostname:
+            company_part = hostname.split('.')[0]
+            if company_part and company_part not in ['www', 'jobs']:
+                # Convert to title case and handle common patterns
+                result['company_name'] = company_part.replace('-', ' ').title()
+
+        # Parse the path: /site/job/LOCATION/Job-Title_ID or /en-US/External/job/City/Job-Title_ID
+        path_parts = [p for p in parsed.path.split('/') if p]
+
+        # Find "job" in path and extract what follows
+        if 'job' in path_parts:
+            job_idx = path_parts.index('job')
+            remaining = path_parts[job_idx + 1:]
+
+            if len(remaining) >= 2:
+                # Pattern: /job/LOCATION/Job-Title_ID
+                location_part = remaining[0]
+                title_part = remaining[1]
+
+                # Location is usually uppercase city/region
+                if location_part.isupper() or location_part[0].isupper():
+                    result['location'] = unquote(location_part).replace('-', ' ').title()
+
+                # Title: strip ID suffix and convert dashes to spaces
+                if '_' in title_part:
+                    title_part = title_part.rsplit('_', 1)[0]  # Remove _R-123456 suffix
+                result['job_title'] = unquote(title_part).replace('--', ' - ').replace('-', ' ')
+
+            elif len(remaining) == 1:
+                # Just title/ID
+                title_part = remaining[0]
+                if '_' in title_part:
+                    title_part = title_part.rsplit('_', 1)[0]
+                result['job_title'] = unquote(title_part).replace('--', ' - ').replace('-', ' ')
+
+    except Exception as e:
+        logger.warning(f"Failed to parse Workday URL {url}: {e}")
+
+    return result
+
+
 def _extract_meta_description(soup: BeautifulSoup) -> str:
     """
     Extract job description from meta tags (used by JS-rendered pages like Lever).

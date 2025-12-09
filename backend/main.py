@@ -5,10 +5,16 @@ An AI-Orchestrated Resume, Cover Letter, and Networking Intelligence Platform
 This is the main FastAPI application entry point.
 """
 
+from dotenv import load_dotenv
+
+# Load environment variables from .env file BEFORE other imports
+# This ensures API keys are available when services are initialized
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import job_router, resume_router, cover_letter_router, critic_router, outputs_router
+from routers import job_router, resume_router, cover_letter_router, critic_router, outputs_router, capability_router
 
 app = FastAPI(
     title="ETPS API",
@@ -43,6 +49,7 @@ app.include_router(resume_router, prefix="/api/v1/resume", tags=["resume"])
 app.include_router(cover_letter_router, prefix="/api/v1/cover-letter", tags=["cover_letter"])
 app.include_router(critic_router, prefix="/api/v1/critic", tags=["critic"])
 app.include_router(outputs_router, prefix="/api/v1/outputs", tags=["outputs"])
+app.include_router(capability_router, prefix="/api/v1/capability", tags=["capability"])
 
 # TODO: Include additional routers when implemented
 # app.include_router(company.router, prefix="/api/v1/company", tags=["company"])

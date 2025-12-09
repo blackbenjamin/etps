@@ -13,7 +13,7 @@ from typing import Optional, List
 
 from docx import Document
 from docx.shared import Pt, Inches, Twips, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT, WD_LINE_SPACING
 from docx.enum.style import WD_STYLE_TYPE
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 
 # Font constants (matching the original resume)
 FONT_NAME = "Georgia"
+FONT_NAME_BULLET_CHAR = "Gungsuh"  # Korean font for bullet character
 FONT_SIZE_NAME = Pt(16)
 FONT_SIZE_CONTACT = Pt(10.5)
 FONT_SIZE_SECTION_HEADER = Pt(11)
@@ -53,22 +54,33 @@ FONT_SIZE_COMPANY = Pt(11.5)
 FONT_SIZE_COMPANY_DETAIL = Pt(10)
 FONT_SIZE_JOB_TITLE = Pt(10)
 FONT_SIZE_BULLET = Pt(10.5)
+FONT_SIZE_BULLET_CHAR = Pt(5.5)  # Smaller bullet character
 FONT_SIZE_SKILL_CATEGORY = Pt(10.5)
 
 # Indentation constants
 INDENT_SUMMARY = Inches(0.125)
 INDENT_SECTION = Inches(0.13)
-INDENT_BULLET_LEFT = Inches(0.125)
-INDENT_BULLET_HANGING = Inches(-0.1875)
-INDENT_SUB_BULLET_LEFT = Inches(0.44)
-INDENT_SUB_BULLET_HANGING = Inches(-0.19)
+# Bullet spacing constant - distance from bullet to text start
+BULLET_TEXT_GAP = Inches(0.18)  # Space between bullet and text
+
+# Role bullet indentation: bullet in LEFT MARGIN (negative), text at 0" (aligned with company)
+# first_line_indent pulls the bullet into the margin, left_indent keeps wrapped text at 0"
+INDENT_BULLET_LEFT = Inches(0.0)  # Text wraps at 0" (aligned with company name)
+INDENT_BULLET_HANGING = -BULLET_TEXT_GAP  # Bullet extends into margin
+
+# Engagement bullet indentation: bullet at 0" (company level), text at 0.18" from bullet
+INDENT_ENGAGEMENT_BULLET_LEFT = BULLET_TEXT_GAP  # Text wraps at 0.18"
+INDENT_ENGAGEMENT_BULLET_HANGING = -BULLET_TEXT_GAP  # First line starts at 0"
+
+# Tab stop for right-aligned dates (at 6" from left margin = 7.5" - 0.5" right margin - 1" buffer)
+DATE_TAB_POSITION = Inches(7.0)  # 6" from 0.5" left margin = 6.5" total, but page is 7.5" wide
 
 # Spacing constants
-SPACE_AFTER_SUMMARY = Pt(6)
+SPACE_AFTER_SUMMARY = Pt(0)  # Reduced - horizontal line provides spacing
 SPACE_BEFORE_SECTION = Pt(10)
 SPACE_AFTER_SECTION = Pt(6)
 SPACE_BEFORE_COMPANY = Pt(7)
-SPACE_AFTER_COMPANY = Pt(4)
+SPACE_AFTER_COMPANY = Pt(2)
 SPACE_AFTER_TITLE = Pt(2)
 SPACE_AFTER_BULLET = Pt(2)
 
@@ -87,6 +99,15 @@ def _add_horizontal_line(doc: Document, width: float = 7.5, thickness: float = 0
     para.paragraph_format.space_before = Pt(0)
     para.paragraph_format.space_after = Pt(space_after)
 
+    # Add a space character to establish the font (empty string doesn't work)
+    # At 0.5pt the space is virtually invisible but establishes Georgia font
+    tiny_run = para.add_run(" ")
+    _set_run_font(tiny_run, FONT_NAME, Pt(0.5))
+
+    # Set line spacing to Exactly 8pt to minimize vertical space
+    para.paragraph_format.line_spacing = Pt(8)
+    para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+
     # Create a bottom border on the paragraph
     pPr = para._p.get_or_add_pPr()
     pBdr = OxmlElement('w:pBdr')
@@ -99,6 +120,47 @@ def _add_horizontal_line(doc: Document, width: float = 7.5, thickness: float = 0
     pPr.append(pBdr)
 
     return para
+
+
+def _add_section_header(doc: Document, title: str):
+    """
+    Add a section header with horizontal line above and underline below.
+
+    Creates properly formatted section headers (Professional Experience, Technical Skills, Education)
+    with small caps styling and underline border.
+
+    Args:
+        doc: The document to add to
+        title: Section title text (e.g., "Professional Experience")
+
+    Returns:
+        The header paragraph
+    """
+    # Add line above section
+    _add_horizontal_line(doc, space_after=0)
+
+    # Section header paragraph
+    header_para = doc.add_paragraph()
+    header_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    header_para.paragraph_format.space_before = Pt(0)
+    header_para.paragraph_format.space_after = Pt(6)
+
+    # Add the title text with small caps
+    header_run = header_para.add_run(title)
+    _set_run_font(header_run, FONT_NAME, FONT_SIZE_SECTION_HEADER, bold=True, small_caps=True)
+
+    # Add bottom border (underline effect)
+    pPr = header_para._p.get_or_add_pPr()
+    pBdr = OxmlElement('w:pBdr')
+    bottom = OxmlElement('w:bottom')
+    bottom.set(qn('w:val'), 'single')
+    bottom.set(qn('w:sz'), '4')
+    bottom.set(qn('w:space'), '1')
+    bottom.set(qn('w:color'), '000000')
+    pBdr.append(bottom)
+    pPr.append(pBdr)
+
+    return header_para
 
 
 def _add_header_line(header):
@@ -126,6 +188,18 @@ def _add_header_line(header):
     return para
 
 
+def _add_right_tab_stop(paragraph, position=DATE_TAB_POSITION):
+    """
+    Add a right-aligned tab stop to the paragraph for date alignment.
+
+    Args:
+        paragraph: The paragraph to add the tab stop to
+        position: Position of the tab stop from left margin (default: DATE_TAB_POSITION)
+    """
+    tab_stops = paragraph.paragraph_format.tab_stops
+    tab_stops.add_tab_stop(position, WD_TAB_ALIGNMENT.RIGHT)
+
+
 def _set_keep_together(paragraph):
     """Set the Keep Together property on a paragraph to prevent page breaks within."""
     pPr = paragraph._p.get_or_add_pPr()
@@ -143,7 +217,7 @@ def _set_keep_with_next(paragraph):
 
 
 def _set_run_font(run, font_name: str, font_size, bold: bool = False,
-                  italic: bool = False, underline: bool = False):
+                  italic: bool = False, underline: bool = False, small_caps: bool = False):
     """Apply font formatting to a run."""
     run.font.name = font_name
     run._element.rPr.rFonts.set(qn('w:eastAsia'), font_name)
@@ -151,19 +225,28 @@ def _set_run_font(run, font_name: str, font_size, bold: bool = False,
     run.font.bold = bold
     run.font.italic = italic
     run.font.underline = underline
+    run.font.small_caps = small_caps
 
 
 def _add_bullet_point(doc: Document, text: str, indent_left: float = INDENT_BULLET_LEFT,
                       indent_hanging: float = INDENT_BULLET_HANGING):
-    """Add a bullet point paragraph with proper formatting."""
+    """Add a bullet point paragraph with proper formatting.
+
+    Uses left_indent to set where wrapped text aligns, and first_line_indent (negative)
+    to pull the bullet character back to its proper position.
+    """
     para = doc.add_paragraph()
     para.paragraph_format.left_indent = indent_left
     para.paragraph_format.first_line_indent = indent_hanging
     para.paragraph_format.space_after = SPACE_AFTER_BULLET
 
-    # Add bullet character
-    bullet_run = para.add_run("•\t")
-    _set_run_font(bullet_run, FONT_NAME, FONT_SIZE_BULLET)
+    # Add tab stop for bullet-to-text spacing (at the left_indent position)
+    tab_stops = para.paragraph_format.tab_stops
+    tab_stops.add_tab_stop(indent_left, WD_TAB_ALIGNMENT.LEFT)
+
+    # Add bullet character (Gungsuh 5.5pt for proper size)
+    bullet_run = para.add_run("●\t")
+    _set_run_font(bullet_run, FONT_NAME_BULLET_CHAR, FONT_SIZE_BULLET_CHAR)
 
     # Add text
     text_run = para.add_run(text)
@@ -217,11 +300,11 @@ def _parse_company_name_with_parenthetical(name: str) -> tuple[str, str | None]:
 
 def _add_company_name_with_parenthetical(para, company_name: str, font_size=FONT_SIZE_COMPANY):
     """
-    Add company name to paragraph, with parenthetical text in italics.
+    Add company name to paragraph, with parenthetical text in regular (not bold) italics.
 
-    The base company name is bold+underlined, parenthetical descriptors are italic.
+    The base company name is bold+underlined, parenthetical descriptors are italic only.
     Example: "KeyLogic Associates (assigned to Kessel Run)"
-             -> KeyLogic Associates [bold, underlined] (assigned to Kessel Run) [italic]
+             -> KeyLogic Associates [bold, underlined] (assigned to Kessel Run) [italic, not bold]
 
     Args:
         para: The paragraph to add runs to
@@ -234,10 +317,10 @@ def _add_company_name_with_parenthetical(para, company_name: str, font_size=FONT
     company_run = para.add_run(base_name)
     _set_run_font(company_run, FONT_NAME, font_size, bold=True, underline=True)
 
-    # Add parenthetical text if present (Georgia 10pt italic, not bold/underlined)
+    # Add parenthetical text if present (Georgia 10pt italic, explicitly NOT bold)
     if paren_text:
         paren_run = para.add_run(f" ({paren_text})")
-        _set_run_font(paren_run, FONT_NAME, FONT_SIZE_JOB_TITLE, italic=True)
+        _set_run_font(paren_run, FONT_NAME, FONT_SIZE_JOB_TITLE, bold=False, italic=True)
 
 
 def _is_consulting_role(role: SelectedRole) -> bool:
@@ -327,9 +410,9 @@ def _add_bbc_client_entry(doc: Document, client_name: str, date_range: str,
         bullets: List of selected bullets for this client
         keep_together: Whether to apply Keep Together formatting
     """
-    # Client name line: bold name with date in parentheses, indented
+    # Client name line: bold name with date in parentheses - aligned at 0"
     client_para = doc.add_paragraph()
-    client_para.paragraph_format.left_indent = Inches(0.25)
+    client_para.paragraph_format.left_indent = Inches(0)  # Align with company name
     client_para.paragraph_format.space_before = Pt(4)
     client_para.paragraph_format.space_after = Pt(2)
 
@@ -341,20 +424,22 @@ def _add_bbc_client_entry(doc: Document, client_name: str, date_range: str,
     date_run = client_para.add_run(f" ({date_range})")
     _set_run_font(date_run, FONT_NAME, Pt(9.5))
 
-    if keep_together:
+    # Keep client header with first bullet (header should never orphan)
+    if bullets:
         _set_keep_with_next(client_para)
-        _set_keep_together(client_para)
+    _set_keep_together(client_para)
 
-    # Add bullets for this client (slightly more indented than regular bullets)
+    # Add bullets for this client (text indented, bullet aligns with company name)
     for i, bullet in enumerate(bullets):
         bullet_para = _add_bullet_point(
             doc, bullet.text,
-            indent_left=Inches(0.375),
-            indent_hanging=Inches(-0.1875)
+            indent_left=INDENT_ENGAGEMENT_BULLET_LEFT,  # 0.18" - text indented
+            indent_hanging=INDENT_ENGAGEMENT_BULLET_HANGING  # -0.18" - bullet at company name
         )
-        if keep_together and i < len(bullets) - 1:
+        # Keep bullets together - each bullet stays with the next one (except last)
+        _set_keep_together(bullet_para)
+        if i < len(bullets) - 1:
             _set_keep_with_next(bullet_para)
-            _set_keep_together(bullet_para)
 
 
 def _add_engagement_entry(doc: Document, engagement: SelectedEngagement, keep_together: bool = True):
@@ -368,40 +453,50 @@ def _add_engagement_entry(doc: Document, engagement: SelectedEngagement, keep_to
         engagement: The SelectedEngagement with client, project, and bullets
         keep_together: Whether to apply Keep Together formatting
     """
-    # Build the engagement header: "Client — Project Name" or just "Client"
-    header_text = engagement.client or ""
-    if engagement.project_name:
-        header_text = f"{header_text} — {engagement.project_name}" if header_text else engagement.project_name
-
-    # Engagement header line
+    # Engagement header line - aligned at 0" (with company name)
     eng_para = doc.add_paragraph()
-    eng_para.paragraph_format.left_indent = Inches(0.25)
+    eng_para.paragraph_format.left_indent = Inches(0)  # Align with company name
     eng_para.paragraph_format.space_before = Pt(4)
     eng_para.paragraph_format.space_after = Pt(2)
 
-    # Bold engagement header
-    header_run = eng_para.add_run(header_text)
-    _set_run_font(header_run, FONT_NAME, FONT_SIZE_BULLET, bold=True)
+    # Client name - parse for parenthetical text like "(via Olmstead Associates)"
+    client_name = engagement.client or ""
+    if client_name:
+        base_name, paren_text = _parse_company_name_with_parenthetical(client_name)
 
-    # Date range if provided
-    if engagement.date_range_label:
-        date_run = eng_para.add_run(f" ({engagement.date_range_label})")
-        _set_run_font(date_run, FONT_NAME, Pt(9.5))
+        # Base client name in bold
+        client_run = eng_para.add_run(base_name)
+        _set_run_font(client_run, FONT_NAME, FONT_SIZE_BULLET, bold=True)
 
-    if keep_together:
+        # Parenthetical text in italic (NOT bold)
+        if paren_text:
+            paren_run = eng_para.add_run(f" ({paren_text})")
+            _set_run_font(paren_run, FONT_NAME, FONT_SIZE_BULLET, bold=False, italic=True)
+
+    # Em-dash and project name NOT bold
+    if engagement.project_name:
+        separator = " — " if client_name else ""
+        project_run = eng_para.add_run(f"{separator}{engagement.project_name}")
+        _set_run_font(project_run, FONT_NAME, FONT_SIZE_BULLET, bold=False)
+
+    # Note: date_range_label omitted for cleaner engagement display
+
+    # Keep engagement header with first bullet (engagement header should never orphan)
+    if engagement.selected_bullets:
         _set_keep_with_next(eng_para)
-        _set_keep_together(eng_para)
+    _set_keep_together(eng_para)
 
-    # Add bullets for this engagement
+    # Add bullets for this engagement (text indented, bullet aligns with company name)
     for i, bullet in enumerate(engagement.selected_bullets):
         bullet_para = _add_bullet_point(
             doc, bullet.text,
-            indent_left=Inches(0.375),
-            indent_hanging=Inches(-0.1875)
+            indent_left=INDENT_ENGAGEMENT_BULLET_LEFT,  # 0.18" - text indented
+            indent_hanging=INDENT_ENGAGEMENT_BULLET_HANGING  # -0.18" - bullet at company name
         )
-        if keep_together and i < len(engagement.selected_bullets) - 1:
+        # Keep bullets together - each bullet stays with the next one (except last)
+        _set_keep_together(bullet_para)
+        if i < len(engagement.selected_bullets) - 1:
             _set_keep_with_next(bullet_para)
-            _set_keep_together(bullet_para)
 
 
 def _add_consulting_experience_entry(doc: Document, role: SelectedRole, continued: bool = False):
@@ -422,6 +517,9 @@ def _add_consulting_experience_entry(doc: Document, role: SelectedRole, continue
     company_para.paragraph_format.space_after = SPACE_AFTER_COMPANY
     company_para.paragraph_format.line_spacing = 1.17
 
+    # Add right-aligned tab stop for date
+    _add_right_tab_stop(company_para)
+
     # Company name with parenthetical in italics, with optional "(continued)"
     company_text = role.employer_name
     if continued:
@@ -433,9 +531,9 @@ def _add_consulting_experience_entry(doc: Document, role: SelectedRole, continue
         loc_run = company_para.add_run(f" | {role.location}")
         _set_run_font(loc_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL)
 
-    # Date range
+    # Date range (using single tab to right-aligned tab stop)
     date_range = _format_date_range(role.start_date, role.end_date)
-    company_para.add_run("\t\t\t\t\t\t  ")
+    company_para.add_run("\t")  # Single tab to right-aligned stop
     date_run = company_para.add_run(date_range)
     _set_run_font(date_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL)
 
@@ -446,7 +544,7 @@ def _add_consulting_experience_entry(doc: Document, role: SelectedRole, continue
     # Job title (bold, italic) - only on first page (not continued)
     if not continued:
         title_para = doc.add_paragraph()
-        title_para.paragraph_format.first_line_indent = INDENT_SECTION
+        title_para.paragraph_format.left_indent = Inches(0)  # Align with company name
         title_para.paragraph_format.space_after = SPACE_AFTER_TITLE
 
         title_run = title_para.add_run(role.job_title)
@@ -454,21 +552,21 @@ def _add_consulting_experience_entry(doc: Document, role: SelectedRole, continue
         _set_keep_with_next(title_para)
         _set_keep_together(title_para)
 
-        # Role summary if provided (v1.3.0)
+        # Role summary if provided (v1.3.0) - NOT italic
         if role.role_summary:
             summary_para = doc.add_paragraph()
-            summary_para.paragraph_format.left_indent = Inches(0.125)
+            summary_para.paragraph_format.left_indent = Inches(0)  # Align with company name
             summary_para.paragraph_format.space_after = Pt(4)
             summary_run = summary_para.add_run(role.role_summary)
-            _set_run_font(summary_run, FONT_NAME, FONT_SIZE_BULLET, italic=True)
+            _set_run_font(summary_run, FONT_NAME, FONT_SIZE_BULLET, italic=False)  # Not italic
             _set_keep_with_next(summary_para)
 
     # Check if we have v1.3.0 engagements
     if role.selected_engagements:
         # Use the new engagement structure
-        for i, engagement in enumerate(role.selected_engagements):
-            is_last = (i == len(role.selected_engagements) - 1)
-            _add_engagement_entry(doc, engagement, keep_together=not is_last)
+        # Each engagement with its bullets stays together (won't break across pages)
+        for engagement in role.selected_engagements:
+            _add_engagement_entry(doc, engagement, keep_together=True)
     elif role.selected_bullets:
         # No engagements but has direct bullets - render like a normal role
         # This handles BBC periods without client engagements (e.g., current period)
@@ -600,6 +698,7 @@ def create_resume_docx(
     # Name
     name_para = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
     name_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    name_para.paragraph_format.space_after = Pt(4)  # Add space under name
     name_run = name_para.add_run(user_name.upper())
     _set_run_font(name_run, FONT_NAME, FONT_SIZE_NAME, bold=True)
 
@@ -608,17 +707,29 @@ def create_resume_docx(
     contact_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
     contact_para.paragraph_format.space_after = Pt(12)  # 12pt space after the line
 
+    # Build contact parts - bullets between items, but NO bullet before portfolio (last item)
     contact_parts = [user_email]
     if user_phone:
         contact_parts.append(user_phone)
     if user_linkedin:
         contact_parts.append(user_linkedin)
-    if user_portfolio:
-        contact_parts.append(user_portfolio)
 
-    contact_text = "     ".join(contact_parts)
-    contact_run = contact_para.add_run(contact_text)
-    _set_run_font(contact_run, FONT_NAME, FONT_SIZE_CONTACT)
+    # Build contact line with mixed fonts: text in Georgia, bullets in Gungsuh
+    for i, part in enumerate(contact_parts):
+        if i > 0:
+            # Add bullet separator with Gungsuh font (extra spacing to spread content)
+            bullet_sep = contact_para.add_run("       ●       ")
+            _set_run_font(bullet_sep, FONT_NAME_BULLET_CHAR, FONT_SIZE_BULLET_CHAR)
+        # Add contact text in Georgia
+        text_run = contact_para.add_run(part)
+        _set_run_font(text_run, FONT_NAME, FONT_SIZE_CONTACT)
+
+    # Add portfolio at the end WITHOUT a bullet separator (just spaces)
+    if user_portfolio:
+        space_run = contact_para.add_run("    ")
+        _set_run_font(space_run, FONT_NAME, FONT_SIZE_CONTACT)
+        portfolio_run = contact_para.add_run(user_portfolio)
+        _set_run_font(portfolio_run, FONT_NAME, FONT_SIZE_CONTACT)
 
     # Add bottom border directly to contact line (underline effect, tight to text)
     pPr = contact_para._p.get_or_add_pPr()
@@ -638,33 +749,19 @@ def create_resume_docx(
         summary_para.paragraph_format.space_after = SPACE_AFTER_SUMMARY
         summary_para.paragraph_format.line_spacing = 1.17  # ~7/6
 
-        summary_run = summary_para.add_run(tailored_resume.tailored_summary)
+        # Add summary text
+        summary_text = tailored_resume.tailored_summary.rstrip()
+        # Ensure it ends with a period before adding MIT Sloan MBA
+        if not summary_text.endswith('.'):
+            summary_text += '.'
+        summary_text += " MIT Sloan MBA."
+
+        summary_run = summary_para.add_run(summary_text)
         _set_run_font(summary_run, FONT_NAME, FONT_SIZE_BULLET)
 
     # === PROFESSIONAL EXPERIENCE ===
     if tailored_resume.selected_roles:
-        # Add line above section
-        _add_horizontal_line(doc, space_after=0)
-
-        # Section header (centered, ALL CAPS, with underline border)
-        exp_header = doc.add_paragraph()
-        exp_header.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        exp_header.paragraph_format.space_before = Pt(0)
-        exp_header.paragraph_format.space_after = Pt(6)
-
-        exp_run = exp_header.add_run("PROFESSIONAL EXPERIENCE")
-        _set_run_font(exp_run, FONT_NAME, FONT_SIZE_SECTION_HEADER, bold=True)
-
-        # Add bottom border directly to header (underline effect)
-        pPr = exp_header._p.get_or_add_pPr()
-        pBdr = OxmlElement('w:pBdr')
-        bottom = OxmlElement('w:bottom')
-        bottom.set(qn('w:val'), 'single')
-        bottom.set(qn('w:sz'), '4')
-        bottom.set(qn('w:space'), '1')
-        bottom.set(qn('w:color'), '000000')
-        pBdr.append(bottom)
-        pPr.append(pBdr)
+        _add_section_header(doc, "Professional Experience")
 
         # Add each role
         for role in tailored_resume.selected_roles:
@@ -676,34 +773,13 @@ def create_resume_docx(
 
     # === TECHNICAL SKILLS ===
     if tailored_resume.selected_skills:
-        # Add line above section
-        _add_horizontal_line(doc, space_after=0)
-
-        # Section header (centered, ALL CAPS, with underline border)
-        skills_header = doc.add_paragraph()
-        skills_header.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        skills_header.paragraph_format.space_before = Pt(0)
-        skills_header.paragraph_format.space_after = Pt(6)
-
-        skills_run = skills_header.add_run("TECHNICAL SKILLS")
-        _set_run_font(skills_run, FONT_NAME, FONT_SIZE_SECTION_HEADER, bold=True)
-
-        # Add bottom border directly to header (underline effect)
-        pPr = skills_header._p.get_or_add_pPr()
-        pBdr = OxmlElement('w:pBdr')
-        bottom = OxmlElement('w:bottom')
-        bottom.set(qn('w:val'), 'single')
-        bottom.set(qn('w:sz'), '4')
-        bottom.set(qn('w:space'), '1')
-        bottom.set(qn('w:color'), '000000')
-        pBdr.append(bottom)
-        pPr.append(pBdr)
+        _add_section_header(doc, "Technical Skills")
 
         # Group and add skills
         grouped_skills = _group_skills_by_category(tailored_resume.selected_skills)
         for category, skill_list in grouped_skills.items():
             skills_para = doc.add_paragraph()
-            skills_para.paragraph_format.left_indent = INDENT_SUMMARY
+            skills_para.paragraph_format.left_indent = Inches(0)  # Align with company names
             skills_para.paragraph_format.space_after = Pt(2)
 
             # Category name (bold)
@@ -717,28 +793,7 @@ def create_resume_docx(
 
     # === EDUCATION ===
     if education:
-        # Add line above section
-        _add_horizontal_line(doc, space_after=0)
-
-        # Section header (centered, ALL CAPS, with underline border)
-        edu_header = doc.add_paragraph()
-        edu_header.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        edu_header.paragraph_format.space_before = Pt(0)
-        edu_header.paragraph_format.space_after = Pt(6)
-
-        edu_run = edu_header.add_run("EDUCATION")
-        _set_run_font(edu_run, FONT_NAME, FONT_SIZE_SECTION_HEADER, bold=True)
-
-        # Add bottom border directly to header (underline effect)
-        pPr = edu_header._p.get_or_add_pPr()
-        pBdr = OxmlElement('w:pBdr')
-        bottom = OxmlElement('w:bottom')
-        bottom.set(qn('w:val'), 'single')
-        bottom.set(qn('w:sz'), '4')
-        bottom.set(qn('w:space'), '1')
-        bottom.set(qn('w:color'), '000000')
-        pBdr.append(bottom)
-        pPr.append(pBdr)
+        _add_section_header(doc, "Education")
 
         for edu_entry in education:
             _add_education_entry(doc, edu_entry)
@@ -765,6 +820,9 @@ def _add_experience_entry(doc: Document, role: SelectedRole):
     company_para.paragraph_format.space_after = SPACE_AFTER_COMPANY
     company_para.paragraph_format.line_spacing = 1.17
 
+    # Add right-aligned tab stop for date
+    _add_right_tab_stop(company_para)
+
     # Company name with parenthetical in italics (e.g., "KeyLogic (assigned to Kessel Run)")
     _add_company_name_with_parenthetical(company_para, role.employer_name)
 
@@ -773,16 +831,15 @@ def _add_experience_entry(doc: Document, role: SelectedRole):
         loc_run = company_para.add_run(f" | {role.location}")
         _set_run_font(loc_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL)
 
-    # Tab and date range (right-aligned effect using tabs)
+    # Date range (using single tab to right-aligned tab stop)
     date_range = _format_date_range(role.start_date, role.end_date)
-    # Add tabs to push date to right side
-    company_para.add_run("\t\t\t\t\t\t  ")
+    company_para.add_run("\t")  # Single tab to right-aligned stop
     date_run = company_para.add_run(date_range)
     _set_run_font(date_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL)
 
-    # Job title (bold, italic)
+    # Job title (bold, italic) - aligned with company name
     title_para = doc.add_paragraph()
-    title_para.paragraph_format.first_line_indent = INDENT_SECTION
+    title_para.paragraph_format.left_indent = Inches(0)  # Align with company name
     title_para.paragraph_format.space_after = SPACE_AFTER_TITLE
 
     title_run = title_para.add_run(role.job_title)
@@ -811,11 +868,11 @@ def _add_education_entry(doc: Document, edu: dict):
         loc_run = inst_para.add_run(f" ({location})")
         _set_run_font(loc_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL)
 
-    # Degree (bold, italic)
+    # Degree (bold, italic) - no indentation, aligns with institution name
     degree = edu.get("degree")
     if degree:
         degree_para = doc.add_paragraph()
-        degree_para.paragraph_format.first_line_indent = INDENT_SECTION
+        degree_para.paragraph_format.left_indent = Inches(0)  # No indentation
         degree_para.paragraph_format.space_after = SPACE_AFTER_TITLE
 
         degree_run = degree_para.add_run(degree)

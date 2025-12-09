@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from db.models import JobProfile
 from services.llm.mock_llm import MockLLM
-from utils.text_processing import fetch_url_content, clean_text, extract_bullets, ExtractionFailedError
+from utils.text_processing import fetch_url_content, clean_text, extract_bullets, ExtractionFailedError, parse_workday_url
 
 
 # Comprehensive skill taxonomy organized by category
@@ -112,6 +112,16 @@ SKILL_TAXONOMY = {
         'Algorithmic Fairness', 'Bias Detection', 'Model Governance', 'AI Policy',
         'AI Compliance', 'AI Safety', 'Explainability', 'Interpretability', 'XAI',
         'Model Risk Management', 'AI Auditing', 'AI Transparency'
+    ],
+
+    # Data Governance & Management
+    'data_governance': [
+        'Data Governance', 'Data Stewardship', 'Data Quality', 'Data Lineage',
+        'Data Catalog', 'Data Dictionary', 'Metadata Management', 'Master Data Management',
+        'MDM', 'Data Standards', 'Data Classification', 'Data Ownership',
+        'Collibra', 'Alation', 'Informatica', 'Atlan', 'Data Management',
+        'Information Governance', 'Data Policy', 'Data Architecture',
+        'Enterprise Data', 'Data Strategy', 'Data Modeling'
     ],
 
     # Compliance & Regulations
@@ -285,8 +295,9 @@ def extract_company_name(jd_text: str, job_title: str = None) -> Optional[str]:
     Strategies:
     1. Look for "Company: <name>" pattern
     2. Look for "at <Company>" or "join <Company>" patterns
-    3. Check first few lines for company name patterns
-    4. Parse from "Company - Title" format in title
+    3. Look for "About [Company]" heading
+    4. Look for possessive "[Company]'s [Platform]" patterns
+    5. Check first few lines for company name patterns
 
     Args:
         jd_text: Job description text
@@ -296,6 +307,14 @@ def extract_company_name(jd_text: str, job_title: str = None) -> Optional[str]:
         Company name if found, None otherwise
     """
     lines = jd_text.split('\n')
+
+    # Common false positive words to filter out
+    false_positives = [
+        'we', 'the', 'our', 'this', 'an', 'a', 'us', 'company', 'the company',
+        'as', 'at', 'for', 'to', 'be', 'is', 'are', 'or', 'and', 'it',
+        'you', 'your', 'in', 'on', 'by', 'of', 'if', 'so', 'do', 'no',
+        'new', 'all', 'can', 'who', 'has', 'had', 'get', 'job', 'now'
+    ]
 
     # Strategy 1: Explicit "Company:" pattern
     company_patterns = [
@@ -315,11 +334,17 @@ def extract_company_name(jd_text: str, job_title: str = None) -> Optional[str]:
     # Note: Regex patterns include length limits ({1,30}) to prevent ReDoS attacks
     at_patterns = [
         r'\bat\s+([A-Z][A-Za-z0-9]{1,30}(?:\s+[A-Z][A-Za-z0-9]{1,30})?),\s+we',  # "At AHEAD, we"
+        r'\bat\s+([A-Z]{2,20})\b',  # "At AHEAD" (all-caps company names like AHEAD, IBM, etc.)
         r'join\s+([A-Z][A-Za-z0-9]{1,30}(?:\s+[A-Z][A-Za-z0-9]{1,30})?)\s+(?:as|and)',  # "Join AHEAD as"
+        r'join\s+([A-Z]{2,20})\b',  # "Join AHEAD" (all-caps company)
         r'^([A-Z][A-Za-z0-9]{1,30}(?:\s+[A-Z][A-Za-z0-9]{1,30})?)\s+(?:builds|is|offers|provides)',  # "AHEAD builds"
+        r'\b([A-Z]{2,20})\s+(?:builds|is\s+a|offers|provides|helps)',  # "AHEAD is a" or "AHEAD builds"
+        r'about\s+([A-Z][A-Za-z0-9& ]{1,40}?)(?:\s*:|\s*$)',  # "About AHEAD:" or "About Company Name"
+        r'(?:work|working)\s+(?:at|for|with)\s+([A-Z][A-Za-z0-9& ]{1,40}?)(?:\s*[.,!]|\s*$)',  # "work at AHEAD"
+        r'(?:work|working)\s+(?:at|for|with)\s+([A-Z]{2,20})\b',  # "work at AHEAD" (all-caps)
     ]
 
-    for line in lines[:10]:
+    for line in lines[:15]:
         line_stripped = line.strip()
         # Skip very long lines to prevent regex issues
         if len(line_stripped) > 200:
@@ -328,23 +353,61 @@ def extract_company_name(jd_text: str, job_title: str = None) -> Optional[str]:
             match = re.search(pattern, line_stripped, re.IGNORECASE)
             if match:
                 company = match.group(1).strip()
-                # Filter out common false positives
-                if company.lower() not in ['we', 'the', 'our', 'this', 'an', 'a']:
+                if company.lower() not in false_positives and len(company) >= 2:
                     return company
+
+    # Strategy 2b: Look for company name after "posted by" or in job board format
+    job_board_patterns = [
+        r'posted\s+by\s*:?\s*([A-Z][A-Za-z0-9& ]{1,40})',  # "Posted by Company Name"
+        r'hiring\s+company\s*:?\s*([A-Z][A-Za-z0-9& ]{1,40})',  # "Hiring Company: Name"
+    ]
+
+    for line in lines[:20]:
+        line_stripped = line.strip()
+        if len(line_stripped) > 200:
+            continue
+        for pattern in job_board_patterns:
+            match = re.search(pattern, line_stripped, re.IGNORECASE)
+            if match:
+                company = match.group(1).strip()
+                if company.lower() not in ['we', 'the', 'our', 'this', 'an', 'a', 'us', 'company']:
+                    return company
+
+    # Strategy 2c: Look for "About [Company]" pattern (search full text)
+    about_pattern = r'\bAbout\s+([A-Z][A-Za-z0-9&\' ]{2,40}?)(?:\s+Across|\s+We|\s+Our|\s+At|\s+is\s+)'
+    match = re.search(about_pattern, jd_text)
+    if match:
+        company = match.group(1).strip()
+        if company.lower() not in false_positives and len(company) >= 2:
+            return company
+
+    # Strategy 2d: Look for possessive form "[Company]'s [Product/Platform]" (search full text)
+    possessive_pattern = r"\b([A-Z][A-Za-z0-9& ]{2,30})'s\s+(?:Data|Platform|Product|Service|Solution|System|Collibra)"
+    match = re.search(possessive_pattern, jd_text)
+    if match:
+        company = match.group(1).strip()
+        if company.lower() not in false_positives and len(company) >= 2:
+            return company
 
     # Strategy 3: Check first line if it looks like a company name (all caps or title case, short)
     if lines:
         first_line = lines[0].strip()
         # Company names are often short and capitalized
         if first_line and len(first_line) <= 50 and first_line[0].isupper():
-            # Check if it's NOT a job title (doesn't contain common title words)
-            title_words = ['engineer', 'manager', 'consultant', 'analyst', 'developer',
-                          'director', 'specialist', 'lead', 'architect', 'designer',
-                          'coordinator', 'administrator', 'associate', 'senior', 'junior']
-            if not any(word in first_line.lower() for word in title_words):
-                # If it's a short capitalized phrase without title words, it might be company name
-                if len(first_line.split()) <= 4:
-                    return first_line
+            # Exclude common form field labels
+            field_labels = ['job title', 'job description', 'position', 'role', 'location',
+                           'department', 'salary', 'apply', 'requirements', 'qualifications']
+            if any(label in first_line.lower() for label in field_labels):
+                pass  # Skip field labels
+            else:
+                # Check if it's NOT a job title (doesn't contain common title words)
+                title_words = ['engineer', 'manager', 'consultant', 'analyst', 'developer',
+                              'director', 'specialist', 'lead', 'architect', 'designer',
+                              'coordinator', 'administrator', 'associate', 'senior', 'junior']
+                if not any(word in first_line.lower() for word in title_words):
+                    # If it's a short capitalized phrase without title words, it might be company name
+                    if len(first_line.split()) <= 4:
+                        return first_line
 
     return None
 
@@ -606,27 +669,74 @@ def extract_skills_keywords(jd_text: str) -> List[str]:
     """
     Extract skills from job description using taxonomy.
 
+    Filters out skills that only appear in boilerplate sections (EEO, About Company,
+    Benefits) to avoid false positives like "Sales" from company descriptions.
+
     Args:
         jd_text: Job description text
 
     Returns:
-        List of unique skills found in the text
+        List of unique skills found in the text (excluding boilerplate-only mentions)
     """
     jd_lower = jd_text.lower()
+
+    # Identify boilerplate section boundaries
+    boilerplate_patterns = [
+        r'about\s+(us|[a-z]+\s+company|state\s+street|the\s+company)',
+        r'who\s+we\s+are',
+        r'equal\s+(opportunity|employment)',
+        r'eeo\b',
+        r'we\s+are\s+an?\s+equal',
+        r'diversity\s+(and|&)\s+inclusion',
+        r'our\s+benefits',
+        r'what\s+we\s+offer',
+        r'perks\s+and\s+benefits',
+        r'state\s+street\s+is\s+',  # Company description pattern
+        r'across\s+the\s+globe',  # EEO boilerplate
+        r'employment\s+opportunity',
+    ]
+
+    # Find where boilerplate starts
+    boilerplate_start = len(jd_text)
+    for pattern in boilerplate_patterns:
+        match = re.search(pattern, jd_lower)
+        if match:
+            boilerplate_start = min(boilerplate_start, match.start())
+
+    # Extract text before and within boilerplate
+    main_text = jd_text[:boilerplate_start].lower()
+    boilerplate_text = jd_text[boilerplate_start:].lower() if boilerplate_start < len(jd_text) else ""
+
     found_skills = set()
+    boilerplate_only_skills = set()
 
     # Case-insensitive matching for each skill in taxonomy
     for skill in ALL_SKILLS:
         skill_lower = skill.lower()
         # Use word boundaries for better matching
         pattern = r'\b' + re.escape(skill_lower) + r'\b'
-        if re.search(pattern, jd_lower):
+
+        in_main = bool(re.search(pattern, main_text))
+        in_boilerplate = bool(re.search(pattern, boilerplate_text))
+
+        if in_main:
+            # Found in main content - definitely include
+            found_skills.add(skill)
+        elif in_boilerplate:
+            # Only found in boilerplate - mark for potential exclusion
+            boilerplate_only_skills.add(skill)
+
+    # Skills that only appear in boilerplate are likely not real requirements
+    # Exception: Keep technical skills even if in boilerplate (they're less likely to be false positives)
+    non_technical_boilerplate = {'Sales', 'Marketing', 'Business Development', 'Account Management'}
+    for skill in boilerplate_only_skills:
+        if skill not in non_technical_boilerplate:
             found_skills.add(skill)
 
     # Special handling for "Go" (Golang)
     # 1. Must be "Go" (Title case) or "Golang" (handled by taxonomy if added, but "Go" is the issue)
     # 2. Must NOT be part of "go-to-market" or "go-getter"
-    if re.search(r'\bGo\b', jd_text):
+    if re.search(r'\bGo\b', jd_text[:boilerplate_start]):
         # Check for false positive contexts
         # "go-to-market" usually appears as "go-to-market" or "Go-to-Market"
         # If "Go" is followed by "-to-", it's likely a phrase
@@ -891,12 +1001,33 @@ async def parse_job_description(
     if not jd_text or len(jd_text) < 50:
         raise ValueError("Job description text is too short or empty")
 
-    # Extract basic fields
+    # Extract basic fields from content
     basic_fields = extract_basic_fields(jd_text)
     job_title = basic_fields['job_title']
     company_name = basic_fields.get('company_name')
     location = basic_fields['location']
     seniority = basic_fields['seniority']
+
+    # If URL provided, try to extract metadata from URL structure (especially for Workday)
+    if jd_url:
+        url_metadata = parse_workday_url(jd_url)
+        # Use URL metadata to fill in missing or incorrectly extracted fields
+        if url_metadata.get('job_title') and (not job_title or job_title == 'Unknown Position'):
+            job_title = url_metadata['job_title']
+
+        # Check for bad company extractions (common false positives)
+        bad_company_values = ['job title:', 'job description:', 'company:', 'unknown', 'the company']
+        if url_metadata.get('company_name'):
+            if not company_name or (company_name and company_name.lower() in bad_company_values):
+                company_name = url_metadata['company_name']
+
+        # Check for bad location extractions (EEO text, etc.)
+        bad_location_indicators = ['opportunity employer', 'equal', 'eeo', 'unknown']
+        if url_metadata.get('location'):
+            if not location or location == 'unknown' or any(
+                bad in location.lower() for bad in bad_location_indicators
+            ):
+                location = url_metadata['location']
 
     # Extract sections
     sections = extract_sections(jd_text)

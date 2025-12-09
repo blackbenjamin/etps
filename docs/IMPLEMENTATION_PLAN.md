@@ -9,7 +9,7 @@
 
 This document provides a detailed implementation plan to build ETPS to full PRD specification. The plan is organized into sprints with specific tasks, acceptance criteria, and dependencies.
 
-**Current State:** Phase 1A complete with Resume Critic, Skill-Gap Analysis, and Cover Letter Critic implemented.
+**Current State:** Phase 1B complete with Resume Critic, Skill-Gap Analysis, Cover Letter Critic, and Capability-Aware Skill Extraction implemented.
 
 **Target State:** Full Phase 1 (Core Quality), Phase 2 (Company Intelligence), and Phase 3 (Application Tracking) as defined in ETPS_PRD.md.
 
@@ -43,16 +43,18 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 10C: Parser & Skill Gap Fixes | ✅ COMPLETE | Dec 2025 | Company/Title/Location extraction, skill gap score calculation fix |
 | Sprint 10D: Debugging & Improvements | ✅ COMPLETE | Dec 2025 | Mock services audit, skill mappings, frontend fixes, user profile enrichment |
 | Sprint 10E: Interactive Skill Selection | ✅ COMPLETE | Dec 2025 | Drag-drop skill panel, key skills for cover letter |
-| Sprint 11: Capability-Aware Skill Extraction | 🔄 IN PROGRESS | - | LLM-based capability clusters, evidence mapping |
-| Sprint 12-15: Company Intelligence | 🔲 NOT STARTED | - | Phase 2 |
-| Sprint 16-18: Application Tracking | 🔲 NOT STARTED | - | Phase 3 |
-| Sprint 19: Production Hardening | 🔲 NOT STARTED | - | ⚠️ Security & reliability (8 P0 tasks) |
-| Sprint 20: Deployment | 🔲 NOT STARTED | - | Railway + Vercel |
+| Sprint 11: Capability-Aware Skill Extraction | ✅ COMPLETE | Dec 2025 | LLM-based capability clusters, evidence mapping, 37 tests |
+| Sprint 11B: LLM Anti-Hallucination | ✅ COMPLETE | Dec 2025 | Grounded outputs, anti-hallucination rules in prompts |
+| Sprint 12: Company Profile Enrichment | 🔲 NOT STARTED | - | Web data fetching, industry/size inference |
+| Sprint 13: Hiring Manager Inference | 🔲 NOT STARTED | - | JD parsing for reporting structure |
+| **Sprint 13B: Portfolio Security** | 🔲 NOT STARTED | - | **Minimum security for public demo** |
+| **Sprint 14: Cloud Deployment** | 🔲 NOT STARTED | - | **Railway + Vercel deployment** |
+| Sprint 15+: Future Enhancements | 🔲 DEFERRED | - | Networking, Application Tracking, Full Auth |
 
 ### Test Coverage
-- **Total Tests:** 560 passing
-- **Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_sprint_8b_integration.py, test_pagination_allocation.py, test_sprint_8c_regression.py, test_job_parser_extraction.py, test_skill_selection.py
-- **Coverage:** All Sprint 1-10E functionality tested
+- **Total Tests:** 593 passing
+- **Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_sprint_8b_integration.py, test_pagination_allocation.py, test_sprint_8c_regression.py, test_job_parser_extraction.py, test_skill_selection.py, test_capability_clusters.py
+- **Coverage:** All Sprint 1-11 functionality tested
 
 ### Git Workflow & Commit Checkpoints
 
@@ -141,27 +143,20 @@ All checks must pass before `git push`.
 │ - JD Extraction Quality Validation (Sprint 10B)    ✅          │
 │ - Debugging & Improvements (Sprint 10D)            ✅          │
 ├─────────────────────────────────────────────────────────────────┤
-│ PHASE 2: Company Intelligence (Sprints 11-14)                  │
-│ - Company Profile Enrichment                                    │
-│ - Hiring Manager Inference                                      │
+│ PHASE 2: Company Intelligence (Sprints 12-13)                  │
+│ - Company Profile Enrichment (Sprint 12)                        │
+│ - Hiring Manager Inference (Sprint 13)                          │
+├─────────────────────────────────────────────────────────────────┤
+│ PHASE 2B: Portfolio Deployment (Sprints 13B-14)    🎯 TARGET   │
+│ - Portfolio Security Hardening (Sprint 13B)                     │
+│ - Cloud Deployment - Railway + Vercel (Sprint 14)               │
+├─────────────────────────────────────────────────────────────────┤
+│ PHASE 3+: Future Enhancements (Sprint 15+)         DEFERRED    │
 │ - Warm Contact Identification                                   │
 │ - Networking Output Generation                                  │
-├─────────────────────────────────────────────────────────────────┤
-│ PHASE 3: Application Tracking (Sprints 15-17)                  │
 │ - Application Status Tracking                                   │
-│ - Contact Management                                            │
-│ - Reminders & Tasks                                             │
-├─────────────────────────────────────────────────────────────────┤
-│ PHASE 4: Production Readiness (Sprint 18)                      │
-│ - Security Hardening                                            │
-│ - Authentication & Authorization                                │
-│ - Rate Limiting & Input Validation                              │
-│ - Error Handling & Logging                                      │
-├─────────────────────────────────────────────────────────────────┤
-│ PHASE 5: Deployment (Sprint 19)                                │
-│ - Railway Backend Deployment                                    │
-│ - Vercel Frontend Deployment                                    │
-│ - Production Configuration                                      │
+│ - Contact Management & Reminders                                │
+│ - Full Authentication (if multi-user needed)                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1048,13 +1043,13 @@ class SelectedSkill(BaseModel):
 
 ---
 
-### Sprint 11: Capability-Aware Skill Extraction 🔄 IN PROGRESS
+### Sprint 11: Capability-Aware Skill Extraction ✅ COMPLETE
 
 **Goal:** Replace flat skill extraction with a three-tier capability model that better represents senior/strategic roles. Use LLM to extract capability clusters from JDs, cache mappings to reduce costs, and map resume bullets to clusters they demonstrate.
 
 **Problem Statement:** Current skill extraction uses keyword matching against a 200-skill taxonomy. This is insufficient for senior roles requiring compound capabilities (e.g., "AI Strategy + Stakeholder Management"). Skills are flat tokens without context about seniority, domain, or integration requirements.
 
-**Status:** 🔄 In Progress
+**Status:** ✅ Complete (December 2025)
 
 #### Three-Tier Capability Model
 
@@ -1198,6 +1193,56 @@ class CapabilityClusterAnalysis(BaseModel):
 
 ---
 
+### Sprint 11B: LLM Anti-Hallucination ✅ COMPLETE
+
+**Goal:** Prevent LLM from injecting skills, technologies, or domains not present in the job description.
+
+**Problem Statement:** Cover letters and resume summaries were mentioning "AI governance" for a State Street Data Governance role, despite AI not being mentioned anywhere in the job description. The LLM was inferring AI relevance from Benjamin's background rather than grounding output in the actual JD requirements.
+
+**Status:** ✅ Complete (December 2025)
+
+#### Root Cause Analysis
+
+The hallucination originated from two sources:
+1. **Resume Summary Prompt** (`services/llm/prompts/summary_rewrite.txt`): The reference summary explicitly mentioned "AI and data strategist", causing the LLM to inject AI language even for non-AI roles.
+2. **Cover Letter System Prompt** (`services/llm/claude_llm.py`): The system prompt described Benjamin as having "expertise in AI strategy", biasing outputs toward AI themes.
+
+#### Fixes Implemented
+
+| ID | Fix | File(s) | Description |
+|----|-----|---------|-------------|
+| 11B.1 | Neutralize reference summary | `prompts/summary_rewrite.txt` | Changed "AI and data strategist" to generic "Data and technology strategist" |
+| 11B.2 | Add anti-hallucination rules to summary prompt | `prompts/summary_rewrite.txt` | Added explicit rules: "ONLY mention skills that appear in Job Priorities" |
+| 11B.3 | Remove AI bias from cover letter system prompt | `services/llm/claude_llm.py` | Changed "expertise in AI strategy" to "data strategy, technology consulting" |
+| 11B.4 | Add anti-hallucination header to cover letter prompt | `services/llm/claude_llm.py` | Added "CRITICAL ANTI-HALLUCINATION RULES" section at top of system prompt |
+
+#### Anti-Hallucination Rules Added
+
+```
+## CRITICAL ANTI-HALLUCINATION RULES (READ FIRST):
+- ONLY mention skills, technologies, or domains that appear in the job requirements
+- DO NOT assume the job requires AI, ML, or any technology not explicitly mentioned
+- If the job is about "Data Governance" - focus on governance frameworks, not AI
+- DO NOT conflate "Data Governance" with "AI Governance"
+- Test every statement: "Is this ACTUALLY mentioned in the job description?"
+- The job requirements are your source of truth
+```
+
+#### Acceptance Criteria
+
+- [x] Resume summary only mentions skills from JD
+- [x] Cover letter focuses on actual job requirements
+- [x] No AI/ML language for non-AI/ML roles
+- [x] Reference summary is domain-neutral
+- [x] Explicit grounding rules in all LLM prompts
+
+#### Dependencies
+
+- Requires: Sprint 11 complete ✅
+- Blocks: None
+
+---
+
 ## Phase 2: Company Intelligence
 
 ### Sprint 12: Company Profile Enrichment (PRD 5.1-5.2)
@@ -1243,9 +1288,210 @@ class CapabilityClusterAnalysis(BaseModel):
 
 ---
 
-### Sprint 14: Warm Contact Identification (PRD 5.4)
+### Sprint 13B: Portfolio Security Hardening 🆕
 
-**Goal:** Identify warm contacts based on shared connections.
+**Goal:** Implement minimum security measures required for safe public portfolio deployment. This is a slimmed-down version of Sprint 18, focused on preventing abuse while keeping the single-user demo model.
+
+**Status:** 🔲 NOT STARTED
+
+**Rationale:** ETPS is designed as a portfolio piece to demonstrate enterprise AI capabilities. Full multi-user authentication isn't needed, but public deployment requires protection against abuse and common web vulnerabilities.
+
+#### Tasks
+
+| ID | Task | File(s) | Severity | Est. |
+|----|------|---------|----------|------|
+| **P0 - Must Have** | | | |
+| 13B.1 | Implement rate limiting middleware | `main.py`, `middleware/rate_limit.py` | HIGH | 2h |
+| 13B.2 | Restrict CORS to production domain only | `main.py` | CRITICAL | 30m |
+| 13B.3 | Add SSRF prevention to URL fetch | `utils/text_processing.py` | HIGH | 3h |
+| 13B.4 | Add request body size limits | `main.py`, `schemas/*.py` | HIGH | 1h |
+| 13B.5 | Sanitize error messages (no stack traces) | `main.py`, `routers/*.py` | HIGH | 2h |
+| 13B.6 | Configure secrets in Railway/Vercel env | - | CRITICAL | 1h |
+| **P1 - Should Have** | | | |
+| 13B.7 | Add security headers (CSP, X-Frame-Options) | `main.py` | MEDIUM | 1h |
+| 13B.8 | Add health check with version info | `routers/health.py` | LOW | 30m |
+
+#### Implementation Details
+
+**Rate Limiting (13B.1):**
+```python
+# Using slowapi or custom middleware
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+# Limits: 10 requests/minute for generation, 60/minute for reads
+@limiter.limit("10/minute")
+async def generate_resume(...):
+```
+
+**CORS Restriction (13B.2):**
+```python
+# main.py - Production only allows your domain
+ALLOWED_ORIGINS = [
+    "https://etps.benjaminblack.ai",  # Production
+    "http://localhost:3000",           # Development
+]
+app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, ...)
+```
+
+**SSRF Prevention (13B.3):**
+```python
+# Block internal IPs, localhost, cloud metadata endpoints
+BLOCKED_HOSTS = ["localhost", "127.0.0.1", "169.254.169.254", "metadata.google"]
+def is_safe_url(url: str) -> bool:
+    parsed = urlparse(url)
+    return parsed.hostname not in BLOCKED_HOSTS and not is_private_ip(parsed.hostname)
+```
+
+**Request Body Limits (13B.4):**
+```python
+# Limit JD text to 50KB, URL to 2KB
+class JobParseRequest(BaseModel):
+    jd_text: Optional[str] = Field(None, max_length=50000)
+    jd_url: Optional[str] = Field(None, max_length=2000)
+```
+
+#### Acceptance Criteria
+
+- [ ] Rate limiting prevents >10 generation requests/minute per IP
+- [ ] CORS rejects requests from unauthorized origins
+- [ ] URL fetch blocks internal IPs and metadata endpoints
+- [ ] Request payloads limited to reasonable sizes
+- [ ] Error responses contain no stack traces or internal paths
+- [ ] All API keys configured via environment variables
+- [ ] Security scan (bandit -ll) passes with no high-severity issues
+
+#### Estimated Effort
+
+| Priority | Hours |
+|----------|-------|
+| P0 Tasks | 9.5h |
+| P1 Tasks | 1.5h |
+| **Total** | **11h** |
+
+#### What's NOT Included (Deferred to Future)
+
+These items from Sprint 18 are not required for a single-user portfolio demo:
+
+- JWT Authentication (no multi-user support needed)
+- CSRF Protection (no sensitive user actions)
+- Ownership validation (single user = single owner)
+- Audit logging (nice-to-have for demo)
+- Database encryption at rest (overkill for demo)
+
+---
+
+### Sprint 14: Cloud Deployment 🆕
+
+**Goal:** Deploy ETPS to Railway (backend) and Vercel (frontend) for public portfolio access.
+
+**Status:** 🔲 NOT STARTED
+
+**Prerequisite:** Sprint 13B (Portfolio Security) must be complete.
+
+#### Tasks
+
+| ID | Task | File(s) | Priority | Est. |
+|----|------|---------|----------|------|
+| **Backend (Railway)** | | | |
+| 14.1 | Create Railway project | - | P0 | 30m |
+| 14.2 | Configure Procfile/railway.toml | `railway.toml`, `Procfile` | P0 | 1h |
+| 14.3 | Set up environment variables | Railway dashboard | P0 | 1h |
+| 14.4 | Configure PostgreSQL (Railway addon) | `db/database.py` | P0 | 2h |
+| 14.5 | Configure Qdrant Cloud or Railway addon | `services/vector_store.py` | P1 | 2h |
+| 14.6 | Test backend deployment | - | P0 | 1h |
+| **Frontend (Vercel)** | | | |
+| 14.7 | Create Vercel project | - | P0 | 30m |
+| 14.8 | Configure vercel.json | `frontend/vercel.json` | P0 | 30m |
+| 14.9 | Set up environment variables | Vercel dashboard | P0 | 30m |
+| 14.10 | Configure custom domain (optional) | Vercel DNS | P2 | 1h |
+| 14.11 | Test frontend deployment | - | P0 | 1h |
+| **Integration** | | | |
+| 14.12 | Configure production CORS | `backend/main.py` | P0 | 30m |
+| 14.13 | Verify end-to-end flow | - | P0 | 2h |
+| 14.14 | Write deployment documentation | `docs/DEPLOYMENT.md` | P1 | 2h |
+| 14.15 | Set up basic monitoring (Railway metrics) | - | P2 | 1h |
+
+#### Environment Variables
+
+**Railway (Backend):**
+```
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+DATABASE_URL=postgresql://...  (auto-provisioned)
+QDRANT_URL=https://...
+QDRANT_API_KEY=...
+ENVIRONMENT=production
+ALLOWED_ORIGINS=https://etps.benjaminblack.ai
+```
+
+**Vercel (Frontend):**
+```
+NEXT_PUBLIC_API_URL=https://etps-backend.up.railway.app
+NEXT_PUBLIC_USER_NAME=Benjamin Black
+NEXT_PUBLIC_USER_EMAIL=benjamin.black@sloan.mit.edu
+NEXT_PUBLIC_USER_PHONE=617-504-5529
+NEXT_PUBLIC_USER_LINKEDIN=linkedin.com/in/benjaminblack
+NEXT_PUBLIC_USER_PORTFOLIO=benjaminblack.ai
+```
+
+#### Deployment Commands
+
+```bash
+# Railway deployment
+railway login
+railway init
+railway link
+railway up
+
+# Vercel deployment
+vercel login
+vercel --prod
+```
+
+#### Acceptance Criteria
+
+- [ ] Backend accessible at Railway URL
+- [ ] Frontend accessible at Vercel URL
+- [ ] All API endpoints functional in production
+- [ ] Resume/cover letter generation works end-to-end
+- [ ] DOCX downloads work correctly
+- [ ] No CORS errors in browser console
+- [ ] Error responses don't leak sensitive info
+- [ ] Site loads in <3 seconds
+
+#### Estimated Effort
+
+| Category | Hours |
+|----------|-------|
+| Backend Setup | 7.5h |
+| Frontend Setup | 3.5h |
+| Integration & Docs | 5.5h |
+| **Total** | **16.5h** |
+
+#### Cost Estimates (Monthly)
+
+| Service | Tier | Est. Cost |
+|---------|------|-----------|
+| Railway | Hobby | $5-10 |
+| Vercel | Hobby | Free |
+| Qdrant Cloud | Free tier | Free (1GB) |
+| Anthropic API | Pay-as-you-go | ~$10-20 |
+| OpenAI API | Pay-as-you-go | ~$5 |
+| **Total** | | **~$20-35/month** |
+
+---
+
+## Deferred Sprints (Post-Deployment)
+
+The following sprints are deferred until after portfolio deployment. They can be implemented incrementally as enhancements:
+
+### Sprint 15+: Warm Contact Identification (PRD 5.4) - DEFERRED
+
+**Goal:** Identify warm contacts based on shared connections. Deferred until after initial portfolio deployment.
 
 #### Tasks
 

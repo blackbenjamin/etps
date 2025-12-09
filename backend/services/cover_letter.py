@@ -44,9 +44,10 @@ from schemas.cover_letter import (
     ToneComplianceResult,
 )
 from schemas.skill_gap import SkillGapResponse
+from schemas.capability import CapabilityClusterAnalysis
 from services.llm.base import BaseLLM
 from services.llm import create_llm
-from services.skill_gap import analyze_skill_gap, find_skill_match, normalize_skill
+from services.skill_gap import analyze_skill_gap, get_cluster_analysis, find_skill_match, normalize_skill
 # Sprint 8: Learning from approved outputs (available for future integration)
 from services.output_retrieval import (
     retrieve_similar_cover_letter_paragraphs,
@@ -1281,6 +1282,23 @@ async def generate_cover_letter(
         db=db
     )
 
+    # Sprint 11: Run capability cluster analysis for strategic positioning
+    cluster_analysis: Optional[CapabilityClusterAnalysis] = None
+    try:
+        cluster_analysis = await get_cluster_analysis(
+            job_profile_id=job_profile_id,
+            user_id=user_id,
+            db=db,
+            use_mock=True  # Use mock for now (no LLM API calls)
+        )
+        if cluster_analysis:
+            logger.info(
+                f"Cluster analysis: {len(cluster_analysis.clusters)} clusters, "
+                f"overall score: {cluster_analysis.overall_match_score:.1f}%"
+            )
+    except Exception as e:
+        logger.warning(f"Cluster analysis failed (continuing without): {e}")
+
     # Sprint 8B.2: Retrieve similar approved cover letter paragraphs for learning
     similar_approved_paragraphs = []
     if enable_learning:
@@ -1325,6 +1343,18 @@ async def generate_cover_letter(
         "skills": job_profile.extracted_skills or [],
         "must_have": job_profile.must_have_capabilities or [],
     }
+
+    # Sprint 11: Add cluster analysis context for strategic positioning
+    if cluster_analysis:
+        job_context["cluster_positioning"] = cluster_analysis.positioning_summary
+        job_context["key_strengths"] = cluster_analysis.key_strengths
+        job_context["critical_gaps"] = cluster_analysis.critical_gaps
+        job_context["cluster_recommendation"] = cluster_analysis.recommendation
+        # Add top cluster names with their match percentages
+        job_context["capability_clusters"] = [
+            {"name": c.name, "match": c.match_percentage, "importance": c.importance}
+            for c in cluster_analysis.clusters[:4]  # Top 4 clusters
+        ]
 
     # Sanitize context_notes before passing to LLM
     sanitized_context_notes = None

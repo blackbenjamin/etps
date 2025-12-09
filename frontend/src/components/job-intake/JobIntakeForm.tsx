@@ -77,6 +77,15 @@ export function JobIntakeForm({ onJobParsed }: JobIntakeFormProps) {
         user_id: 1, // Default user for single-user mode
       })
 
+      // Debug: log the parsed result
+      console.log('Parsed job result:', {
+        job_profile_id: result.job_profile_id,
+        job_title: result.job_title,
+        company_name: result.company_name,
+        location: result.location,
+        extracted_skills: result.extracted_skills?.length,
+      })
+
       // Store in Zustand
       setCurrentJob(result)
       setStoreContextNotes(contextNotes)
@@ -92,7 +101,8 @@ export function JobIntakeForm({ onJobParsed }: JobIntakeFormProps) {
   }
 
   // Allow parsing if JD text is 50+ chars OR if a valid URL is provided
-  const hasValidUrl = sourceUrl.trim().length > 0 && /^https?:\/\/.+/.test(sourceUrl.trim())
+  // Accept URLs with or without protocol (http://, https://, or just domain)
+  const hasValidUrl = sourceUrl.trim().length > 0 && /^(https?:\/\/)?[\w.-]+\.\w{2,}(\/.*)?$/.test(sourceUrl.trim())
   const hasValidText = jdText.trim().length >= 50
   const canParse = hasValidText || hasValidUrl
 
@@ -109,14 +119,8 @@ export function JobIntakeForm({ onJobParsed }: JobIntakeFormProps) {
           <textarea
             value={jdText}
             onChange={(e) => setJdText(e.target.value)}
-            placeholder="Paste the full job description here...
-
-Include:
-• Job title and company
-• Requirements and qualifications
-• Responsibilities
-• Nice-to-haves"
-            rows={12}
+            placeholder="Paste the full job description here..."
+            rows={8}
             className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm font-mono"
           />
           <div className="flex justify-between text-xs text-muted-foreground">

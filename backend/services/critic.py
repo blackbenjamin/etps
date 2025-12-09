@@ -1126,11 +1126,11 @@ def check_structure(
         if not content_json.get("draft_cover_letter"):
             missing_sections.append("draft_cover_letter")
 
-        # Word count for full cover letter
+        # Word count for cover letter body (greeting/closing added by output generators)
         draft = content_json.get("draft_cover_letter", "")
         word_count = len(re.findall(r'\w+', draft))
-        expected_range = "250-350 words"
-        word_count_valid = 250 <= word_count <= 350
+        expected_range = "200-350 words"
+        word_count_valid = 200 <= word_count <= 350
 
     has_required = len(missing_sections) == 0
 

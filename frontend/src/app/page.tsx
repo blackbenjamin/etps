@@ -5,6 +5,7 @@ import { JobIntakeForm } from '@/components/job-intake'
 import { GenerateButtons, ResultsPanel } from '@/components/generation'
 import { ATSScoreCard } from '@/components/analysis'
 import { SkillSelectionPanel } from '@/components/skills'
+import { CapabilityClusterPanel } from '@/components/capability/CapabilityClusterPanel'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -12,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Pencil, Check } from 'lucide-react'
 import { useJobStore } from '@/stores/job-store'
 import { useGenerationStore } from '@/stores/generation-store'
-import { useSkillGapAnalysis } from '@/hooks/queries'
+import { useSkillGapAnalysis, useCapabilityClusterAnalysis } from '@/hooks/queries'
 import type { JobProfile } from '@/types'
 
 // Helper to safely get job profile ID from either field
@@ -47,6 +48,9 @@ export default function Home() {
   // Auto-fetch skill gap when job is parsed
   const { data: skillGap, isLoading: isAnalyzing } = useSkillGapAnalysis(jobId)
 
+  // Auto-fetch capability cluster analysis
+  const { data: clusterAnalysis, isLoading: isAnalyzingClusters } = useCapabilityClusterAnalysis(jobId)
+
   useEffect(() => {
     if (skillGap) {
       setSkillGapAnalysis(skillGap)
@@ -55,21 +59,21 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold">ETPS</h1>
-          <p className="text-muted-foreground">
+      {/* Header - Sticky */}
+      <header className="border-b bg-card sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <h1 className="text-2xl font-bold">ETPS</h1>
+          <p className="text-sm text-muted-foreground">
             Enterprise Talent Positioning System
           </p>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column: Input & Generation */}
-          <div className="space-y-6">
+          {/* Left Column: Input & Generation - Sticky on large screens */}
+          <div className="space-y-6 lg:sticky lg:top-[85px] lg:self-start lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto">
             <JobIntakeForm />
 
             {currentJob && (
@@ -160,7 +164,15 @@ export default function Home() {
 
           {/* Right Column: Analysis & Results */}
           <div className="space-y-6">
-            {/* Skill Selection Panel (Sprint 10E - replaces passive Skill Gap display) */}
+            {/* Capability Cluster Analysis (Sprint 11 - strategic capability matching) */}
+            {(currentJob || isAnalyzingClusters) && jobId && (
+              <CapabilityClusterPanel
+                analysis={clusterAnalysis ?? null}
+                isLoading={isAnalyzingClusters}
+              />
+            )}
+
+            {/* Skill Selection Panel (Sprint 10E - flat skill matching) */}
             {(currentJob || isAnalyzing) && jobId && (
               <SkillSelectionPanel
                 jobProfileId={jobId}

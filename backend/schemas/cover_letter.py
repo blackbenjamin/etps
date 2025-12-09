@@ -22,6 +22,9 @@ class CoverLetterRequest(BaseModel):
     referral_name: Optional[str] = Field(
         None, description="Name of referrer if applicable", max_length=255
     )
+    company_name: Optional[str] = Field(
+        None, description="Override company name (if manually entered)", max_length=255
+    )
 
 
 class CoverLetterOutline(BaseModel):

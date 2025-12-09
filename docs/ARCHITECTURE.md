@@ -5,7 +5,7 @@
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Frontend (Next.js)                        │
-│                    (Sprint 9-10 - Planned)                       │
+│                   ✅ COMPLETE (Sprint 9-10E)                     │
 └─────────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
@@ -30,6 +30,7 @@
 │  ┌──────────────────┐    ┌──────────────────┐                   │
 │  │ bullet_rewriter  │    │   embeddings     │                   │
 │  │ summary_rewrite  │    │  (OpenAI API)    │                   │
+│  │ portfolio_loader │    │                  │                   │
 │  └────────┬─────────┘    └────────┬─────────┘                   │
 │           │                       │                              │
 │           ▼                       ▼                              │
@@ -41,6 +42,12 @@
 │  ┌──────────────────┐    ┌──────────────────┐                   │
 │  │   pagination     │    │  cover_letter    │                   │
 │  │ (layout sim)     │    │   (generator)    │                   │
+│  └──────────────────┘    └──────────────────┘                   │
+│                                                                  │
+│  ┌──────────────────┐    ┌──────────────────┐                   │
+│  │capability_extract│    │   llm/base       │                   │
+│  │ evidence_mapper  │    │   llm/mock_llm   │                   │
+│  │ cluster_cache    │    │   llm/claude_llm │                   │
 │  └──────────────────┘    └──────────────────┘                   │
 └─────────────────────────────────────────────────────────────────┘
                                 │
@@ -147,7 +154,7 @@
 - Semantic search
 - Similar output retrieval
 
-## Database Schema (v1.3.0)
+## Database Schema (v1.4.2)
 
 ```
 User
@@ -164,6 +171,8 @@ JobProfile
 ├── job_title, company_name, seniority
 ├── extracted_skills[], must_have[], nice_to_have[]
 ├── core_priorities[], culture_keywords[]
+├── selected_skills[], key_skills[] (Sprint 10E)
+├── capability_clusters[], capability_cluster_cache_key (Sprint 11)
 └── embedding (384-dim vector)
 
 Application
@@ -221,10 +230,11 @@ pagination:
 
 ## Testing Strategy
 
-### Unit Tests (344 total)
+### Unit Tests (593 total - December 2025)
 - Service-level tests
 - Mock LLM for deterministic results
 - Mock vector store for speed
+- Real LLM integration via ClaudeLLM (Sprint 11+)
 
 ### Integration Tests
 - Cross-service workflows
@@ -238,6 +248,9 @@ pagination:
 - `test_critic.py` - Quality evaluation
 - `test_skill_gap.py` - Skill analysis
 - `test_vector_store.py` - Qdrant operations
+- `test_capability_clusters.py` - Capability extraction (Sprint 11)
+- `test_skill_selection.py` - Interactive skill selection (Sprint 10E)
+- `test_job_parser_extraction.py` - JD parsing quality (Sprint 10B-C)
 
 ## Deployment (Planned - Sprint 19)
 

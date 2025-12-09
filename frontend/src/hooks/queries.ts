@@ -7,12 +7,15 @@ import type {
   ResumeGenerateRequest,
   CoverLetterGenerateRequest,
   TailoredResume,
+  GeneratedCoverLetter,
 } from '@/types'
 
 // Query keys for cache management
 export const queryKeys = {
   jobProfile: (id: number) => ['jobProfile', id] as const,
   skillGap: (jobProfileId: number) => ['skillGap', jobProfileId] as const,
+  capabilityClusters: (jobProfileId: number) => ['capabilityClusters', jobProfileId] as const,
+  combinedAnalysis: (jobProfileId: number) => ['combinedAnalysis', jobProfileId] as const,
   resume: (jobProfileId: number) => ['resume', jobProfileId] as const,
   coverLetter: (jobProfileId: number) => ['coverLetter', jobProfileId] as const,
 }
@@ -58,6 +61,27 @@ export function useSkillGapAnalysis(jobProfileId: number | null) {
   return useQuery({
     queryKey: jobProfileId ? queryKeys.skillGap(jobProfileId) : ['skillGap', null],
     queryFn: () => api.analyzeSkillGap({ job_profile_id: jobProfileId! }),
+    enabled: !!jobProfileId,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+// Capability cluster analysis query
+export function useCapabilityClusterAnalysis(jobProfileId: number | null) {
+  return useQuery({
+    queryKey: jobProfileId ? queryKeys.capabilityClusters(jobProfileId) : ['capabilityClusters', null],
+    queryFn: () => api.getCapabilityClusters(jobProfileId!),
+    enabled: !!jobProfileId,
+    staleTime: 5 * 60 * 1000,
+    select: (data) => data.analysis, // Extract just the analysis from response
+  })
+}
+
+// Combined analysis query (flat skill + cluster analysis)
+export function useCombinedAnalysis(jobProfileId: number | null) {
+  return useQuery({
+    queryKey: jobProfileId ? queryKeys.combinedAnalysis(jobProfileId) : ['combinedAnalysis', null],
+    queryFn: () => api.getCombinedAnalysis(jobProfileId!),
     enabled: !!jobProfileId,
     staleTime: 5 * 60 * 1000,
   })
@@ -136,8 +160,8 @@ export function useDownloadResumeText() {
 // Download cover letter mutation
 export function useDownloadCoverLetter() {
   return useMutation({
-    mutationFn: async ({ jobProfileId, companyName }: { jobProfileId: number; companyName?: string }) => {
-      const blob = await api.downloadCoverLetterDocx(jobProfileId)
+    mutationFn: async ({ coverLetter, companyName }: { coverLetter: GeneratedCoverLetter; companyName?: string }) => {
+      const blob = await api.downloadCoverLetterDocx(coverLetter)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -153,8 +177,8 @@ export function useDownloadCoverLetter() {
 // Download cover letter text mutation
 export function useDownloadCoverLetterText() {
   return useMutation({
-    mutationFn: async ({ jobProfileId, companyName }: { jobProfileId: number; companyName?: string }) => {
-      const blob = await api.downloadCoverLetterText(jobProfileId)
+    mutationFn: async ({ coverLetter, companyName }: { coverLetter: GeneratedCoverLetter; companyName?: string }) => {
+      const blob = await api.downloadCoverLetterText(coverLetter)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url

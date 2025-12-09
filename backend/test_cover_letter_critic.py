@@ -106,19 +106,21 @@ def setup_test_data(db: Session) -> tuple[int, int, int]:
         db.add(bullet)
     db.commit()
 
-    # Create test company profile
-    company = CompanyProfile(
-        name="TechCorp AI",
-        website="https://techcorp.ai",
-        industry="Technology",
-        size_band="1000-5000",
-        known_initiatives="AI-first digital transformation, Responsible AI program",
-        culture_signals=["innovation", "data-driven"],
-        data_ai_maturity="advanced",
-    )
-    db.add(company)
-    db.commit()
-    db.refresh(company)
+    # Create test company profile - check if exists or use unique name
+    company = db.query(CompanyProfile).filter(CompanyProfile.name == "TechCorp AI").first()
+    if not company:
+        company = CompanyProfile(
+            name="TechCorp AI",
+            website="https://techcorp.ai",
+            industry="Technology",
+            size_band="1000-5000",
+            known_initiatives="AI-first digital transformation, Responsible AI program",
+            culture_signals=["innovation", "data-driven"],
+            data_ai_maturity="advanced",
+        )
+        db.add(company)
+        db.commit()
+        db.refresh(company)
 
     # Create test job profile
     job_profile = JobProfile(

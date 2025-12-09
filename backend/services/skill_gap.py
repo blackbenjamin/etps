@@ -22,7 +22,13 @@ from schemas.skill_gap import (
     WeakSignal,
     UserSkillProfile,
 )
+from schemas.capability import (
+    CapabilityClusterAnalysis,
+    CapabilityCluster,
+)
 from services.embeddings import create_embedding_service, BaseEmbeddingService
+from services.capability_extractor import get_or_extract_clusters
+from services.evidence_mapper import build_capability_analysis, calculate_overall_match_score
 
 # Logger for debugging
 logger = logging.getLogger(__name__)
@@ -1338,3 +1344,137 @@ async def analyze_skill_gap(
         # Don't fail the entire analysis if caching fails
 
     return analysis_result
+
+
+async def get_cluster_analysis(
+    job_profile_id: int,
+    user_id: int,
+    db: Session,
+    force_refresh: bool = False,
+    use_mock: bool = True
+) -> CapabilityClusterAnalysis:
+    """
+    Get capability cluster analysis for a job profile.
+
+    This function extracts or retrieves cached capability clusters from the job
+    description, then maps the user's bullets to those clusters to calculate
+    match percentages, identify gaps, and generate positioning strategies.
+
+    This provides a higher-level view of job fit compared to flat skill matching,
+    focusing on compound capabilities and strategic role requirements.
+
+    Args:
+        job_profile_id: ID of the job profile to analyze
+        user_id: ID of the user for evidence mapping
+        db: Database session
+        force_refresh: If True, bypass cache and re-extract clusters
+        use_mock: If True, use mock extraction (no LLM API calls)
+
+    Returns:
+        CapabilityClusterAnalysis with clusters, match scores, and positioning
+
+    Raises:
+        ValueError: If job profile not found
+    """
+    # Fetch job profile
+    job_profile = db.query(JobProfile).filter(JobProfile.id == job_profile_id).first()
+    if not job_profile:
+        raise ValueError(f"Job profile {job_profile_id} not found")
+
+    logger.info(f"Getting cluster analysis for job_profile_id={job_profile_id}, user_id={user_id}")
+
+    # Get or extract capability clusters (with caching)
+    clusters, was_cached = await get_or_extract_clusters(
+        job_profile=job_profile,
+        db=db,
+        force_refresh=force_refresh,
+        use_mock=use_mock
+    )
+
+    logger.info(f"Got {len(clusters)} clusters (cached={was_cached})")
+
+    # Build capability analysis with evidence mapping
+    analysis = await build_capability_analysis(
+        clusters=clusters,
+        job_profile_id=job_profile_id,
+        user_id=user_id,
+        db=db
+    )
+
+    return analysis
+
+
+async def get_combined_analysis(
+    job_profile_id: int,
+    user_id: int,
+    db: Session,
+    use_cache: bool = True,
+    use_mock_clusters: bool = True
+) -> Tuple[SkillGapResponse, CapabilityClusterAnalysis]:
+    """
+    Get both flat skill analysis and cluster analysis for comprehensive job fit assessment.
+
+    This provides the complete picture:
+    - Flat skill analysis: Atomic skill matches, gaps, weak signals
+    - Cluster analysis: Strategic capability clusters with compound skill matching
+
+    Args:
+        job_profile_id: ID of the job profile to analyze
+        user_id: ID of the user
+        db: Database session
+        use_cache: Whether to use cached flat skill analysis
+        use_mock_clusters: Whether to use mock cluster extraction
+
+    Returns:
+        Tuple of (SkillGapResponse, CapabilityClusterAnalysis)
+    """
+    # Run both analyses
+    flat_analysis = await analyze_skill_gap(
+        job_profile_id=job_profile_id,
+        user_id=user_id,
+        db=db,
+        use_cache=use_cache
+    )
+
+    cluster_analysis = await get_cluster_analysis(
+        job_profile_id=job_profile_id,
+        user_id=user_id,
+        db=db,
+        force_refresh=not use_cache,
+        use_mock=use_mock_clusters
+    )
+
+    return flat_analysis, cluster_analysis
+
+
+def merge_analysis_scores(
+    flat_analysis: SkillGapResponse,
+    cluster_analysis: CapabilityClusterAnalysis,
+    flat_weight: float = 0.4,
+    cluster_weight: float = 0.6
+) -> float:
+    """
+    Merge flat skill and cluster analysis into a single weighted score.
+
+    For senior/strategic roles, cluster analysis is weighted higher as it better
+    captures compound capabilities and strategic fit.
+
+    Args:
+        flat_analysis: Flat skill gap analysis
+        cluster_analysis: Capability cluster analysis
+        flat_weight: Weight for flat skill score (default 0.4)
+        cluster_weight: Weight for cluster score (default 0.6)
+
+    Returns:
+        Combined weighted score (0-100)
+    """
+    flat_score = flat_analysis.skill_match_score
+    cluster_score = cluster_analysis.overall_match_score
+
+    # Weighted average
+    combined = (flat_score * flat_weight) + (cluster_score * cluster_weight)
+
+    logger.debug(f"Merged score: flat={flat_score:.1f}*{flat_weight} + "
+                 f"cluster={cluster_score:.1f}*{cluster_weight} = {combined:.1f}")
+
+    return round(combined, 1)

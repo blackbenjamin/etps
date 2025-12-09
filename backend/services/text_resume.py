@@ -201,12 +201,10 @@ def create_resume_text(
 
                 # Add each engagement
                 for engagement in role.selected_engagements:
-                    # Engagement header
+                    # Engagement header (date_range_label omitted for cleaner display)
                     eng_header = f"  {engagement.client or 'Project'}"
                     if engagement.project_name:
                         eng_header += f" - {engagement.project_name}"
-                    if engagement.date_range_label:
-                        eng_header += f" ({engagement.date_range_label})"
                     lines.append(eng_header)
 
                     # Engagement bullets (indented)

@@ -8,12 +8,12 @@ import type { TailoredResume, GeneratedCoverLetter } from '@/types'
 
 interface DownloadButtonsProps {
   type: 'resume' | 'cover-letter'
-  jobProfileId: number
+  jobProfileId?: number // Kept for backwards compatibility but no longer used
   jsonData: TailoredResume | GeneratedCoverLetter
   companyName?: string
 }
 
-export function DownloadButtons({ type, jobProfileId, jsonData, companyName }: DownloadButtonsProps) {
+export function DownloadButtons({ type, jsonData, companyName }: DownloadButtonsProps) {
   const downloadResume = useDownloadResume()
   const downloadResumeText = useDownloadResumeText()
   const downloadCoverLetter = useDownloadCoverLetter()
@@ -25,7 +25,7 @@ export function DownloadButtons({ type, jobProfileId, jsonData, companyName }: D
     if (type === 'resume') {
       await downloadResume.mutateAsync({ resume: jsonData as TailoredResume, companyName })
     } else {
-      await downloadCoverLetter.mutateAsync({ jobProfileId, companyName })
+      await downloadCoverLetter.mutateAsync({ coverLetter: jsonData as GeneratedCoverLetter, companyName })
     }
   }
 
@@ -47,7 +47,7 @@ export function DownloadButtons({ type, jobProfileId, jsonData, companyName }: D
     if (type === 'resume') {
       await downloadResumeText.mutateAsync({ resume: jsonData as TailoredResume, companyName })
     } else {
-      await downloadCoverLetterText.mutateAsync({ jobProfileId, companyName })
+      await downloadCoverLetterText.mutateAsync({ coverLetter: jsonData as GeneratedCoverLetter, companyName })
     }
   }
 

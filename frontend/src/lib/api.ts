@@ -8,6 +8,9 @@ import type {
   GeneratedCoverLetter,
   CoverLetterGenerateRequest,
   CriticResult,
+  CapabilityClusterResponse,
+  CapabilityClusterAnalysis,
+  CapabilitySelectionUpdate,
 } from '@/types'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -20,6 +23,22 @@ const USER_PROFILE = {
   linkedin: process.env.NEXT_PUBLIC_USER_LINKEDIN || '',
   portfolio: process.env.NEXT_PUBLIC_USER_PORTFOLIO || '',
 }
+
+// Education entries (hardcoded for now - could be moved to env or database)
+const EDUCATION = [
+  {
+    institution: "MIT Sloan School of Management",
+    location: "Cambridge, MA",
+    degree: "MBA, Strategy, Finance & Innovation",
+    details: []
+  },
+  {
+    institution: "Tufts University",
+    location: "Medford, MA",
+    degree: "B.A., Economics; International Relations; German Studies",
+    details: ["Semester abroad in Berlin; fluent in German."]
+  }
+]
 
 class ApiError extends Error {
   status: number
@@ -134,6 +153,7 @@ export const api = {
         user_phone: USER_PROFILE.phone,
         user_linkedin: USER_PROFILE.linkedin,
         user_portfolio: USER_PROFILE.portfolio,
+        education: EDUCATION,
       }),
     })
     if (!response.ok) {
@@ -156,6 +176,7 @@ export const api = {
         user_phone: USER_PROFILE.phone,
         user_linkedin: USER_PROFILE.linkedin,
         user_portfolio: USER_PROFILE.portfolio,
+        education: EDUCATION,
       }),
     })
     if (!response.ok) {
@@ -228,6 +249,28 @@ export const api = {
     }
     return response.blob()
   },
+
+  // Capability Clusters
+  getCapabilityClusters: (jobProfileId: number, userId: number = 1, forceRefresh: boolean = false) =>
+    apiFetch<CapabilityClusterResponse>(
+      `/api/v1/capability/job-profiles/${jobProfileId}/clusters?user_id=${userId}&force_refresh=${forceRefresh}`
+    ),
+
+  analyzeCapabilityClusters: (data: { job_profile_id: number; user_id?: number; force_refresh?: boolean }) =>
+    apiFetch<CapabilityClusterResponse>(`/api/v1/capability/job-profiles/${data.job_profile_id}/clusters/analyze`, {
+      method: 'POST',
+      body: JSON.stringify({ ...data, user_id: data.user_id || 1 }),
+    }),
+
+  getCombinedAnalysis: (jobProfileId: number, userId: number = 1) =>
+    apiFetch<{
+      job_profile_id: number
+      user_id: number
+      flat_analysis: SkillGapResponse
+      cluster_analysis: CapabilityClusterAnalysis
+      merged_score: number
+      analysis_timestamp: string
+    }>(`/api/v1/capability/job-profiles/${jobProfileId}/combined-analysis?user_id=${userId}`),
 }
 
 // Skill Selection Types

@@ -18,6 +18,7 @@ from schemas.resume_tailor import TailorResumeRequest, TailoredResume, ResumeDoc
 from services.resume_tailor import tailor_resume
 from services.docx_resume import create_resume_docx
 from services.text_resume import create_resume_text
+from services.llm import create_llm
 
 
 logger = logging.getLogger(__name__)
@@ -82,7 +83,8 @@ async def generate_tailored_resume(
                 detail=f"Job profile {request.job_profile_id} not found"
             )
 
-        # Generate tailored resume using service
+        # Generate tailored resume using service with real LLM if available
+        llm = create_llm()  # Uses Claude if ANTHROPIC_API_KEY is set, else MockLLM
         tailored_resume = await tailor_resume(
             job_profile_id=request.job_profile_id,
             user_id=request.user_id,
@@ -90,6 +92,7 @@ async def generate_tailored_resume(
             max_bullets_per_role=request.max_bullets_per_role,
             max_skills=request.max_skills,
             custom_instructions=request.custom_instructions,
+            llm=llm,
         )
 
         return tailored_resume

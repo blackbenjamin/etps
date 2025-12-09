@@ -44,6 +44,28 @@ class CoverLetterDocxRejectedResponse(BaseModel):
     )
 
 
+class CoverLetterDocxRequest(BaseModel):
+    """Request for DOCX generation - either regenerate or use pre-generated cover letter."""
+    # Option 1: Provide job_profile_id to regenerate
+    job_profile_id: Optional[int] = Field(None, description="Job profile ID to regenerate cover letter")
+    user_id: Optional[int] = Field(None, description="User ID (required if regenerating)")
+    company_profile_id: Optional[int] = Field(None, description="Company profile ID for customization")
+    context_notes: Optional[str] = Field(None, description="User-provided context notes")
+    referral_name: Optional[str] = Field(None, description="Referrer name if applicable")
+    company_name: Optional[str] = Field(None, description="Override company name (if manually entered)")
+
+    # Option 2: Provide pre-generated cover letter (skips generation and critic)
+    generated_cover_letter: Optional[GeneratedCoverLetter] = Field(
+        None,
+        description="Pre-generated cover letter JSON (skips regeneration and critic)"
+    )
+    # User info for DOCX template when using pre-generated cover letter
+    user_name: Optional[str] = Field(None, description="User name for signature")
+    user_email: Optional[str] = Field(None, description="User email for header")
+    user_phone: Optional[str] = Field(None, description="User phone for header")
+    user_linkedin: Optional[str] = Field(None, description="User LinkedIn for header")
+
+
 @router.post("/generate", response_model=GeneratedCoverLetter, status_code=status.HTTP_200_OK)
 async def generate_cover_letter_endpoint(
     request: CoverLetterRequest,
@@ -98,6 +120,7 @@ async def generate_cover_letter_endpoint(
             company_profile_id=request.company_profile_id,
             context_notes=request.context_notes,
             referral_name=request.referral_name,
+            company_name=request.company_name,
         )
 
         return cover_letter
@@ -199,6 +222,7 @@ async def generate_cover_letter_with_critic_endpoint(
             company_profile_id=request.company_profile_id,
             context_notes=request.context_notes,
             referral_name=request.referral_name,
+            company_name=request.company_name,
         )
 
         # Get job profile for critic evaluation
@@ -289,7 +313,7 @@ def _sanitize_filename(name: str) -> str:
     status_code=status.HTTP_200_OK
 )
 async def generate_cover_letter_docx_endpoint(
-    request: CoverLetterRequest,
+    request: CoverLetterDocxRequest,
     recipient_name: Optional[str] = Query(
         default=None,
         description="Recipient name (default: 'Hiring Team')"
@@ -359,58 +383,78 @@ async def generate_cover_letter_docx_endpoint(
     - `500 Internal Server Error`: Unexpected error during generation
     """
     try:
-        # Validate user exists and get user details
-        user = db.query(User).filter(User.id == request.user_id).first()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User {request.user_id} not found"
-            )
-
-        # Generate cover letter
-        cover_letter = await generate_cover_letter(
-            job_profile_id=request.job_profile_id,
-            user_id=request.user_id,
-            db=db,
-            company_profile_id=request.company_profile_id,
-            context_notes=request.context_notes,
-            referral_name=request.referral_name,
-        )
-
-        # Get job profile for critic evaluation
-        job_profile = db.query(JobProfile).filter(
-            JobProfile.id == request.job_profile_id
-        ).first()
-
-        if not job_profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Job profile {request.job_profile_id} not found"
-            )
-
-        # Run critic evaluation
-        critic_result = await evaluate_cover_letter(
-            cover_letter_json=cover_letter.model_dump(),
-            job_profile=job_profile,
-            db=db,
-            strict_mode=strict_mode
-        )
-
-        # If critic fails, return JSON with issues (422 status)
-        if not critic_result.passed:
-            rejection_response = CoverLetterDocxRejectedResponse(
-                accepted=False,
-                critic_result=critic_result,
-                cover_letter=cover_letter,
-                message=(
-                    f"Cover letter failed critic evaluation with {critic_result.error_count} error(s) "
-                    f"and {critic_result.warning_count} warning(s). Review issues and regenerate."
+        # Case 1: Pre-generated cover letter provided - skip generation and critic
+        if request.generated_cover_letter:
+            cover_letter = request.generated_cover_letter
+            user_name = request.user_name or "User"
+            user_email = request.user_email or ""
+            user_phone = request.user_phone
+            user_linkedin = request.user_linkedin
+        else:
+            # Case 2: Regenerate cover letter from job_profile_id
+            if not request.job_profile_id or not request.user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Either provide generated_cover_letter or both job_profile_id and user_id"
                 )
+
+            # Validate user exists and get user details
+            user = db.query(User).filter(User.id == request.user_id).first()
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User {request.user_id} not found"
+                )
+            user_name = user.full_name
+            user_email = user.email
+            user_phone = getattr(user, 'phone', None)
+            user_linkedin = getattr(user, 'linkedin_url', None)
+
+            # Generate cover letter
+            cover_letter = await generate_cover_letter(
+                job_profile_id=request.job_profile_id,
+                user_id=request.user_id,
+                db=db,
+                company_profile_id=request.company_profile_id,
+                context_notes=request.context_notes,
+                referral_name=request.referral_name,
+                company_name=request.company_name,
             )
-            return JSONResponse(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                content=rejection_response.model_dump()
+
+            # Get job profile for critic evaluation
+            job_profile = db.query(JobProfile).filter(
+                JobProfile.id == request.job_profile_id
+            ).first()
+
+            if not job_profile:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Job profile {request.job_profile_id} not found"
+                )
+
+            # Run critic evaluation
+            critic_result = await evaluate_cover_letter(
+                cover_letter_json=cover_letter.model_dump(),
+                job_profile=job_profile,
+                db=db,
+                strict_mode=strict_mode
             )
+
+            # If critic fails, return JSON with issues (422 status)
+            if not critic_result.passed:
+                rejection_response = CoverLetterDocxRejectedResponse(
+                    accepted=False,
+                    critic_result=critic_result,
+                    cover_letter=cover_letter,
+                    message=(
+                        f"Cover letter failed critic evaluation with {critic_result.error_count} error(s) "
+                        f"and {critic_result.warning_count} warning(s). Review issues and regenerate."
+                    )
+                )
+                return JSONResponse(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    content=rejection_response.model_dump()
+                )
 
         # Build filename base
         company_part = _sanitize_filename(cover_letter.company_name) if cover_letter.company_name else "Unknown"
@@ -431,10 +475,10 @@ async def generate_cover_letter_docx_endpoint(
             # Generate plain text cover letter
             text_content = create_cover_letter_text(
                 cover_letter=cover_letter,
-                user_name=user.full_name,
-                user_email=user.email,
-                user_phone=getattr(user, 'phone', None),
-                user_linkedin=getattr(user, 'linkedin_url', None),
+                user_name=user_name,
+                user_email=user_email,
+                user_phone=user_phone,
+                user_linkedin=user_linkedin,
                 recipient_name=recipient_name,
                 company_name=cover_letter.company_name
             )
@@ -451,10 +495,10 @@ async def generate_cover_letter_docx_endpoint(
             # Generate DOCX
             docx_bytes = create_cover_letter_docx(
                 cover_letter=cover_letter,
-                user_name=user.full_name,
-                user_email=user.email,
-                user_phone=getattr(user, 'phone', None),
-                user_linkedin=getattr(user, 'linkedin_url', None),
+                user_name=user_name,
+                user_email=user_email,
+                user_phone=user_phone,
+                user_linkedin=user_linkedin,
                 recipient_name=recipient_name
             )
 

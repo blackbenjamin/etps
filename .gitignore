@@ -75,3 +75,20 @@ temp/
 
 # Claude Code
 .claude/
+
+# Harvested data files (user-specific)
+harvested_*.csv
+backend/harvested_*.csv
+scripts/harvested_*.csv
+
+# Pytest and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.coverage.*
+
+# Backend package metadata artifacts
+backend/=*.*/
+
+# Next.js additional caches
+.turbo/

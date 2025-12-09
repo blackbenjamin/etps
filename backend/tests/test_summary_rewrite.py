@@ -50,12 +50,12 @@ class TestLoadSummaryPromptTemplate:
         assert len(template) > 0
 
         # Check for required placeholders
+        # Note: years_experience removed to avoid age discrimination
         required_placeholders = [
             '{primary_identity}',
             '{specializations}',
             '{job_title}',
             '{seniority}',
-            '{years_experience}',
             '{top_skills}',
             '{core_priorities}',
             '{company_context}',
@@ -360,15 +360,17 @@ class TestGenerateMockSummary:
         assert 'Python' in summary
 
     def test_generate_mock_summary_default_identity(self):
-        """Should use default identity when profile not provided."""
+        """Should use default identity when profile and experiences not provided."""
         summary = _generate_mock_summary_v2(
             candidate_profile=None,
             job_profile=Mock(spec=JobProfile, core_priorities=['Leadership']),
             selected_skills=[],
-            years_experience=5
+            years_experience=5,  # Note: years_experience is deprecated but kept for API compatibility
+            experiences=None  # No experiences to infer identity from
         )
 
-        assert 'Technology leader' in summary
+        # Default identity when no experiences is "Technology professional"
+        assert 'technology professional' in summary.lower()
 
     def test_generate_mock_summary_respects_word_count(self):
         """Should aim for ~55 words."""
@@ -600,9 +602,9 @@ class TestRewriteSummaryForJob:
             llm=llm
         )
 
-        # Should default to 10 years
+        # Should generate a valid summary (no years mentioned to avoid age discrimination)
         assert summary is not None
-        assert "10+" in summary or "10" in summary
+        assert len(summary) > 20  # Should be a real summary
 
     async def test_rewrite_summary_with_company_profile(self):
         """Should use company context when provided."""

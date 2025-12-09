@@ -28,6 +28,7 @@ This style guide codifies Benjamin Black's authentic writing voice for cover let
 - ❌ Hedge with weak language ("I believe I would be a great fit")
 - ❌ Reference the JD explicitly ("Per your job description...")
 - ❌ Use em-dashes (—) under any circumstances
+- ❌ Use contractions ("I'd", "I'm", "I've") - use full forms for professional tone
 - ❌ Lead with generic qualifications before role-specific ones
 - ❌ Over-explain or pad word count
 - ❌ Use passive constructions for achievements
@@ -63,6 +64,13 @@ The following are **strictly prohibited** and will be rejected by the critic age
 - Excessive exclamation points
 - Ellipses for trailing off
 
+### Banned Contractions
+- Use "I would" not "I'd"
+- Use "I am" not "I'm"
+- Use "I have" not "I've"
+- Use "cannot" not "can't"
+- Full forms convey a more professional tone
+
 ### Banned Closings
 - "I look forward to hearing from you"
 - "Please do not hesitate to contact me"
@@ -75,18 +83,18 @@ The following are **strictly prohibited** and will be rejected by the critic age
 ### Standard Template (~300 words)
 
 ```
-PARAGRAPH 1: HOOK + POSITIONING (2-3 sentences)
+PARAGRAPH 1: HOOK + POSITIONING (2-3 sentences, prose)
 - Name the role specifically
 - State your unique positioning angle
 - Signal domain relevance immediately
 
-PARAGRAPH 2: EXPERIENCE ALIGNMENT (4-5 sentences)
-- Lead with most relevant experience
-- Address top 2-3 JD requirements directly
+PARAGRAPH 2: EXPERIENCE ALIGNMENT (use 2-3 bullets for skimmability)
+- Open with a brief intro sentence
+- Use bullet points for key qualifications with concrete outcomes
 - Name specific companies/contexts for credibility
-- Show progression across roles
+- Keep bullets concise (one line each)
 
-PARAGRAPH 3: DIFFERENTIATOR (3-4 sentences)
+PARAGRAPH 3: DIFFERENTIATOR (3-4 sentences, prose)
 - Highlight a distinctive capability or project
 - Connect hands-on work to strategic value
 - Demonstrate curiosity and builder mindset
@@ -94,7 +102,7 @@ PARAGRAPH 3: DIFFERENTIATOR (3-4 sentences)
 PARAGRAPH 4: COMPANY FIT + CLOSE (2-3 sentences)
 - Reference company mission/approach specifically
 - State desired contribution
-- End on forward momentum, not thanks
+- END WITH DIRECT ASK: "I would welcome the opportunity to discuss how my background can support [Company]'s [specific goal]."
 ```
 
 ### Executive Template (~250 words)

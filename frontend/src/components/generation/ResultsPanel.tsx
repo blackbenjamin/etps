@@ -19,27 +19,9 @@ function formatDate(isoDate: string | null | undefined): string {
   return isoDate
 }
 
-// Get all bullets for a role (including engagement bullets)
-function getRoleBullets(role: SelectedRole): { id: number; text: string; client?: string }[] {
-  const bullets: { id: number; text: string; client?: string }[] = []
-
-  // Add direct bullets
-  if (role.selected_bullets) {
-    for (const b of role.selected_bullets) {
-      bullets.push({ id: b.bullet_id, text: b.text })
-    }
-  }
-
-  // Add engagement bullets
-  if (role.selected_engagements) {
-    for (const eng of role.selected_engagements) {
-      for (const b of eng.selected_bullets || []) {
-        bullets.push({ id: b.bullet_id, text: b.text, client: eng.client || undefined })
-      }
-    }
-  }
-
-  return bullets
+// Check if role has engagements (consulting-style role)
+function hasEngagements(role: SelectedRole): boolean {
+  return (role.selected_engagements?.length ?? 0) > 0
 }
 
 interface ResultsPanelProps {
@@ -96,29 +78,53 @@ export function ResultsPanel({ resume, coverLetter, jobProfileId, companyName }:
               </TabsContent>
               <TabsContent value="roles" className="mt-4">
                 <div className="space-y-4">
-                  {resume.selected_roles?.map((role, idx) => {
-                    const bullets = getRoleBullets(role)
-                    return (
-                      <div key={idx} className="border-l-2 border-primary pl-4">
-                        <p className="font-medium">{role.employer_name}</p>
-                        <p className="text-sm text-muted-foreground">{role.job_title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(role.start_date)} – {formatDate(role.end_date)}
-                        </p>
+                  {resume.selected_roles?.map((role, idx) => (
+                    <div key={idx} className="border-l-2 border-primary pl-4">
+                      <p className="font-medium">{role.employer_name}</p>
+                      <p className="text-sm text-muted-foreground">{role.job_title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(role.start_date)} – {formatDate(role.end_date)}
+                      </p>
+                      {role.role_summary && (
+                        <p className="text-sm italic text-muted-foreground mt-1">{role.role_summary}</p>
+                      )}
+
+                      {/* Direct bullets (non-consulting roles or role-level bullets) */}
+                      {role.selected_bullets && role.selected_bullets.length > 0 && (
                         <ul className="mt-2 space-y-1">
-                          {bullets.map((bullet) => (
-                            <li key={bullet.id} className="text-sm flex gap-2">
+                          {role.selected_bullets.map((bullet) => (
+                            <li key={bullet.bullet_id} className="text-sm flex gap-2">
                               <span className="text-muted-foreground">•</span>
-                              <span>
-                                {bullet.client && <span className="font-medium text-muted-foreground">[{bullet.client}] </span>}
-                                {bullet.text}
-                              </span>
+                              <span>{bullet.text}</span>
                             </li>
                           ))}
                         </ul>
-                      </div>
-                    )
-                  })}
+                      )}
+
+                      {/* Engagements (consulting-style roles) */}
+                      {hasEngagements(role) && (
+                        <div className="mt-3 space-y-3">
+                          {role.selected_engagements?.map((engagement, engIdx) => (
+                            <div key={engIdx} className="ml-2">
+                              <p className="text-sm font-medium text-muted-foreground">
+                                {engagement.client}
+                              </p>
+                              {engagement.selected_bullets && engagement.selected_bullets.length > 0 && (
+                                <ul className="mt-1 space-y-1">
+                                  {engagement.selected_bullets.map((bullet) => (
+                                    <li key={bullet.bullet_id} className="text-sm flex gap-2">
+                                      <span className="text-muted-foreground">•</span>
+                                      <span>{bullet.text}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </TabsContent>
               <TabsContent value="skills" className="mt-4">

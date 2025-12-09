@@ -34,4 +34,5 @@ export interface CoverLetterGenerateRequest {
   user_id?: number
   company_profile_id?: number
   context_notes?: string
+  company_name?: string  // Override company name (if manually entered)
 }

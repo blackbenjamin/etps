@@ -44,6 +44,7 @@ function getErrorMessage(error: unknown): string {
 
 interface GenerateButtonsProps {
   jobProfileId: number
+  companyName?: string
   disabled?: boolean
   onResumeGenerated?: (resume: TailoredResume) => void
   onCoverLetterGenerated?: (coverLetter: GeneratedCoverLetter) => void
@@ -51,6 +52,7 @@ interface GenerateButtonsProps {
 
 export function GenerateButtons({
   jobProfileId,
+  companyName,
   disabled,
   onResumeGenerated,
   onCoverLetterGenerated,
@@ -83,6 +85,7 @@ export function GenerateButtons({
       const result = await generateCoverLetter.mutateAsync({
         job_profile_id: jobProfileId,
         context_notes: contextNotes || undefined,
+        company_name: companyName || undefined,
       })
       setCoverLetter(result)
       setGenerationStep('complete')
@@ -107,6 +110,7 @@ export function GenerateButtons({
       const clResult = await generateCoverLetter.mutateAsync({
         job_profile_id: jobProfileId,
         context_notes: contextNotes || undefined,
+        company_name: companyName || undefined,
       })
       setCoverLetter(clResult)
       onCoverLetterGenerated?.(clResult)

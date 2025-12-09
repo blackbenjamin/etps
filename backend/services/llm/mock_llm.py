@@ -300,39 +300,16 @@ class MockLLM(BaseLLM):
         # For MockLLM, we acknowledge but don't need to modify behavior
         # Real LLM implementations would use this in their prompts
 
-        # Get greeting template
-        greeting_templates = self.GREETING_TEMPLATES.get(
-            tone, self.GREETING_TEMPLATES['formal_corporate']
-        )
-
-        # Determine greeting based on context
-        company_name = company_context.get('name')
-        referral_name = company_context.get('referral_name')
-
-        if referral_name:
-            greeting = greeting_templates['with_referral'].format(
-                referral_name=referral_name
-            )
-        elif company_name:
-            greeting = greeting_templates['with_company'].format(
-                company=company_name
-            )
-        else:
-            greeting = greeting_templates['default']
-
-        # Get closing
-        closing = self.CLOSING_TEMPLATES.get(tone, "Sincerely,")
-
         # Build cover letter body from outline
+        # Note: Greeting and closing are added by the output generators (DOCX/TXT),
+        # so we only return the body content here to avoid duplication.
         intro = outline.get('introduction', '')
         value_prop = outline.get('value_proposition', '')
         alignment = outline.get('alignment', '')
         call_to_action = outline.get('call_to_action', '')
 
-        # Compose the cover letter
+        # Compose the cover letter body (no greeting/closing - added by output generators)
         cover_letter_parts = [
-            greeting,
-            "",
             intro,
             "",
             value_prop,
@@ -340,9 +317,6 @@ class MockLLM(BaseLLM):
             alignment,
             "",
             call_to_action,
-            "",
-            closing,
-            user_name
         ]
 
         return "\n".join(cover_letter_parts)

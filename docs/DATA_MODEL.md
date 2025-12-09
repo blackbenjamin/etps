@@ -223,6 +223,11 @@ Parsed and analyzed job description.
 | tone_style | String(50) | Nullable | Expected tone |
 | job_type_tags | JSON | Nullable | Job categories |
 | embedding | JSON | Nullable | 384-dim vector |
+| selected_skills | JSON | Nullable | User-ordered skills: [{skill, match_pct, included, order}] (Sprint 10E) |
+| key_skills | JSON | Nullable | 3-4 skills for cover letter emphasis (Sprint 10E) |
+| capability_clusters | JSON | Nullable | LLM-extracted capability clusters with component skills and evidence (Sprint 11) |
+| capability_cluster_cache_key | String(64) | Nullable, Indexed | SHA256 hash of JD text for cluster cache lookup (Sprint 11) |
+| capability_analysis_timestamp | DateTime | Nullable | When capability analysis was last performed (Sprint 11) |
 
 **skill_gap_analysis JSON Schema:**
 ```json
@@ -427,6 +432,7 @@ The following entities have 384-dimensional embeddings for semantic search:
 | critic_logs | ix_critic_logs_quality | quality_score | Score-based queries |
 | approved_outputs | ix_approved_outputs_user_type | user_id, output_type | User output lookup |
 | approved_outputs | ix_approved_outputs_quality | quality_score | Quality filtering |
+| job_profiles | ix_job_profiles_cluster_key | capability_cluster_cache_key | Cluster cache lookup (Sprint 11) |
 
 ---
 
@@ -439,6 +445,8 @@ The following entities have 384-dimensional embeddings for semantic search:
 | 1.2.0 | Dec 2025 | Added CriticLog, embedding fields |
 | 1.3.0 | Dec 2025 | Added Engagement, candidate_profile, ai_first_choice |
 | 1.4.0 | Dec 2025 | Added PII handling: Contact.deleted_at, sanitization utilities |
+| 1.4.1 | Dec 2025 | Added selected_skills, key_skills to JobProfile (Sprint 10E) |
+| 1.4.2 | Dec 2025 | Added capability_clusters, capability_cluster_cache_key, capability_analysis_timestamp to JobProfile (Sprint 11) |
 
 ---
 

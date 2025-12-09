@@ -45,9 +45,11 @@ from schemas.skill_gap import SkillGapResponse
 from services.skill_gap import (
     SKILL_SYNONYMS,
     analyze_skill_gap,
+    get_cluster_analysis,
     normalize_skill,
     find_skill_match_sync,
 )
+from schemas.capability import CapabilityClusterAnalysis
 from services.llm.base import BaseLLM
 from services.bullet_rewriter import rewrite_bullets_for_job
 from services.summary_rewrite import rewrite_summary_for_job
@@ -485,7 +487,7 @@ def select_and_order_skills(
     user_bullets: List[Bullet],
     job_profile: JobProfile,
     skill_gap_result: SkillGapResponse,
-    max_skills: int = 12
+    max_skills: int = 18
 ) -> List[SelectedSkill]:
     """
     Select and order skills for resume skills section using tier-based approach.
@@ -595,6 +597,73 @@ def select_and_order_skills(
             ))
             selected_skill_names.add(normalized)
 
+    # Tier 5: Add relevant skills from user's bullet tags
+    # These are skills the user demonstrably has (evidence in bullets)
+    # that may be relevant to the job even if not explicitly mentioned in JD
+    if len(selected_skills) < max_skills and user_bullets:
+        # Collect all unique tags from bullets
+        user_skill_tags = set()
+        for bullet in user_bullets:
+            if bullet.tags:
+                for tag in bullet.tags:
+                    user_skill_tags.add(tag)
+
+        # Define categories of skills that are generally valuable for professional roles
+        # These will be added to fill out the skills section
+        relevant_categories = {
+            "leadership": ["Leadership", "Management", "Strategy", "Executive", "Director"],
+            "technical": ["AI/ML", "Data Science", "Analytics", "Architecture", "Cloud", "Python", "SQL"],
+            "process": ["Agile", "Project Management", "Program Management", "Change Management"],
+            "domain": ["Consulting", "Financial Services", "Banking", "Compliance", "Governance"],
+            "soft": ["Stakeholder Management", "Client Engagement", "Communication", "Collaboration"],
+        }
+
+        # Score and sort user tags by relevance
+        scored_tags = []
+        jd_lower = (job_profile.raw_jd_text or "").lower()
+        job_title_lower = (job_profile.job_title or "").lower()
+
+        for tag in user_skill_tags:
+            normalized = normalize_skill(tag)
+            if normalized in selected_skill_names:
+                continue
+
+            # Score based on relevance
+            score = 0.3  # Base score for having the skill
+
+            # Boost if skill appears in JD text
+            if tag.lower() in jd_lower:
+                score += 0.3
+
+            # Boost if skill relates to job title
+            if any(word in tag.lower() for word in job_title_lower.split()):
+                score += 0.2
+
+            # Boost for skills in relevant categories
+            for category_skills in relevant_categories.values():
+                if any(cat_skill.lower() in tag.lower() for cat_skill in category_skills):
+                    score += 0.1
+                    break
+
+            scored_tags.append((tag, score))
+
+        # Sort by score and add top skills
+        scored_tags.sort(key=lambda x: x[1], reverse=True)
+
+        for tag, score in scored_tags:
+            if len(selected_skills) >= max_skills:
+                break
+
+            normalized = normalize_skill(tag)
+            if normalized not in selected_skill_names:
+                selected_skills.append(SelectedSkill(
+                    skill=tag,
+                    priority_score=score,
+                    match_type="user_competency",
+                    source="user_master_resume",
+                ))
+                selected_skill_names.add(normalized)
+
     return selected_skills[:max_skills]
 
 
@@ -642,20 +711,12 @@ async def generate_tailored_summary(
     job_title = job_profile.job_title
     positioning_angles = skill_gap_result.key_positioning_angles[:2]  # Top 2 positioning strategies
 
-    # Calculate years of experience
-    years_exp = 0
-    if experiences:
-        for exp in experiences:
-            years = (exp.end_date or datetime.now().date()).year - exp.start_date.year
-            years_exp += max(years, 0)
-
-    # Build context for LLM
+    # Build context for LLM (no years of experience to avoid age discrimination)
     context = {
         'job_title': job_title,
         'seniority': seniority,
         'top_skills': top_skills,
         'matched_skills': matched_skills,
-        'years_experience': years_exp,
         'job_priorities': job_profile.core_priorities or [],
         'positioning_angles': positioning_angles,
     }
@@ -666,7 +727,7 @@ async def generate_tailored_summary(
 Job Title: {job_title}
 Seniority: {seniority}
 
-The candidate has {years_exp}+ years of experience with strong expertise in:
+The candidate has extensive experience with strong expertise in:
 {', '.join(top_skills[:5])}
 
 Key skills that match job requirements:
@@ -692,7 +753,6 @@ Summary:"""
     if llm.__class__.__name__ == 'MockLLM':
         summary = _generate_mock_summary(
             seniority=seniority,
-            years_exp=years_exp,
             top_skills=top_skills,
             matched_skills=matched_skills,
             job_title=job_title,
@@ -716,17 +776,16 @@ Summary:"""
 
 def _generate_mock_summary(
     seniority: str,
-    years_exp: int,
     top_skills: List[str],
     matched_skills: List[str],
     job_title: str,
 ) -> str:
     """
     Generate mock summary using template for development/testing.
+    NOTE: Does NOT include years of experience to avoid age discrimination.
 
     Args:
         seniority: Seniority level
-        years_exp: Years of experience
         top_skills: Top skills to highlight
         matched_skills: Matched skills
         job_title: Target job title
@@ -734,20 +793,20 @@ def _generate_mock_summary(
     Returns:
         Template-based summary
     """
-    # Determine role type
-    role_descriptor = "professional"
+    # Determine role type with experience-emphasizing language
+    role_descriptor = "Experienced professional"
     if "director" in seniority.lower() or "vp" in seniority.lower():
-        role_descriptor = "leader"
-    elif "senior" in seniority.lower():
-        role_descriptor = "specialist"
+        role_descriptor = "Strategic leader"
+    elif "senior" in seniority.lower() or "principal" in seniority.lower():
+        role_descriptor = "Seasoned specialist"
 
-    # Build summary
+    # Build summary without years
     skills_str = ", ".join(matched_skills[:3]) if matched_skills else ", ".join(top_skills[:3])
 
     summary = (
-        f"{role_descriptor.capitalize()} with {years_exp}+ years of experience "
-        f"specializing in {skills_str}. Demonstrated expertise in delivering "
-        f"impactful solutions through technical excellence and strategic execution. "
+        f"{role_descriptor} with deep expertise in {skills_str}. "
+        f"Demonstrated track record of delivering impactful solutions through "
+        f"technical excellence and strategic execution. "
         f"Proven ability to drive results in complex environments requiring "
         f"{top_skills[0] if top_skills else 'technical expertise'}."
     )
@@ -760,7 +819,7 @@ async def tailor_resume(
     user_id: int,
     db: Session,
     max_bullets_per_role: int = 4,
-    max_skills: int = 12,
+    max_skills: int = 18,
     custom_instructions: Optional[str] = None,
     llm: Optional[BaseLLM] = None,
     enable_bullet_rewriting: bool = False,
@@ -851,6 +910,23 @@ async def tailor_resume(
         user_id=user_id,
         db=db,
     )
+
+    # Sprint 11: Run capability cluster analysis for strategic positioning
+    cluster_analysis: Optional[CapabilityClusterAnalysis] = None
+    try:
+        cluster_analysis = await get_cluster_analysis(
+            job_profile_id=job_profile_id,
+            user_id=user_id,
+            db=db,
+            use_mock=True  # Use mock for now (no LLM API calls)
+        )
+        if cluster_analysis:
+            logger.info(
+                f"Resume cluster analysis: {len(cluster_analysis.clusters)} clusters, "
+                f"overall score: {cluster_analysis.overall_match_score:.1f}%"
+            )
+    except Exception as e:
+        logger.warning(f"Cluster analysis failed (continuing without): {e}")
 
     # Sprint 8B.1: Retrieve similar approved bullets for learning
     similar_approved_bullets = []
@@ -1246,7 +1322,7 @@ async def tailor_resume_with_critic(
     user_id: int,
     db: Session,
     max_bullets_per_role: int = 4,
-    max_skills: int = 12,
+    max_skills: int = 18,
     custom_instructions: Optional[str] = None,
     llm: Optional[BaseLLM] = None,
     max_iterations: int = DEFAULT_MAX_ITERATIONS,

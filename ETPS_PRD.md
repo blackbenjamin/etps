@@ -544,7 +544,7 @@ Mode: **Highly strict.**
 - Impact orientation (achievements, metrics).
 - Tone (executive, direct, professional).
 - Formatting fidelity in docx.
-- No hallucinations.
+- No hallucinations (skills, technologies, or domains must appear in the JD; LLM must not inject candidate's background into outputs if not JD-relevant).
 - ATS keyword coverage & score.
 - Skills relevance and signal.
 - Avoidance of redundant bullets.
@@ -574,7 +574,7 @@ Any violation is a critical failure and must trigger regeneration or a warning t
 - Integration of job_profile core priorities.
 - Integration of company mission/industry themes.
 - Incorporation of user instructions.
-- Truthfulness and coherence.
+- Truthfulness and coherence (only mention skills/technologies from JD; no domain conflation e.g., "Data Governance" ≠ "AI Governance").
 - ATS keyword coverage & score.
 - Formatting fidelity in docx.
 

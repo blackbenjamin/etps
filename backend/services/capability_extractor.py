@@ -217,6 +217,43 @@ def _parse_llm_response(response: str) -> List[CapabilityCluster]:
         raise ValueError(f"Invalid JSON from LLM: {e}")
 
 
+def _keyword_in_context(keyword: str, text: str) -> bool:
+    """
+    Check if keyword appears in text in a meaningful context.
+    Uses word boundaries and filters out false positives like URLs and benefits sections.
+    """
+    import re
+    text_lower = text.lower()
+    kw_lower = keyword.lower()
+
+    # Use word boundaries to avoid partial matches (e.g., "ehr" in "hrportal.ehr.com")
+    pattern = r'\b' + re.escape(kw_lower) + r'\b'
+    matches = list(re.finditer(pattern, text_lower))
+
+    if not matches:
+        return False
+
+    # Check each match to filter out false positives
+    for match in matches:
+        start = max(0, match.start() - 100)
+        end = min(len(text_lower), match.end() + 100)
+        context = text_lower[start:end]
+
+        # Skip if in benefits/insurance context
+        benefits_indicators = ['insurance', 'dental', 'vision', '401k', 'retirement', 'vacation', 'pto', 'benefits include']
+        if any(ind in context for ind in benefits_indicators):
+            continue
+
+        # Skip if appears to be in a URL
+        if '.com/' in context or 'http' in context or 'www.' in context:
+            continue
+
+        # This match is in a meaningful context
+        return True
+
+    return False
+
+
 def _mock_extract_clusters(
     jd_text: str,
     job_title: str,
@@ -228,6 +265,18 @@ def _mock_extract_clusters(
     """
     clusters = []
     jd_lower = jd_text.lower()
+    job_title_lower = job_title.lower()
+
+    # Domain clusters require stricter matching - need domain-specific keywords
+    DOMAIN_CLUSTERS = {
+        "Healthcare & Life Sciences Domain",
+        "Financial Services Domain",
+        "Transportation & Mobility Domain",
+        "Critical Infrastructure Domain"
+    }
+
+    # Keywords that are too generic to indicate domain expertise
+    GENERIC_KEYWORDS = {"compliance", "risk", "data", "analytics", "systems", "management"}
 
     # Find matching clusters from ontology
     matched_cluster_names = set()
@@ -241,12 +290,29 @@ def _mock_extract_clusters(
         skill_matches = get_clusters_by_keywords(extracted_skills)
         matched_cluster_names.update(skill_matches[:4])
 
-    # Match by JD keywords
+    # Match by JD keywords with stricter rules for domain clusters
     for cluster_name, cluster_data in CAPABILITY_ONTOLOGY.items():
         evidence_keywords = cluster_data.get("evidence_keywords", [])
-        matches = sum(1 for kw in evidence_keywords if kw.lower() in jd_lower)
-        if matches >= 2:
-            matched_cluster_names.add(cluster_name)
+
+        if cluster_name in DOMAIN_CLUSTERS:
+            # Domain clusters need domain-SPECIFIC keywords in MEANINGFUL context
+            # (not in benefits section, URLs, etc.)
+            specific_matches = sum(
+                1 for kw in evidence_keywords
+                if kw.lower() not in GENERIC_KEYWORDS and _keyword_in_context(kw, jd_text)
+            )
+            # Also check if domain indicator is in job title
+            role_indicators = cluster_data.get("role_indicators", [])
+            title_match = any(ind in job_title_lower for ind in role_indicators)
+
+            # Only add domain cluster if: title match OR 2+ domain-specific keywords in meaningful context
+            if title_match or specific_matches >= 2:
+                matched_cluster_names.add(cluster_name)
+        else:
+            # Non-domain clusters use context-aware matching too
+            matches = sum(1 for kw in evidence_keywords if _keyword_in_context(kw, jd_text))
+            if matches >= 2:
+                matched_cluster_names.add(cluster_name)
 
     # Limit to 6 clusters
     selected_names = list(matched_cluster_names)[:6]

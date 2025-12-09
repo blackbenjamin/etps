@@ -25,7 +25,5 @@ python-docx>=1.2.0
 
 # AI/ML APIs
 openai>=1.0.0  # OpenAI API for embeddings
-
-# TODO: Add additional dependencies as needed
-# anthropic>=0.7.0  # Claude API (future)
+anthropic>=0.40.0  # Claude API for cover letter generation
 qdrant-client>=1.6.0  # Vector store for semantic search

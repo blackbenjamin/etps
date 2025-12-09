@@ -195,9 +195,9 @@ class SelectedSkill(BaseModel):
         le=1.0,
         description="Priority score for this skill (0-1)"
     )
-    match_type: Literal["direct_match", "adjacent_skill", "transferable"] = Field(
+    match_type: Literal["direct_match", "adjacent_skill", "transferable", "user_competency"] = Field(
         ...,
-        description="Type of match: direct_match (exact), adjacent_skill (related), transferable (applicable)"
+        description="Type of match: direct_match (exact), adjacent_skill (related), transferable (applicable), user_competency (from user's proven skills)"
     )
     source: str = Field(
         ...,
