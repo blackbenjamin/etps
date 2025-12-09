@@ -118,6 +118,20 @@ async def _llm_extract_clusters(
 - Focus on what the EMPLOYER is asking for, not what candidates might have
 - The job description is your ONLY source of truth
 
+## SECTION PRIORITIZATION (CRITICAL):
+Focus 95% of your analysis on these core JD sections:
+- "Key Responsibilities" / "Responsibilities" / "What you'll do"
+- "Requirements" / "Qualifications" / "What we're looking for"
+- "Skills" / "What we value" / "Who we are looking for"
+- The job title and role summary
+
+IGNORE or give minimal weight to these boilerplate sections:
+- "About [Company]" / Company description
+- Benefits, compensation, salary ranges
+- EEO statements, legal disclaimers
+- "How to Apply" / Application instructions
+- Generic company values not specific to the role
+
 Analyze this job description and extract 4-6 capability clusters that represent the core competencies required for the role.
 
 Job Title: {job_title}
@@ -253,9 +267,25 @@ def _keyword_in_context(keyword: str, text: str) -> bool:
         end = min(len(text_lower), match.end() + 100)
         context = text_lower[start:end]
 
-        # Skip if in benefits/insurance context
-        benefits_indicators = ['insurance', 'dental', 'vision', '401k', 'retirement', 'vacation', 'pto', 'benefits include']
+        # Skip if in benefits/compensation context
+        benefits_indicators = [
+            'insurance', 'dental', 'vision', '401k', 'retirement', 'vacation', 'pto',
+            'benefits include', 'incentive plan', 'bonus', 'compensation', 'salary range',
+            'pay range', 'hourly rate', 'annual salary', 'stock options', 'equity',
+            'sales incentive', 'commission'
+        ]
         if any(ind in context for ind in benefits_indicators):
+            continue
+
+        # Skip if in EEO/legal boilerplate context
+        eeo_indicators = [
+            'equal opportunity', 'eeo', 'affirmative action', 'discrimination',
+            'marital status', 'civil union', 'domestic partner', 'sexual orientation',
+            'gender identity', 'national origin', 'disability', 'veteran status',
+            'protected class', 'race', 'religion', 'color', 'ancestry', 'citizenship',
+            'genetic information', 'familial status', 'age', 'pregnancy'
+        ]
+        if any(ind in context for ind in eeo_indicators):
             continue
 
         # Skip if appears to be in a URL

@@ -8,6 +8,7 @@ Provides job profile creation and skill matching capabilities.
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from db.database import get_db
@@ -224,10 +225,12 @@ async def update_skill_selection(
 
     except HTTPException:
         raise
-    except ValueError as e:
+    except (ValueError, ValidationError) as e:
+        # Handle validation errors from Pydantic or explicit ValueError
+        error_message = str(e) if isinstance(e, ValueError) else e.errors()[0].get('msg', str(e))
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(e)
+            detail=error_message
         )
     except Exception as e:
         raise HTTPException(

@@ -33,7 +33,10 @@ CAPABILITY_ONTOLOGY: Dict[str, Dict[str, Any]] = {
             "Digital Transformation", "AI Governance", "Data Strategy"
         ],
         "typical_importance": "critical",
-        "role_indicators": ["strategy", "director", "head of", "lead", "principal", "vp"]
+        # Role indicators require AI/ML domain terms - generic seniority indicators removed
+        # to prevent false positives on non-AI roles like "Data Governance Lead"
+        "role_indicators": ["ai strategy", "ai lead", "ai director", "ml strategy", "data strategy lead",
+                           "chief data", "head of ai", "head of data science", "ai architect"]
     },
 
     "Solution Architecture": {

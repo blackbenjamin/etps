@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from db.models import JobProfile
 from services.llm.mock_llm import MockLLM
+from services.company_enrichment import enrich_company_profile
 from utils.text_processing import fetch_url_content, clean_text, extract_bullets, ExtractionFailedError, parse_workday_url
 
 
@@ -1373,5 +1374,29 @@ async def parse_job_description(
     db.add(job_profile)
     db.commit()
     db.refresh(job_profile)
+
+    # Auto-enrich company profile if company name was extracted (Sprint 12)
+    if company_name:
+        try:
+            import logging
+            logger = logging.getLogger(__name__)
+
+            company_profile = await enrich_company_profile(
+                company_name=company_name,
+                jd_text=jd_text,
+                db=db,
+            )
+
+            # Link the company profile to the job profile
+            job_profile.company_id = company_profile.id
+            db.commit()
+            db.refresh(job_profile)
+
+            logger.info(f"Auto-enriched company profile for {company_name} (id={company_profile.id})")
+        except Exception as e:
+            # Log but don't fail - company enrichment is optional
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Company enrichment failed for {company_name}: {e}")
 
     return job_profile

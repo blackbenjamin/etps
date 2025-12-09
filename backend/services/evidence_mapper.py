@@ -11,12 +11,13 @@ from typing import List, Dict, Set, Tuple, Optional, Any
 
 from sqlalchemy.orm import Session
 
-from db.models import Bullet, User
+from db.models import Bullet, User, Experience, Engagement
 from schemas.capability import (
     CapabilityCluster,
     ComponentSkill,
     EvidenceSkill,
-    CapabilityClusterAnalysis
+    CapabilityClusterAnalysis,
+    EvidenceMapping
 )
 from services.capability_ontology import CAPABILITY_ONTOLOGY
 
@@ -110,24 +111,65 @@ def _get_skill_synonyms() -> Dict[str, Set[str]]:
     """Get common skill synonyms for better matching (bidirectional)."""
     # Define base synonyms - include verb/noun forms
     base_synonyms = {
-        "program": {"project", "portfolio", "initiative"},
-        "project": {"program", "initiative"},
-        "management": {"leadership", "oversight", "coordination", "directing", "governance", "managing", "managed"},
-        "leadership": {"management", "lead", "leading", "directing", "led"},
-        "collaboration": {"teamwork", "coordination", "partnership", "cross-functional", "collaborative", "collaborating"},
-        "stakeholder": {"client", "customer", "partner", "executive", "stakeholders"},
-        "vendor": {"supplier", "partner", "third-party", "contractor", "vendors"},
-        "evaluation": {"assessment", "analysis", "review", "selection", "evaluating", "evaluated"},
-        "planning": {"strategy", "roadmap", "design", "planned", "plan"},
-        "coordination": {"collaboration", "alignment", "orchestration", "management", "coordinating", "coordinated"},
-        "coordinated": {"coordination", "coordinating"},
-        "alignment": {"coordination", "collaboration", "synchronization", "aligned", "aligning"},
-        "communication": {"presentation", "reporting", "articulation", "communicating"},
-        "governance": {"management", "oversight", "compliance", "governing"},
-        "cross-team": {"cross-functional", "interdepartmental", "teams"},
-        "cross-functional": {"cross-team", "interdepartmental", "collaboration"},
+        # Program/Project management
+        "program": {"project", "portfolio", "initiative", "initiatives"},
+        "project": {"program", "initiative", "initiatives"},
+        "management": {"leadership", "oversight", "coordination", "directing", "governance", "managing", "managed", "led", "leading"},
+        "leadership": {"management", "lead", "leading", "directing", "led", "directed", "oversaw"},
+
+        # Collaboration
+        "collaboration": {"teamwork", "coordination", "partnership", "cross-functional", "collaborative", "collaborating", "partnered"},
+        "cross-team": {"cross-functional", "interdepartmental", "teams", "multiple teams"},
+        "cross-functional": {"cross-team", "interdepartmental", "collaboration", "across teams"},
         "team": {"teams", "cross-team", "cross-functional"},
         "teams": {"team", "cross-team"},
+
+        # Stakeholder/Communication (expanded)
+        "stakeholder": {"client", "customer", "partner", "executive", "stakeholders", "executives", "leadership", "c-suite", "senior"},
+        "stakeholders": {"stakeholder", "clients", "executives", "partners", "leadership"},
+        "communication": {"presentation", "reporting", "articulation", "communicating", "communicated", "briefed", "briefing", "presented"},
+        "presentation": {"presenting", "presented", "briefing", "briefed", "communication", "demo", "demonstration"},
+        "presentations": {"presentation", "presenting", "presented", "briefings"},
+        "executive": {"executives", "leadership", "c-suite", "senior", "vp", "director", "ceo", "cto", "cio"},
+        "facilitation": {"facilitated", "facilitating", "led", "conducted", "moderated", "workshop"},
+        "reporting": {"reports", "report", "dashboards", "status updates", "briefings"},
+
+        # Vendor management
+        "vendor": {"supplier", "partner", "third-party", "contractor", "vendors", "suppliers"},
+        "evaluation": {"assessment", "analysis", "review", "selection", "evaluating", "evaluated", "assessed", "analyzed"},
+
+        # Planning/Strategy
+        "planning": {"strategy", "roadmap", "design", "planned", "plan", "designed", "architected"},
+        "coordination": {"collaboration", "alignment", "orchestration", "management", "coordinating", "coordinated", "orchestrated"},
+        "coordinated": {"coordination", "coordinating", "orchestrated", "managed"},
+        "alignment": {"coordination", "collaboration", "synchronization", "aligned", "aligning"},
+        "governance": {"management", "oversight", "compliance", "governing", "policies", "standards"},
+
+        # Technical/Architecture
+        "architecture": {"architected", "designed", "design", "architecting", "architectural"},
+        "architected": {"architecture", "designed", "built"},
+        "decisions": {"decision-making", "decided", "determining", "defined", "established"},
+
+        # Requirements/Analysis
+        "requirements": {"requirement", "specs", "specifications", "needs", "elicitation", "gathering"},
+        "stories": {"story", "user stories", "requirements", "epics"},
+        "user": {"customer", "client", "end-user"},
+        "criteria": {"acceptance", "definition", "standards"},
+        "acceptance": {"criteria", "validation", "verification"},
+        "prototyping": {"prototype", "prototypes", "wireframes", "mockups", "poc", "proof of concept"},
+
+        # Writing/Documentation
+        "writing": {"documentation", "documenting", "documented", "authored", "wrote", "drafting"},
+        "technical": {"technology", "tech", "engineering"},
+
+        # Mentorship/Development
+        "mentorship": {"mentoring", "mentored", "coaching", "coached", "training", "developed"},
+        "mentoring": {"mentorship", "coaching", "training", "developing talent"},
+
+        # Listening/Resolution
+        "listening": {"understanding", "empathy", "receptive"},
+        "resolution": {"resolving", "resolved", "solving", "mediation"},
+        "conflict": {"disagreement", "disputes", "issues"},
     }
 
     # Make bidirectional - if A is synonym of B, B should also map to A
@@ -147,7 +189,8 @@ def _get_skill_synonyms() -> Dict[str, Set[str]]:
 def map_bullets_to_cluster(
     cluster: CapabilityCluster,
     bullets: List[Bullet],
-    similarity_threshold: float = 0.15  # Lowered for better matching with many cluster keywords
+    similarity_threshold: float = 0.10,  # Lowered threshold
+    min_keyword_matches: int = 2  # Minimum absolute matches to consider a bullet relevant
 ) -> Tuple[List[str], float, List[str]]:
     """
     Map bullets to a single cluster.
@@ -194,7 +237,13 @@ def map_bullets_to_cluster(
         bullet_keywords = extract_bullet_keywords(bullet)
         overlap_score = compute_keyword_overlap(cluster_keywords, bullet_keywords)
 
-        if overlap_score >= similarity_threshold:
+        # Calculate absolute keyword matches
+        cluster_norm = {k.lower().strip() for k in cluster_keywords}
+        bullet_norm = {k.lower().strip() for k in bullet_keywords}
+        absolute_matches = len(cluster_norm & bullet_norm)
+
+        # Match if either threshold met OR minimum absolute matches met
+        if overlap_score >= similarity_threshold or absolute_matches >= min_keyword_matches:
             matched_bullet_ids.append(str(bullet.id))
 
             # Mark which component skills this bullet demonstrates
@@ -217,7 +266,14 @@ def map_bullets_to_cluster(
                     for w in comp.name.lower().split()
                     if len(w) >= 4
                 )
-                if comp_overlap >= 0.15 or word_match:  # Lowered threshold
+                # Check for synonym matches as well
+                synonym_match = any(
+                    syn in bullet_keywords
+                    for w in comp.name.lower().split()
+                    if len(w) >= 4 and w in skill_synonyms
+                    for syn in skill_synonyms[w]
+                )
+                if comp_overlap >= 0.1 or word_match or synonym_match:  # Lowered threshold further
                     component_matches[comp.name] = True
 
     # Calculate match percentage
@@ -311,16 +367,27 @@ async def map_bullets_to_clusters(
             if bullet:
                 bullet_keywords_combined.update(extract_bullet_keywords(bullet))
 
+        skill_synonyms = _get_skill_synonyms()
         for comp in cluster.component_skills:
             comp_keywords = {comp.name.lower()}
             for word in comp.name.lower().split():
                 if len(word) > 3:
                     comp_keywords.add(word)
+                    # Add synonyms
+                    if word in skill_synonyms:
+                        comp_keywords.update(skill_synonyms[word])
             for ev in comp.evidence_skills:
                 comp_keywords.add(ev.name.lower())
 
             overlap = compute_keyword_overlap(comp_keywords, bullet_keywords_combined)
-            comp.matched = overlap >= 0.2
+            # Also check for direct synonym matches
+            synonym_match = any(
+                syn in bullet_keywords_combined
+                for w in comp.name.lower().split()
+                if len(w) >= 4 and w in skill_synonyms
+                for syn in skill_synonyms[w]
+            )
+            comp.matched = overlap >= 0.15 or synonym_match  # Lowered threshold
             comp.match_strength = overlap
 
     # Sort clusters by importance then match percentage
@@ -451,11 +518,105 @@ async def build_capability_analysis(
     return analysis
 
 
+def add_skill_to_user_profile(
+    skill_name: str,
+    user_id: int,
+    evidence_mappings: List[EvidenceMapping],
+    db: Session
+) -> int:
+    """
+    Add a skill to user's profile by updating bullets and experiences.
+
+    Args:
+        skill_name: Name of skill to add (1-100 chars)
+        user_id: User ID - all referenced entities must belong to this user
+        evidence_mappings: List of experience/engagement/bullet mappings
+        db: SQLAlchemy database session
+
+    Logic:
+    - If bullet_ids provided: add skill to each Bullet.tags
+    - If no bullet_ids but engagement_id: add skill to all engagement bullets
+    - If just experience_id: add skill to Experience.tools_and_technologies
+
+    Returns: Number of entities updated
+
+    Raises:
+        ValueError: If experience, engagement, or bullet not found OR doesn't belong to user
+
+    Note:
+        This is currently a single-user demo app, but ownership validation is
+        implemented for security best practices when multi-user auth is added.
+    """
+    entities_updated = 0
+
+    for mapping in evidence_mappings:
+        # Validate experience exists AND belongs to user (SECURITY: ownership check)
+        experience = db.query(Experience).filter(
+            Experience.id == mapping.experience_id,
+            Experience.user_id == user_id
+        ).first()
+        if not experience:
+            raise ValueError(f"Experience {mapping.experience_id} not found or unauthorized")
+
+        # Case 1: Specific bullet IDs provided
+        if mapping.bullet_ids:
+            for bullet_id in mapping.bullet_ids:
+                # SECURITY: Validate bullet belongs to user
+                bullet = db.query(Bullet).filter(
+                    Bullet.id == bullet_id,
+                    Bullet.user_id == user_id
+                ).first()
+                if not bullet:
+                    raise ValueError(f"Bullet {bullet_id} not found or unauthorized")
+
+                # Add skill to bullet tags if not already present
+                if bullet.tags is None:
+                    bullet.tags = []
+                if skill_name not in bullet.tags:
+                    bullet.tags = bullet.tags + [skill_name]  # Create new list for SQLAlchemy to detect change
+                    entities_updated += 1
+
+        # Case 2: Engagement specified but no specific bullets
+        elif mapping.engagement_id is not None:
+            # Validate engagement exists AND belongs to the experience
+            engagement = db.query(Engagement).filter(
+                Engagement.id == mapping.engagement_id,
+                Engagement.experience_id == experience.id
+            ).first()
+            if not engagement:
+                raise ValueError(f"Engagement {mapping.engagement_id} not found or unauthorized")
+
+            # Add skill to all bullets in this engagement (already owned by user via experience)
+            engagement_bullets = db.query(Bullet).filter(
+                Bullet.engagement_id == mapping.engagement_id,
+                Bullet.user_id == user_id
+            ).all()
+
+            for bullet in engagement_bullets:
+                if bullet.tags is None:
+                    bullet.tags = []
+                if skill_name not in bullet.tags:
+                    bullet.tags = bullet.tags + [skill_name]
+                    entities_updated += 1
+
+        # Case 3: Just experience - add to tools_and_technologies
+        else:
+            if experience.tools_and_technologies is None:
+                experience.tools_and_technologies = []
+            if skill_name not in experience.tools_and_technologies:
+                experience.tools_and_technologies = experience.tools_and_technologies + [skill_name]
+                entities_updated += 1
+
+    db.commit()
+    return entities_updated
+
+
 # Export
 __all__ = [
     "get_user_bullets",
     "map_bullets_to_clusters",
     "build_capability_analysis",
     "calculate_overall_match_score",
-    "determine_recommendation"
+    "determine_recommendation",
+    "add_skill_to_user_profile"
 ]

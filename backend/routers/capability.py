@@ -8,7 +8,8 @@ view of job fit focusing on compound capabilities and strategic requirements.
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.exceptions import RequestValidationError
 from sqlalchemy.orm import Session
 
 from db.database import get_db
@@ -18,8 +19,11 @@ from schemas.capability import (
     CapabilityClusterResponse,
     CapabilityClusterAnalysis,
     CapabilitySelectionUpdate,
+    AddUserSkillRequest,
+    AddUserSkillResponse,
 )
 from services.skill_gap import get_cluster_analysis, get_combined_analysis, merge_analysis_scores
+from services.evidence_mapper import add_skill_to_user_profile
 
 
 router = APIRouter()
@@ -359,4 +363,109 @@ async def get_combined_job_analysis(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred during combined analysis: {str(e)}"
+        )
+
+
+@router.post(
+    "/job-profiles/{job_profile_id}/user-skills",
+    response_model=AddUserSkillResponse,
+    status_code=status.HTTP_201_CREATED
+)
+async def add_user_skill(
+    job_profile_id: int,
+    request: AddUserSkillRequest,
+    db: Session = Depends(get_db)
+) -> AddUserSkillResponse:
+    """
+    Add a skill to user's profile by associating it with experiences/engagements/bullets.
+
+    Skills are saved immediately to the database. Analysis is NOT automatically re-run.
+
+    **Path Parameters:**
+    - `job_profile_id` (int): ID of the job profile (for context validation)
+
+    **Request Body:**
+    - `skill_name` (str): Name of the skill to add (1-100 chars)
+    - `user_id` (int): User ID (default: 1)
+    - `evidence_mappings` (List[EvidenceMapping]): Where to add the skill (min 1)
+        - `experience_id` (int): Experience to update
+        - `engagement_id` (int, optional): Engagement within experience
+        - `bullet_ids` (List[int], optional): Specific bullets to tag
+
+    **Logic:**
+    - If `bullet_ids` provided: Add skill to `Bullet.tags`
+    - If no `bullet_ids` but `engagement_id`: Add to all bullets in engagement
+    - If just `experience_id`: Add to `Experience.tools_and_technologies`
+
+    **Returns:**
+    - Skill name, user ID, number of entities updated, timestamp
+
+    **Raises:**
+    - `404 Not Found`: Job profile, experience, engagement, or bullet not found
+    - `400 Bad Request`: Invalid request (empty skill name, empty mappings, etc.)
+    """
+    try:
+        # Manual validation to return 400 instead of 422
+        if not request.skill_name or len(request.skill_name) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="skill_name cannot be empty"
+            )
+
+        if len(request.skill_name) > 100:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="skill_name cannot exceed 100 characters"
+            )
+
+        if not request.evidence_mappings or len(request.evidence_mappings) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="evidence_mappings cannot be empty"
+            )
+
+        # Validate job profile exists
+        job_profile = db.query(JobProfile).filter(JobProfile.id == job_profile_id).first()
+        if not job_profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job profile {job_profile_id} not found"
+            )
+
+        # Validate user exists
+        user = db.query(User).filter(User.id == request.user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User {request.user_id} not found"
+            )
+
+        # Add skill to user profile
+        entities_updated = add_skill_to_user_profile(
+            skill_name=request.skill_name,
+            user_id=request.user_id,
+            evidence_mappings=request.evidence_mappings,
+            db=db
+        )
+
+        # Return response
+        return AddUserSkillResponse(
+            skill_name=request.skill_name,
+            user_id=request.user_id,
+            entities_updated=entities_updated,
+            added_at=datetime.now(timezone.utc).isoformat()
+        )
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        # ValueError from service means entity not found
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred adding skill: {str(e)}"
         )

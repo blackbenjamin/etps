@@ -11,6 +11,9 @@ import type {
   CapabilityClusterResponse,
   CapabilityClusterAnalysis,
   CapabilitySelectionUpdate,
+  AddUserSkillRequest,
+  AddUserSkillResponse,
+  ExperienceWithDetails,
 } from '@/types'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -271,6 +274,19 @@ export const api = {
       merged_score: number
       analysis_timestamp: string
     }>(`/api/v1/capability/job-profiles/${jobProfileId}/combined-analysis?user_id=${userId}`),
+
+  // User Skills
+  addUserSkill: (jobProfileId: number, data: AddUserSkillRequest) =>
+    apiFetch<AddUserSkillResponse>(
+      `/api/v1/capability/job-profiles/${jobProfileId}/user-skills`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    ),
+
+  getUserExperiences: (userId: number = 1) =>
+    apiFetch<ExperienceWithDetails[]>(`/api/v1/users/${userId}/experiences`),
 }
 
 // Skill Selection Types

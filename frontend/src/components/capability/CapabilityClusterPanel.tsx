@@ -1,19 +1,30 @@
 'use client'
 
-import { useState } from 'react'
-import { ChevronDown, ChevronRight, CheckCircle2, XCircle, AlertCircle, Loader2, Star } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ChevronDown, ChevronRight, CheckCircle2, XCircle, AlertCircle, Loader2, Star, Plus, RefreshCw } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import type { CapabilityClusterAnalysis, CapabilityCluster, ComponentSkill } from '@/types'
+import { SkillEvidenceModal } from './SkillEvidenceModal'
+import { api } from '@/lib/api'
+import type {
+  CapabilityClusterAnalysis,
+  CapabilityCluster,
+  ComponentSkill,
+  ExperienceWithDetails,
+  EvidenceMapping,
+  AddUserSkillRequest
+} from '@/types'
 
 interface CapabilityClusterPanelProps {
   analysis: CapabilityClusterAnalysis | null
   isLoading?: boolean
   onKeySkillToggle?: (clusterName: string, skillName: string, selected: boolean) => void
   selectedKeySkills?: Set<string>
+  jobProfileId?: number
+  onRerunAnalysis?: () => Promise<void>
 }
 
 function getImportanceBadge(importance: string) {
@@ -41,11 +52,12 @@ function getProgressColor(percentage: number) {
   return 'bg-red-600'
 }
 
-function ComponentSkillRow({ skill, clusterName, onKeySkillToggle, isKeySkill }: {
+function ComponentSkillRow({ skill, clusterName, onKeySkillToggle, isKeySkill, onAddSkill }: {
   skill: ComponentSkill
   clusterName: string
   onKeySkillToggle?: (clusterName: string, skillName: string, selected: boolean) => void
   isKeySkill: boolean
+  onAddSkill?: (skillName: string) => void
 }) {
   const skillKey = `${clusterName}::${skill.name}`
 
@@ -72,6 +84,17 @@ function ComponentSkillRow({ skill, clusterName, onKeySkillToggle, isKeySkill }:
             {Math.round(skill.match_strength * 100)}%
           </span>
         )}
+        {!skill.matched && onAddSkill && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={() => onAddSkill(skill.name)}
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            I have this
+          </Button>
+        )}
         {onKeySkillToggle && skill.matched && (
           <div
             className="flex items-center gap-1 cursor-pointer"
@@ -89,10 +112,11 @@ function ComponentSkillRow({ skill, clusterName, onKeySkillToggle, isKeySkill }:
   )
 }
 
-function ClusterCard({ cluster, onKeySkillToggle, selectedKeySkills }: {
+function ClusterCard({ cluster, onKeySkillToggle, selectedKeySkills, onAddSkill }: {
   cluster: CapabilityCluster
   onKeySkillToggle?: (clusterName: string, skillName: string, selected: boolean) => void
   selectedKeySkills?: Set<string>
+  onAddSkill?: (skillName: string) => void
 }) {
   const [isExpanded, setIsExpanded] = useState(cluster.is_expanded ?? true)
 
@@ -158,6 +182,7 @@ function ClusterCard({ cluster, onKeySkillToggle, selectedKeySkills }: {
                   clusterName={cluster.name}
                   onKeySkillToggle={onKeySkillToggle}
                   isKeySkill={selectedKeySkills?.has(skillKey) ?? false}
+                  onAddSkill={onAddSkill}
                 />
               )
             })}
@@ -200,8 +225,64 @@ export function CapabilityClusterPanel({
   analysis,
   isLoading,
   onKeySkillToggle,
-  selectedKeySkills
+  selectedKeySkills,
+  jobProfileId,
+  onRerunAnalysis
 }: CapabilityClusterPanelProps) {
+  const [selectedSkill, setSelectedSkill] = useState<string | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [experiences, setExperiences] = useState<ExperienceWithDetails[]>([])
+  const [isLoadingExperiences, setIsLoadingExperiences] = useState(false)
+  const [experienceLoadError, setExperienceLoadError] = useState<string | null>(null)
+  const [skillsAddedCount, setSkillsAddedCount] = useState(0)
+  const [isRerunning, setIsRerunning] = useState(false)
+
+  // Load experiences when modal opens
+  useEffect(() => {
+    if (isModalOpen) {
+      setIsLoadingExperiences(true)
+      setExperienceLoadError(null)
+      api.getUserExperiences()
+        .then(setExperiences)
+        .catch(err => {
+          console.error('Failed to load experiences:', err)
+          setExperienceLoadError(`Failed to load experiences: ${err instanceof Error ? err.message : 'Unknown error'}`)
+          setExperiences([])
+        })
+        .finally(() => setIsLoadingExperiences(false))
+    }
+  }, [isModalOpen])
+
+  const handleAddSkill = (skillName: string) => {
+    setSelectedSkill(skillName)
+    setIsModalOpen(true)
+  }
+
+  const handleConfirmSkill = async (evidenceMappings: EvidenceMapping[]) => {
+    if (!jobProfileId || !selectedSkill) return
+
+    const request: AddUserSkillRequest = {
+      skill_name: selectedSkill,
+      user_id: 1,
+      evidence_mappings: evidenceMappings
+    }
+
+    await api.addUserSkill(jobProfileId, request)
+    setSkillsAddedCount(prev => prev + 1)
+  }
+
+  const handleRerunAnalysis = async () => {
+    if (!onRerunAnalysis) return
+
+    setIsRerunning(true)
+    try {
+      await onRerunAnalysis()
+      setSkillsAddedCount(0) // Reset counter after successful re-run
+    } finally {
+      setIsRerunning(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <Card>
@@ -254,25 +335,48 @@ export function CapabilityClusterPanel({
   })
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Capability Cluster Analysis</CardTitle>
-            <CardDescription>
-              Strategic capability matching for this role
-            </CardDescription>
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Capability Cluster Analysis</CardTitle>
+              <CardDescription>
+                Strategic capability matching for this role
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-3">
+              {skillsAddedCount > 0 && onRerunAnalysis && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRerunAnalysis}
+                  disabled={isRerunning}
+                >
+                  {isRerunning ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Re-running...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Re-run Analysis ({skillsAddedCount} skill{skillsAddedCount > 1 ? 's' : ''} added)
+                    </>
+                  )}
+                </Button>
+              )}
+              <div className="text-right">
+                <Badge className={getRecommendationStyle(analysis.recommendation)}>
+                  {Math.round(analysis.overall_match_score)}% Overall
+                </Badge>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {getRecommendationLabel(analysis.recommendation)}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="text-right">
-            <Badge className={getRecommendationStyle(analysis.recommendation)}>
-              {Math.round(analysis.overall_match_score)}% Overall
-            </Badge>
-            <p className="text-xs text-muted-foreground mt-1">
-              {getRecommendationLabel(analysis.recommendation)}
-            </p>
-          </div>
-        </div>
-      </CardHeader>
+        </CardHeader>
 
       <CardContent className="space-y-4">
         {/* Key Strengths */}
@@ -307,6 +411,7 @@ export function CapabilityClusterPanel({
               cluster={cluster}
               onKeySkillToggle={onKeySkillToggle}
               selectedKeySkills={selectedKeySkills}
+              onAddSkill={jobProfileId ? handleAddSkill : undefined}
             />
           ))}
         </div>
@@ -322,5 +427,23 @@ export function CapabilityClusterPanel({
         )}
       </CardContent>
     </Card>
+
+    {/* Skill Evidence Modal */}
+    {selectedSkill && (
+      <SkillEvidenceModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          setSelectedSkill(null)
+          setExperienceLoadError(null)
+        }}
+        skillName={selectedSkill}
+        experiences={experiences}
+        onConfirm={handleConfirmSkill}
+        isLoading={isLoadingExperiences}
+        loadError={experienceLoadError}
+      />
+    )}
+  </>
   )
 }

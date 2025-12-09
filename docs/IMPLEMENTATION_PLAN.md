@@ -46,16 +46,17 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 11: Capability-Aware Skill Extraction | ✅ COMPLETE | Dec 2025 | LLM-based capability clusters, evidence mapping, 37 tests |
 | Sprint 11B: LLM Anti-Hallucination | ✅ COMPLETE | Dec 2025 | Grounded outputs, anti-hallucination rules in prompts |
 | Sprint 11C: Hybrid Skill Extraction | ✅ COMPLETE | Dec 2025 | Expanded taxonomy, LLM extraction, domain inference, resume skills enrichment |
-| Sprint 12: Company Profile Enrichment | 🔲 NOT STARTED | - | Web data fetching, industry/size inference |
+| Sprint 11D: Report Unregistered Skills | ✅ COMPLETE | Dec 2025 | "I have this" button, skill-evidence modal, re-run analysis |
+| Sprint 12: Company Profile Enrichment | ✅ COMPLETE | Dec 2025 | Company enrichment service, SSRF protection, culture signals, AI maturity |
 | Sprint 13: Hiring Manager Inference | 🔲 NOT STARTED | - | JD parsing for reporting structure |
 | **Sprint 13B: Portfolio Security** | 🔲 NOT STARTED | - | **Minimum security for public demo** |
 | **Sprint 14: Cloud Deployment** | 🔲 NOT STARTED | - | **Railway + Vercel deployment** |
 | Sprint 15+: Future Enhancements | 🔲 DEFERRED | - | Networking, Application Tracking, Full Auth |
 
 ### Test Coverage
-- **Total Tests:** 617 passing
-- **Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_sprint_8b_integration.py, test_pagination_allocation.py, test_sprint_8c_regression.py, test_job_parser_extraction.py, test_skill_selection.py, test_capability_clusters.py, test_skill_extraction_enhancements.py
-- **Coverage:** All Sprint 1-11C functionality tested
+- **Total Tests:** 711 passing
+- **Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_sprint_8b_integration.py, test_pagination_allocation.py, test_sprint_8c_regression.py, test_job_parser_extraction.py, test_skill_selection.py, test_capability_clusters.py, test_skill_extraction_enhancements.py, test_company_enrichment.py
+- **Coverage:** All Sprint 1-12 functionality tested
 
 ### Git Workflow & Commit Checkpoints
 
@@ -1240,6 +1241,114 @@ The hallucination originated from two sources:
 #### Dependencies
 
 - Requires: Sprint 11 complete ✅
+- Blocks: None
+
+---
+
+### Sprint 11D: Report Unregistered Skills 🆕
+
+**Goal:** Allow users to add skills they possess that aren't currently matched in the Capability Cluster Analysis. Skills are saved immediately but analysis only re-runs on user request.
+
+**Status:** ✅ COMPLETE (December 2025)
+
+#### Problem Statement
+
+When viewing the Capability Cluster Analysis, users may see skills marked as "unmatched" that they actually possess but aren't in the system yet. Currently there's no way to add these skills without directly modifying the database or experience data.
+
+#### Solution Design
+
+**UX Flow:**
+1. User clicks "I have this" on an unmatched skill
+2. Modal opens: "Where did you use {skill}?"
+3. User selects experience(s), optionally drills down to engagements/bullets
+4. User clicks "Confirm" → Skill saved immediately to database
+5. Counter updates: "1 skill added", "2 skills added", etc.
+6. "Re-run Analysis" button appears after first skill added
+7. User clicks "Re-run Analysis" → Single analysis call, results refresh
+
+**Key Design Decisions:**
+- NO automatic re-analysis (would trigger LLM call per skill)
+- Batch skill additions with single "Re-run Analysis" button
+- Skills saved to `Experience.tools_and_technologies` or `Bullet.tags`
+- Counter resets after successful re-analysis
+
+#### Tasks
+
+| ID | Task | File(s) | Priority |
+|----|------|---------|----------|
+| 11D.1 | Create Pydantic schemas for skill reporting | `schemas/capability.py` | P0 |
+| 11D.2 | Create POST /user-skills endpoint | `routers/capability.py` | P0 |
+| 11D.3 | Add skill-to-profile service function | `services/evidence_mapper.py` | P0 |
+| 11D.4 | Create GET /users/{id}/experiences endpoint | `routers/users.py` | P0 |
+| 11D.5 | Add user experience schemas | `schemas/users.py` | P0 |
+| 11D.6 | Add "I have this" button to unmatched skills | `frontend/.../CapabilityClusterPanel.tsx` | P0 |
+| 11D.7 | Create SkillEvidenceModal component | `frontend/.../SkillEvidenceModal.tsx` | P0 |
+| 11D.8 | Add "Re-run Analysis" button with counter | `frontend/.../CapabilityClusterPanel.tsx` | P0 |
+| 11D.9 | Add API functions and TypeScript types | `frontend/src/lib/api.ts`, `types/` | P0 |
+| 11D.10 | Write backend integration tests | `tests/test_capability_report_skills.py` | P1 |
+
+#### API Contract
+
+**POST /api/v1/capability/job-profiles/{job_profile_id}/user-skills**
+```json
+// Request
+{
+  "skill_name": "Collibra",
+  "user_id": 1,
+  "evidence_mappings": [
+    { "experience_id": 12, "engagement_id": 45, "bullet_ids": [101, 102] }
+  ]
+}
+
+// Response (201)
+{
+  "skill_name": "Collibra",
+  "user_id": 1,
+  "entities_updated": 2,
+  "added_at": "2025-12-09T10:30:00Z"
+}
+```
+
+**GET /api/v1/users/{user_id}/experiences**
+```json
+// Response (200)
+[
+  {
+    "id": 12,
+    "job_title": "Principal, Data & AI Strategy",
+    "employer_name": "BlackFrame Consulting",
+    "employer_type": "independent_consulting",
+    "tools_and_technologies": ["Python", "AWS"],
+    "engagements": [
+      {
+        "id": 45,
+        "client": "Edward Jones",
+        "project_name": "Data Governance",
+        "bullets": [{ "id": 101, "text": "Led data governance...", "tags": ["data_governance"] }]
+      }
+    ],
+    "bullets": []
+  }
+]
+```
+
+#### Acceptance Criteria
+
+- [x] "I have this" button appears on unmatched required skills
+- [x] Modal opens with user's experiences when button clicked
+- [x] Consulting experiences show nested engagements
+- [x] User can optionally select specific bullets
+- [x] Skill saved to database immediately on confirm
+- [x] Counter shows number of skills added
+- [x] "Re-run Analysis" button appears after first skill
+- [x] Single analysis call made when re-run clicked
+- [x] Analysis results refresh with new matches
+- [x] Counter resets after successful re-analysis
+- [x] All tests pass (19 new tests)
+
+#### Dependencies
+
+- Requires: Sprint 11, 11B, 11C complete ✅
 - Blocks: None
 
 ---

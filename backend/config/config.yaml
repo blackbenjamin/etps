@@ -50,8 +50,62 @@ embeddings:
 # Feature flags
 features:
   multi_user: false
-  company_intelligence: false  # Phase 2
+  company_intelligence: true  # Phase 2 - Sprint 12
   application_tracking: false  # Phase 3
+
+# Company enrichment settings (Sprint 12)
+company_enrichment:
+  enabled: true
+  auto_enrich_on_job_parse: true  # Automatically enrich when parsing JD
+  website_fetch_timeout: 10  # seconds
+  max_response_size: 51200  # 50KB
+  cache_duration_hours: 168  # 1 week
+  user_agent: "ETPS/1.0 (Company Profile Enrichment)"
+
+  # Industry taxonomy
+  industries:
+    - Financial Services
+    - Technology
+    - Healthcare
+    - Consulting
+    - Manufacturing
+    - Retail
+    - Government
+    - Education
+    - Non-Profit
+    - Energy
+    - Telecommunications
+    - Media & Entertainment
+    - Real Estate
+    - Transportation
+    - Other
+
+  # Company size bands
+  size_bands:
+    - "1-50"
+    - "51-200"
+    - "201-1000"
+    - "1001-5000"
+    - "5000+"
+
+  # Culture signal taxonomy
+  culture_signals:
+    - formal
+    - innovative
+    - mission-driven
+    - collaborative
+    - fast-paced
+    - customer-centric
+    - data-driven
+    - experimental
+    - conservative
+    - traditional
+
+  # AI/Data maturity levels
+  ai_maturity_levels:
+    - low
+    - developing
+    - advanced
 
 # Pagination-aware layout settings (PRD 2.11)
 # These are heuristic estimates for line budget calculations

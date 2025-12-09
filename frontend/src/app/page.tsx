@@ -14,6 +14,7 @@ import { Pencil, Check } from 'lucide-react'
 import { useJobStore } from '@/stores/job-store'
 import { useGenerationStore } from '@/stores/generation-store'
 import { useSkillGapAnalysis, useCapabilityClusterAnalysis } from '@/hooks/queries'
+import { api } from '@/lib/api'
 import type { JobProfile } from '@/types'
 
 // Helper to safely get job profile ID from either field
@@ -49,13 +50,27 @@ export default function Home() {
   const { data: skillGap, isLoading: isAnalyzing } = useSkillGapAnalysis(jobId)
 
   // Auto-fetch capability cluster analysis
-  const { data: clusterAnalysis, isLoading: isAnalyzingClusters } = useCapabilityClusterAnalysis(jobId)
+  const { data: clusterAnalysis, isLoading: isAnalyzingClusters, refetch: refetchClusterAnalysis } = useCapabilityClusterAnalysis(jobId)
 
   useEffect(() => {
     if (skillGap) {
       setSkillGapAnalysis(skillGap)
     }
   }, [skillGap, setSkillGapAnalysis])
+
+  // Handler to re-run capability cluster analysis with force_refresh
+  const handleRerunAnalysis = async () => {
+    if (!jobId) return
+
+    // Call the analyze endpoint with force_refresh=true
+    await api.analyzeCapabilityClusters({
+      job_profile_id: jobId,
+      force_refresh: true
+    })
+
+    // Refetch to update the UI with new results
+    await refetchClusterAnalysis()
+  }
 
   return (
     <main className="min-h-screen bg-background">
@@ -169,6 +184,8 @@ export default function Home() {
               <CapabilityClusterPanel
                 analysis={clusterAnalysis ?? null}
                 isLoading={isAnalyzingClusters}
+                jobProfileId={jobId}
+                onRerunAnalysis={handleRerunAnalysis}
               />
             )}
 

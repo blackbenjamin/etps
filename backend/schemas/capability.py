@@ -242,3 +242,27 @@ class CapabilityClusterResponse(BaseModel):
         default=None,
         description="ISO timestamp when cache expires"
     )
+
+
+# Sprint 11D: Report Unregistered Skills schemas
+
+class EvidenceMapping(BaseModel):
+    """Mapping of a skill to specific experience/engagement/bullets."""
+    experience_id: int
+    engagement_id: Optional[int] = None
+    bullet_ids: List[int] = Field(default_factory=list)
+
+
+class AddUserSkillRequest(BaseModel):
+    """Request to add a skill to user's profile."""
+    skill_name: str = Field(..., min_length=1, max_length=100)
+    user_id: int = Field(default=1)
+    evidence_mappings: List[EvidenceMapping] = Field(..., min_length=1)
+
+
+class AddUserSkillResponse(BaseModel):
+    """Response after adding a skill."""
+    skill_name: str
+    user_id: int
+    entities_updated: int
+    added_at: str
