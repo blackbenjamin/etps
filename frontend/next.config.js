@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // No basePath needed - proxy rewrite handles /etps routing
+  // Using subdomain (etps.benjaminblack.consulting) instead of path
 };
 
 module.exports = nextConfig;
