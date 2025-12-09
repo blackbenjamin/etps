@@ -495,6 +495,105 @@ CAPABILITY_ONTOLOGY: Dict[str, Dict[str, Any]] = {
         ],
         "typical_importance": "important",
         "role_indicators": ["ethics", "responsible ai", "governance"]
+    },
+
+    # =========================================================================
+    # BUSINESS ANALYSIS & REQUIREMENTS CLUSTERS (Added v1.4)
+    # =========================================================================
+    "Requirements Engineering": {
+        "description": "Gathering, documenting, and managing business and technical requirements throughout the project lifecycle",
+        "component_skills": [
+            "Requirements elicitation",
+            "User story creation",
+            "Acceptance criteria definition",
+            "Requirements traceability",
+            "Prototyping",
+            "Stakeholder interviews",
+            "Gap analysis"
+        ],
+        "evidence_keywords": [
+            "Requirements", "User Stories", "Use Cases", "BRD",
+            "FRD", "Prototyping", "Wireframes", "Specifications",
+            "Traceability", "Acceptance Criteria"
+        ],
+        "typical_importance": "important",
+        "role_indicators": ["business analyst", "requirements", "ba", "analyst"]
+    },
+
+    "Business Analysis": {
+        "description": "Analyzing business processes, identifying improvements, and driving operational efficiency",
+        "component_skills": [
+            "Process mapping",
+            "Gap analysis",
+            "Business case development",
+            "ROI analysis",
+            "Workflow optimization",
+            "Data analysis",
+            "Root cause analysis"
+        ],
+        "evidence_keywords": [
+            "Business Analysis", "Process Improvement", "ROI",
+            "Business Case", "Workflow", "Process Mapping", "BPMN",
+            "Gap Analysis", "Process Optimization"
+        ],
+        "typical_importance": "important",
+        "role_indicators": ["business analyst", "process improvement", "ba", "operations"]
+    },
+
+    "Change Management": {
+        "description": "Managing organizational change initiatives, stakeholder adoption, and transformation programs",
+        "component_skills": [
+            "Change strategy development",
+            "Stakeholder engagement",
+            "Training & enablement",
+            "Communication planning",
+            "Resistance management",
+            "Adoption metrics",
+            "Change impact assessment"
+        ],
+        "evidence_keywords": [
+            "Change Management", "Organizational Change", "Adoption",
+            "Training", "Communication", "Transformation", "ADKAR",
+            "Stakeholder Management", "OCM"
+        ],
+        "typical_importance": "important",
+        "role_indicators": ["change management", "transformation", "adoption", "ocm"]
+    },
+
+    "Vendor Management": {
+        "description": "Managing vendor relationships, contracts, and third-party service delivery",
+        "component_skills": [
+            "Vendor evaluation",
+            "Contract negotiation",
+            "SLA management",
+            "Vendor performance monitoring",
+            "Risk assessment",
+            "Procurement coordination"
+        ],
+        "evidence_keywords": [
+            "Vendor Management", "Contract", "SLA", "Procurement",
+            "Third-party", "RFP", "Vendor Selection", "Sourcing"
+        ],
+        "typical_importance": "important",
+        "role_indicators": ["vendor", "procurement", "sourcing", "contract"]
+    },
+
+    "Stakeholder Communication": {
+        "description": "Effective communication with diverse stakeholders including executives, technical teams, and business users",
+        "component_skills": [
+            "Executive presentations",
+            "Technical writing",
+            "Status reporting",
+            "Meeting facilitation",
+            "Conflict resolution",
+            "Active listening"
+        ],
+        "evidence_keywords": [
+            "Communication", "Presentation", "Stakeholder",
+            "Reporting", "Executive", "Facilitation", "Briefing"
+        ],
+        "typical_importance": "important",
+        "role_indicators": ["communication", "liaison", "coordinator"]
     }
 }
 

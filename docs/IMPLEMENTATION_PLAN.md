@@ -45,6 +45,7 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 10E: Interactive Skill Selection | ✅ COMPLETE | Dec 2025 | Drag-drop skill panel, key skills for cover letter |
 | Sprint 11: Capability-Aware Skill Extraction | ✅ COMPLETE | Dec 2025 | LLM-based capability clusters, evidence mapping, 37 tests |
 | Sprint 11B: LLM Anti-Hallucination | ✅ COMPLETE | Dec 2025 | Grounded outputs, anti-hallucination rules in prompts |
+| Sprint 11C: Hybrid Skill Extraction | ✅ COMPLETE | Dec 2025 | Expanded taxonomy, LLM extraction, domain inference, resume skills enrichment |
 | Sprint 12: Company Profile Enrichment | 🔲 NOT STARTED | - | Web data fetching, industry/size inference |
 | Sprint 13: Hiring Manager Inference | 🔲 NOT STARTED | - | JD parsing for reporting structure |
 | **Sprint 13B: Portfolio Security** | 🔲 NOT STARTED | - | **Minimum security for public demo** |
@@ -52,9 +53,9 @@ Refer to `ETPS_PRD.md` Section 1.6 for the full specification.
 | Sprint 15+: Future Enhancements | 🔲 DEFERRED | - | Networking, Application Tracking, Full Auth |
 
 ### Test Coverage
-- **Total Tests:** 593 passing
-- **Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_sprint_8b_integration.py, test_pagination_allocation.py, test_sprint_8c_regression.py, test_job_parser_extraction.py, test_skill_selection.py, test_capability_clusters.py
-- **Coverage:** All Sprint 1-11 functionality tested
+- **Total Tests:** 617 passing
+- **Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_sprint_8b_integration.py, test_pagination_allocation.py, test_sprint_8c_regression.py, test_job_parser_extraction.py, test_skill_selection.py, test_capability_clusters.py, test_skill_extraction_enhancements.py
+- **Coverage:** All Sprint 1-11C functionality tested
 
 ### Git Workflow & Commit Checkpoints
 

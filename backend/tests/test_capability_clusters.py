@@ -554,6 +554,186 @@ class TestCapabilityAPI:
 # INTEGRATION TESTS
 # =============================================================================
 
+class TestJDOnlyExtraction:
+    """Tests verifying that cluster extraction is based on JD text only, not user's extracted_skills.
+
+    This test class validates the JD-first cluster extraction architecture requirement:
+    - Clusters should be determined from JD content and job title only
+    - User's background (extracted_skills) should NOT influence cluster results
+    """
+
+    def test_extracted_skills_ignored(self):
+        """Verify that extracted_skills parameter does NOT affect cluster results.
+
+        This test calls extract_capability_clusters twice with the same JD but different
+        extracted_skills and verifies that the results are identical.
+        """
+        jd_text = """
+        Data Governance & Compliance Officer
+
+        We are seeking an experienced Data Governance Officer to establish and maintain
+        our data governance framework. This role focuses on data quality, regulatory
+        compliance (GDPR, CCPA), data lineage tracking, and metadata management.
+
+        Key Responsibilities:
+        - Design and implement data governance policies
+        - Ensure regulatory compliance across data systems
+        - Manage data quality standards
+        - Establish data lineage and metadata practices
+        - Conduct data audits and risk assessments
+
+        Requirements:
+        - 5+ years in data governance
+        - Strong knowledge of data regulations (GDPR, CCPA, HIPAA)
+        - Experience with metadata management tools
+        - Data stewardship background
+        """
+
+        job_title = "Data Governance & Compliance Officer"
+
+        # Extract clusters with no extracted_skills
+        clusters_no_skills = _mock_extract_clusters(
+            jd_text=jd_text,
+            job_title=job_title,
+            extracted_skills=None
+        )
+
+        # Extract clusters with extracted_skills that should NOT influence result
+        # These are unrelated to Data Governance
+        clusters_with_ai_skills = _mock_extract_clusters(
+            jd_text=jd_text,
+            job_title=job_title,
+            extracted_skills=["AI Strategy", "Machine Learning", "Deep Learning", "TensorFlow"]
+        )
+
+        # Extract cluster names for comparison
+        names_no_skills = {c.name for c in clusters_no_skills}
+        names_with_ai_skills = {c.name for c in clusters_with_ai_skills}
+
+        # Verify they are identical - extracted_skills should not change results
+        assert names_no_skills == names_with_ai_skills, (
+            f"Cluster names differ based on extracted_skills!\n"
+            f"Without skills: {names_no_skills}\n"
+            f"With AI skills: {names_with_ai_skills}\n"
+            f"This proves the bug: extracted_skills is influencing cluster selection."
+        )
+
+        # Verify Data Governance cluster IS in results (should match JD)
+        assert "Data Governance & Compliance" in names_no_skills, (
+            "Data Governance & Compliance should be in results based on JD content"
+        )
+
+        # Verify AI & Data Strategy is NOT in results
+        # (despite being in extracted_skills, it shouldn't appear based on JD content)
+        assert "AI & Data Strategy" not in names_no_skills, (
+            "AI & Data Strategy should NOT be in results (not mentioned in JD)"
+        )
+
+    def test_no_hallucination_from_user_profile(self):
+        """Verify user's background doesn't influence cluster extraction.
+
+        This test verifies that even though extracted_skills contains ML-related
+        technologies, those clusters are NOT extracted from a Program Manager JD.
+        """
+        jd_text = """
+        Program Manager - Supply Chain
+
+        Lead program management for our supply chain transformation initiatives.
+        Responsibilities include managing complex projects, coordinating across
+        stakeholders, and ensuring timeline and budget compliance.
+
+        Requirements:
+        - 3+ years program/project management experience
+        - Strong stakeholder coordination skills
+        - Agile and Waterfall methodology experience
+        - Budget and resource management
+        - Risk management expertise
+
+        Supply Chain Focus:
+        - Supply chain optimization projects
+        - Logistics process improvement
+        - Vendor management coordination
+        """
+
+        job_title = "Program Manager - Supply Chain"
+
+        # Call with extracted_skills containing ML tech that should NOT appear
+        clusters = _mock_extract_clusters(
+            jd_text=jd_text,
+            job_title=job_title,
+            extracted_skills=["TensorFlow", "PyTorch", "ML Engineering", "Deep Learning", "Computer Vision"]
+        )
+
+        cluster_names = {c.name for c in clusters}
+
+        # Verify Program Management IS in results (matches JD)
+        assert "Program & Project Management" in cluster_names, (
+            "Program & Project Management should be in results based on JD"
+        )
+
+        # Verify ML-related clusters are NOT in results (despite being in extracted_skills)
+        assert "Machine Learning Engineering" not in cluster_names, (
+            "Machine Learning Engineering should NOT be extracted from Supply Chain PM JD\n"
+            "This proves the bug: extracted_skills is influencing cluster selection."
+        )
+
+        # Verify AI & Data Strategy is NOT in results
+        assert "AI & Data Strategy" not in cluster_names, (
+            "AI & Data Strategy should NOT be extracted from Supply Chain PM JD"
+        )
+
+    def test_mock_extractor_jd_only(self):
+        """Verify _mock_extract_clusters uses only JD text and title, not extracted_skills.
+
+        This is the most direct test: call the mock extractor with a healthcare JD
+        but with blockchain-related extracted_skills. Verify that blockchain clusters
+        do NOT appear, proving extraction is JD-only.
+        """
+        jd_text = """
+        Healthcare IT Consultant
+
+        We seek an experienced consultant for our EHR implementation project.
+        This role requires deep healthcare IT experience, understanding of HIPAA
+        compliance, and expertise with electronic health record systems.
+
+        Key Requirements:
+        - 7+ years healthcare IT experience
+        - EHR system implementation knowledge
+        - HIPAA compliance understanding
+        - Clinical workflow optimization
+        - Healthcare data management
+        - Experience with major EHR platforms (Epic, Cerner, Athena)
+        """
+
+        job_title = "Healthcare IT Consultant"
+
+        # Extract skills contains blockchain/crypto - completely unrelated to healthcare
+        clusters = _mock_extract_clusters(
+            jd_text=jd_text,
+            job_title=job_title,
+            extracted_skills=["Blockchain", "Cryptocurrency", "NFT", "Smart Contracts", "Web3"]
+        )
+
+        cluster_names = {c.name for c in clusters}
+
+        # Verify Healthcare IS in results (matches JD content)
+        assert "Healthcare & Life Sciences Domain" in cluster_names, (
+            "Healthcare & Life Sciences Domain should be extracted based on JD keywords"
+        )
+
+        # Verify blockchain/crypto clusters are NOT in results
+        # (they're not in the ontology but the point is: no crypto-related extraction)
+        blockchain_related = ["Blockchain", "Cryptocurrency", "Web3", "Emerging Technologies"]
+        for cluster_name in cluster_names:
+            assert "blockchain" not in cluster_name.lower(), (
+                f"Blockchain-related cluster '{cluster_name}' should NOT appear in healthcare JD\n"
+                f"This proves the bug: extracted_skills is influencing extraction."
+            )
+            assert "crypto" not in cluster_name.lower(), (
+                f"Crypto-related cluster should NOT appear in healthcare JD"
+            )
+
+
 class TestCapabilityIntegration:
     """Integration tests for capability cluster workflow."""
 

@@ -5,7 +5,7 @@ Heuristic-based mock LLM for development and testing without API calls.
 Returns realistic responses based on keyword detection and pattern matching.
 """
 
-from typing import List, Dict
+from typing import List, Dict, Any, Optional
 from .base import BaseLLM
 
 
@@ -397,7 +397,8 @@ class MockLLM(BaseLLM):
         revised = current_draft
         company_name = company_context.get('name', 'the company')
         job_title = job_context.get('title', 'this role')
-        top_skill = job_context.get('skills', ['this domain'])[0] if job_context.get('skills') else 'this domain'
+        skills_list = job_context.get('skills', ['this domain']) or ['this domain']
+        top_skill = skills_list[0] if skills_list else 'this domain'
 
         # Get issues from feedback
         issues = critic_feedback.get('issues', [])
@@ -448,3 +449,145 @@ class MockLLM(BaseLLM):
                                     break
 
         return revised
+
+    async def extract_skills_from_jd(
+        self,
+        jd_text: str,
+        taxonomy_skills: Optional[List[str]] = None,
+        job_title: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Mock LLM skill extraction using enhanced heuristics.
+
+        Production implementation (ClaudeLLM) will use actual LLM reasoning.
+        Mock uses keyword patterns and taxonomy as baseline.
+
+        Args:
+            jd_text: Full job description text
+            taxonomy_skills: Skills found via taxonomy matching
+            job_title: Extracted job title
+            context: Dict with 'requirements' and 'responsibilities' lists
+
+        Returns:
+            Dict with extracted_skills, critical_skills, preferred_skills, domain_skills, confidence
+        """
+        import re
+        jd_lower = jd_text.lower()
+
+        # If taxonomy_skills not provided, extract them
+        if taxonomy_skills is None:
+            from services.job_parser import extract_skills_keywords
+            taxonomy_skills = extract_skills_keywords(jd_text)
+
+        # If context not provided, create a minimal one by parsing the JD
+        if context is None:
+            # Simple extraction of requirements/responsibilities from text
+            lines = jd_text.split('\n')
+            context = {
+                'requirements': [line for line in lines if any(kw in line.lower() for kw in ['require', 'must', 'need', 'experience'])],
+                'responsibilities': [line for line in lines if any(kw in line.lower() for kw in ['responsible', 'will', 'lead', 'manage'])]
+            }
+
+        # If job_title not provided, try to infer it
+        if job_title is None:
+            # Simple title extraction (first line or line with "engineer", "manager", etc.)
+            title_keywords = ['engineer', 'manager', 'director', 'analyst', 'developer', 'scientist', 'architect']
+            for line in jd_text.split('\n')[:10]:  # Check first 10 lines
+                if any(kw in line.lower() for kw in title_keywords):
+                    job_title = line.strip()
+                    break
+            if job_title is None:
+                job_title = "Unknown Position"
+
+        # Enhanced pattern matching for common skills not in taxonomy
+        skill_patterns = {
+            # Project Management
+            r'\b(roadmap|roadmapping)\b': 'Roadmap Planning',
+            r'\b(okr|objectives?\s+and\s+key\s+results?)\b': 'OKR Framework',
+            r'\b(kpi|key\s+performance\s+indicators?)\b': 'KPI Management',
+            r'\b(kpi\s+metrics?|metrics?\s+reporting)\b': 'KPI Reporting',
+
+            # Business Analysis
+            r'\b(requirements?\s+gathering|requirements?\s+elicitation)\b': 'Requirements Gathering',
+            r'\b(user\s+stor(y|ies))\b': 'User Stories',
+            r'\b(acceptance\s+criteria)\b': 'Acceptance Criteria',
+            r'\b(process\s+mapping|process\s+flows?)\b': 'Process Mapping',
+            r'\b(gap\s+analysis)\b': 'Gap Analysis',
+            r'\b(use\s+cases?)\b': 'Use Cases',
+            r'\b(functional\s+requirements?)\b': 'Functional Requirements',
+            r'\b(system\s+implementation)\b': 'System Implementation',
+            r'\b(platform\s+implementation)\b': 'Platform Implementation',
+
+            # Data & Analytics
+            r'\b(data\s+quality)\b': 'Data Quality',
+            r'\b(data\s+lineage)\b': 'Data Lineage',
+            r'\b(metadata)\b': 'Metadata Management',
+            r'\b(master\s+data)\b': 'Master Data Management',
+            r'\b(data\s+catalog)\b': 'Data Catalog',
+
+            # Leadership & Soft Skills
+            r'\b(stakeholder\s+management|stakeholder\s+engagement)\b': 'Stakeholder Management',
+            r'\b(cross[- ]functional\s+collaboration|cross[- ]functional\s+teams?)\b': 'Cross-functional Collaboration',
+            r'\b(executive\s+communication|c[- ]level\s+communication)\b': 'Executive Communication',
+            r'\b(training\s+and\s+support|user\s+training)\b': 'Training & Support',
+
+            # Domain
+            r'\b(financial\s+services|banking|capital\s+markets)\b': 'Financial Services',
+            r'\b(fintech|financial\s+technology)\b': 'FinTech',
+            r'\b(regulatory\s+compliance|regulations?)\b': 'Regulatory Compliance',
+            r'\b(investment\s+management|asset\s+management)\b': 'Investment Management',
+        }
+
+        extracted_skills = list(taxonomy_skills)  # Start with taxonomy matches
+
+        # Pattern-based extraction
+        for pattern, skill_name in skill_patterns.items():
+            if re.search(pattern, jd_lower):
+                if skill_name not in extracted_skills:
+                    extracted_skills.append(skill_name)
+
+        # Categorize by importance
+        requirements_text = ' '.join(context.get('requirements', [])).lower() if context.get('requirements') else jd_lower
+
+        critical_skills = []
+        preferred_skills = []
+        domain_skills = []
+
+        critical_indicators = ['required', 'must have', 'essential', 'mandatory', 'minimum', 'need']
+        preferred_indicators = ['preferred', 'nice to have', 'bonus', 'plus', 'ideal', 'desired']
+        domain_keywords = ['financial services', 'fintech', 'healthcare', 'regulatory', 'compliance', 'investment', 'banking']
+
+        for skill in extracted_skills:
+            skill_lower = skill.lower()
+
+            # Check for domain skills
+            if any(kw in skill_lower for kw in domain_keywords):
+                domain_skills.append(skill)
+
+            # Check surrounding context for importance
+            if skill_lower in requirements_text:
+                # Find context around skill mention
+                idx = requirements_text.find(skill_lower)
+                context_window = requirements_text[max(0, idx-100):idx+100]
+
+                is_critical = any(ind in context_window for ind in critical_indicators)
+                is_preferred = any(ind in context_window for ind in preferred_indicators)
+
+                if is_critical and not is_preferred:
+                    critical_skills.append(skill)
+                elif is_preferred:
+                    preferred_skills.append(skill)
+                else:
+                    critical_skills.append(skill)  # Default to critical if in requirements
+            elif skill_lower in jd_lower:
+                preferred_skills.append(skill)  # Mentioned but not in requirements = preferred
+
+        # Ensure lists don't exceed reasonable limits
+        return {
+            'extracted_skills': extracted_skills[:30],
+            'critical_skills': critical_skills[:15],
+            'preferred_skills': preferred_skills[:10],
+            'domain_skills': domain_skills[:5],
+            'confidence': 0.75
+        }

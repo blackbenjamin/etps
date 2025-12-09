@@ -85,6 +85,74 @@ BANNED_PHRASES = [
 ]
 
 
+def infer_job_domain(job_profile) -> str:
+    """
+    Infer job domain/role type from job profile.
+
+    Args:
+        job_profile: JobProfile instance (or object with job_title, raw_jd_text, extracted_skills)
+
+    Returns:
+        Domain identifier: data_analytics, governance, consulting, engineering, product, ai_ml, or general
+    """
+    job_title_lower = (getattr(job_profile, 'job_title', '') or "").lower()
+    jd_lower = (getattr(job_profile, 'raw_jd_text', '') or "").lower()
+    skills = [s.lower() for s in (getattr(job_profile, 'extracted_skills', None) or [])]
+
+    # Domain detection patterns (order matters - more specific first)
+    domain_patterns = {
+        "ai_ml": [
+            'ai governance', 'ai ethics', 'responsible ai', 'ai strategy',
+            'machine learning', 'deep learning', 'nlp', 'computer vision',
+            'data scientist', 'ml engineer', 'llm', 'genai', 'generative ai'
+        ],
+        "governance": [
+            'governance', 'compliance', 'risk management', 'audit', 'controls',
+            'data governance', 'regulatory', 'policy', 'data steward'
+        ],
+        "data_analytics": [
+            'data analyst', 'analytics', 'bi ', 'business intelligence',
+            'data engineer', 'tableau', 'power bi', 'sql', 'etl'
+        ],
+        "consulting": [
+            'consultant', 'consulting', 'advisory', 'strategy', 'transformation',
+            'engagement manager', 'practice lead'
+        ],
+        "product": [
+            'product manager', 'product owner', 'roadmap', 'product strategy',
+            'product management', 'user experience', 'ux '
+        ],
+        "engineering": [
+            'software engineer', 'developer', 'backend', 'frontend', 'full stack',
+            'devops', 'sre', 'platform engineer', 'architect'
+        ]
+    }
+
+    # Score each domain
+    domain_scores = {domain: 0 for domain in domain_patterns}
+
+    for domain, patterns in domain_patterns.items():
+        for pattern in patterns:
+            # Check in job title (highest weight)
+            if pattern in job_title_lower:
+                domain_scores[domain] += 3
+
+            # Check in JD text
+            if pattern in jd_lower:
+                domain_scores[domain] += 1
+
+            # Check in extracted skills
+            if any(pattern in skill for skill in skills):
+                domain_scores[domain] += 2
+
+    # Return domain with highest score, or 'general' if no matches
+    max_score = max(domain_scores.values())
+    if max_score == 0:
+        return "general"
+
+    return max(domain_scores.items(), key=lambda x: x[1])[0]
+
+
 def is_ai_heavy_job(job_profile: JobProfile) -> bool:
     """
     Determine if a job is AI/ML-heavy based on job type tags and extracted skills.
@@ -597,9 +665,7 @@ def select_and_order_skills(
             ))
             selected_skill_names.add(normalized)
 
-    # Tier 5: Add relevant skills from user's bullet tags
-    # These are skills the user demonstrably has (evidence in bullets)
-    # that may be relevant to the job even if not explicitly mentioned in JD
+    # Tier 5: Enriched skill selection using domain inference
     if len(selected_skills) < max_skills and user_bullets:
         # Collect all unique tags from bullets
         user_skill_tags = set()
@@ -608,44 +674,71 @@ def select_and_order_skills(
                 for tag in bullet.tags:
                     user_skill_tags.add(tag)
 
-        # Define categories of skills that are generally valuable for professional roles
-        # These will be added to fill out the skills section
-        relevant_categories = {
-            "leadership": ["Leadership", "Management", "Strategy", "Executive", "Director"],
-            "technical": ["AI/ML", "Data Science", "Analytics", "Architecture", "Cloud", "Python", "SQL"],
-            "process": ["Agile", "Project Management", "Program Management", "Change Management"],
-            "domain": ["Consulting", "Financial Services", "Banking", "Compliance", "Governance"],
-            "soft": ["Stakeholder Management", "Client Engagement", "Communication", "Collaboration"],
+        # Infer job domain for relevance scoring
+        job_domain = infer_job_domain(job_profile)
+
+        # Define role-based skill categories for boosting
+        domain_skill_categories = {
+            "data_analytics": {
+                "technical": ["Python", "SQL", "R", "Tableau", "Power BI", "Excel", "Statistics"],
+                "domain": ["Data Governance", "Data Quality", "Analytics", "BI", "Reporting"],
+            },
+            "governance": {
+                "technical": ["Collibra", "Alation", "Data Lineage", "Metadata"],
+                "domain": ["Data Governance", "AI Governance", "Compliance", "Risk", "Policy"],
+            },
+            "consulting": {
+                "technical": ["PowerPoint", "Excel", "Data Analysis"],
+                "domain": ["Strategy", "Transformation", "Change Management", "Stakeholder"],
+            },
+            "engineering": {
+                "technical": ["Python", "Java", "AWS", "Docker", "Kubernetes", "Git"],
+                "domain": ["Architecture", "DevOps", "Cloud", "CI/CD"],
+            },
+            "product": {
+                "technical": ["JIRA", "Confluence", "SQL", "Analytics"],
+                "domain": ["Product Management", "Roadmap", "UX", "User Research"],
+            },
+            "ai_ml": {
+                "technical": ["Python", "TensorFlow", "PyTorch", "LangChain", "MLOps"],
+                "domain": ["Machine Learning", "NLP", "AI", "Model", "Data Science"],
+            },
+            "general": {
+                "technical": ["Python", "SQL", "Excel", "JIRA"],
+                "domain": ["Project Management", "Analysis", "Communication"],
+            }
         }
+
+        relevant_categories = domain_skill_categories.get(job_domain, domain_skill_categories["general"])
+        jd_lower = (job_profile.raw_jd_text or "").lower()
+        job_title_lower = (job_profile.job_title or "").lower()
 
         # Score and sort user tags by relevance
         scored_tags = []
-        jd_lower = (job_profile.raw_jd_text or "").lower()
-        job_title_lower = (job_profile.job_title or "").lower()
 
         for tag in user_skill_tags:
             normalized = normalize_skill(tag)
             if normalized in selected_skill_names:
                 continue
 
-            # Score based on relevance
-            score = 0.3  # Base score for having the skill
+            # Base score
+            score = 0.3
 
             # Boost if skill appears in JD text
             if tag.lower() in jd_lower:
-                score += 0.3
+                score += 0.4
 
             # Boost if skill relates to job title
-            if any(word in tag.lower() for word in job_title_lower.split()):
+            if any(word in tag.lower() for word in job_title_lower.split() if len(word) > 3):
                 score += 0.2
 
-            # Boost for skills in relevant categories
-            for category_skills in relevant_categories.values():
+            # Boost for domain-relevant skills
+            for category, category_skills in relevant_categories.items():
                 if any(cat_skill.lower() in tag.lower() for cat_skill in category_skills):
-                    score += 0.1
+                    score += 0.25 if category == "technical" else 0.2
                     break
 
-            scored_tags.append((tag, score))
+            scored_tags.append((tag, min(score, 1.0)))
 
         # Sort by score and add top skills
         scored_tags.sort(key=lambda x: x[1], reverse=True)

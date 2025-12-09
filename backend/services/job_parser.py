@@ -167,6 +167,52 @@ SKILL_TAXONOMY = {
         'Retail', 'Manufacturing', 'Supply Chain', 'Logistics', 'Telecommunications',
         'Media', 'Entertainment', 'Gaming', 'EdTech', 'GovTech', 'InsurTech',
         'Real Estate', 'PropTech', 'Energy', 'Climate Tech', 'Automotive'
+    ],
+
+    # Business Analysis & Requirements
+    'business_analysis': [
+        'Requirements Engineering', 'Requirements Gathering', 'User Stories',
+        'Use Cases', 'BRD', 'Business Requirements Document', 'FRD',
+        'Functional Requirements', 'Gap Analysis', 'Business Analysis',
+        'Process Mapping', 'Process Improvement', 'Business Process', 'Workflow Analysis',
+        'Elicitation', 'Requirements Elicitation', 'Requirements Analysis',
+        'Requirements Management', 'Acceptance Criteria', 'User Acceptance Testing',
+        'UAT', 'Requirements Traceability', 'Functional Specification',
+        'Technical Specification', 'System Analysis', 'Impact Analysis'
+    ],
+
+    # Project Management Tools & Practices
+    'project_management': [
+        'JIRA', 'Confluence', 'Asana', 'Monday.com', 'Trello', 'Smartsheet',
+        'Sprint Planning', 'Sprint', 'Backlog Management', 'Backlog Grooming',
+        'Backlog Refinement', 'Story Pointing', 'Velocity Tracking',
+        'Burndown Chart', 'Release Planning', 'Roadmap Planning',
+        'Project Planning', 'Resource Allocation', 'Risk Planning',
+        'Issue Tracking', 'Task Management', 'MS Project', 'Primavera',
+        'Gantt Chart', 'Work Breakdown Structure', 'WBS'
+    ],
+
+    # Soft Skills & Leadership (explicit mentions only)
+    'soft_skills': [
+        'Stakeholder Management', 'Stakeholder Engagement', 'Executive Communication',
+        'Cross-functional Collaboration', 'Team Collaboration', 'Client Engagement',
+        'Relationship Building', 'Influence', 'Negotiation', 'Conflict Resolution',
+        'Facilitation', 'Workshop Facilitation', 'Presentation Skills',
+        'Public Speaking', 'Written Communication', 'Technical Writing',
+        'Change Leadership', 'Organizational Change', 'Training Development',
+        'Mentoring', 'Coaching', 'Team Building'
+    ],
+
+    # Data Management & Quality
+    'data_management': [
+        'Data Quality', 'Data Quality Assessment', 'Data Profiling',
+        'Data Lineage', 'Data Lineage Tracking', 'Lineage Analysis',
+        'Metadata Management', 'Metadata', 'Data Cataloging',
+        'Data Stewardship', 'Data Ownership', 'Data Standards',
+        'Data Modeling', 'Dimensional Modeling', 'Data Architecture',
+        'Data Integration', 'Data Migration', 'Data Cleansing',
+        'Data Validation', 'Master Data', 'Reference Data',
+        'Data Dictionary', 'Data Mapping', 'Data Transformation'
     ]
 }
 
@@ -175,6 +221,93 @@ SKILL_TAXONOMY = {
 ALL_SKILLS = []
 for category_skills in SKILL_TAXONOMY.values():
     ALL_SKILLS.extend(category_skills)
+
+
+def get_skill_category(skill: str) -> Optional[str]:
+    """
+    Get the category for a given skill.
+
+    Args:
+        skill: Skill name
+
+    Returns:
+        Category name if found, None otherwise
+    """
+    skill_lower = skill.lower()
+    for category, skills in SKILL_TAXONOMY.items():
+        if any(skill_lower == s.lower() for s in skills):
+            return category
+    return None
+
+
+def infer_job_domain(jd_text: str, job_title: str = "", extracted_skills: List[str] = None) -> str:
+    """
+    Infer job domain/role type from job description text.
+
+    Args:
+        jd_text: Raw job description text
+        job_title: Optional job title
+        extracted_skills: Optional list of extracted skills
+
+    Returns:
+        Domain identifier: data_analytics, governance, consulting, engineering, product, ai_ml, or general
+    """
+    jd_lower = (jd_text or "").lower()
+    job_title_lower = (job_title or "").lower()
+    skills = [s.lower() for s in (extracted_skills or [])]
+
+    # Domain detection patterns (order matters - more specific first)
+    domain_patterns = {
+        "ai_ml": [
+            'ai governance', 'ai ethics', 'responsible ai', 'ai strategy',
+            'machine learning', 'deep learning', 'nlp', 'computer vision',
+            'data scientist', 'ml engineer', 'llm', 'genai', 'generative ai'
+        ],
+        "governance": [
+            'governance', 'compliance', 'risk management', 'audit', 'controls',
+            'data governance', 'regulatory', 'policy', 'data steward'
+        ],
+        "data_analytics": [
+            'data analyst', 'analytics', 'bi ', 'business intelligence',
+            'data engineer', 'tableau', 'power bi', 'sql', 'etl'
+        ],
+        "consulting": [
+            'consultant', 'consulting', 'advisory', 'strategy', 'transformation',
+            'engagement manager', 'practice lead'
+        ],
+        "product": [
+            'product manager', 'product owner', 'roadmap', 'product strategy',
+            'product management', 'user experience', 'ux '
+        ],
+        "engineering": [
+            'software engineer', 'developer', 'backend', 'frontend', 'full stack',
+            'devops', 'sre', 'platform engineer', 'architect'
+        ]
+    }
+
+    # Score each domain
+    domain_scores = {domain: 0 for domain in domain_patterns}
+
+    for domain, patterns in domain_patterns.items():
+        for pattern in patterns:
+            # Check in job title (highest weight)
+            if pattern in job_title_lower:
+                domain_scores[domain] += 3
+
+            # Check in JD text
+            if pattern in jd_lower:
+                domain_scores[domain] += 1
+
+            # Check in extracted skills
+            if any(pattern in skill for skill in skills):
+                domain_scores[domain] += 2
+
+    # Return domain with highest score, or 'general' if no matches
+    max_score = max(domain_scores.values())
+    if max_score == 0:
+        return "general"
+
+    return max(domain_scores.items(), key=lambda x: x[1])[0]
 
 
 # Seniority level patterns
@@ -374,7 +507,7 @@ def extract_company_name(jd_text: str, job_title: str = None) -> Optional[str]:
                     return company
 
     # Strategy 2c: Look for "About [Company]" pattern (search full text)
-    about_pattern = r'\bAbout\s+([A-Z][A-Za-z0-9&\' ]{2,40}?)(?:\s+Across|\s+We|\s+Our|\s+At|\s+is\s+)'
+    about_pattern = r"\bAbout\s+([A-Z][A-Za-z0-9& ']{2,40}?)(?:\s+Across|\s+We|\s+Our|\s+At|\s+is\s+)"
     match = re.search(about_pattern, jd_text)
     if match:
         company = match.group(1).strip()
@@ -694,6 +827,18 @@ def extract_skills_keywords(jd_text: str) -> List[str]:
         r'state\s+street\s+is\s+',  # Company description pattern
         r'across\s+the\s+globe',  # EEO boilerplate
         r'employment\s+opportunity',
+        r'our\s+mission',
+        r'our\s+values',
+        r'our\s+culture',
+        r'employee\s+benefits',
+        r'we\s+offer\s+a',
+        r'compensation\s+package',
+        r'salary\s+range',
+        r'^\$\d+',  # Salary lines
+        r'\d+[,\d]*\s*k\s*(per\s+year|annually)',  # Salary ranges
+        r'join\s+us',
+        r'apply\s+now',
+        r'learn\s+more',
     ]
 
     # Find where boilerplate starts
@@ -728,7 +873,11 @@ def extract_skills_keywords(jd_text: str) -> List[str]:
 
     # Skills that only appear in boilerplate are likely not real requirements
     # Exception: Keep technical skills even if in boilerplate (they're less likely to be false positives)
-    non_technical_boilerplate = {'Sales', 'Marketing', 'Business Development', 'Account Management'}
+    non_technical_boilerplate = {
+        'Sales', 'Marketing', 'Business Development', 'Account Management',
+        'Go-to-Market', 'GTM', 'Pre-sales', 'Revenue', 'Sales Strategy',
+        'Account Executive', 'Customer Success', 'Account Growth'
+    }
     for skill in boilerplate_only_skills:
         if skill not in non_technical_boilerplate:
             found_skills.add(skill)
@@ -954,6 +1103,126 @@ def determine_capabilities(
         must_haves = [req for req in requirements if len(req) > 15][:10]
 
     return must_haves[:20], nice_to_haves[:15]  # Cap at reasonable limits
+
+
+async def extract_skills_hybrid(
+    jd_text: str,
+    job_title: Optional[str] = None,
+    context: Optional[Dict[str, Any]] = None,
+    llm: Optional[Any] = None,
+    use_llm: bool = True
+) -> Dict[str, Any]:
+    """
+    Hybrid skill extraction: Taxonomy + LLM.
+
+    Strategy:
+    1. Extract skills via taxonomy matching (fast, high precision)
+    2. If LLM available and enabled, run LLM extraction (comprehensive)
+    3. Merge results, deduplicating and preserving categorization
+
+    Args:
+        jd_text: Job description text
+        job_title: Job title (optional, will be inferred if not provided)
+        context: Dict with responsibilities, requirements, etc. (optional)
+        llm: LLM instance (MockLLM or ClaudeLLM) (optional, will create if needed)
+        use_llm: Whether to use LLM extraction
+
+    Returns:
+        Dict with:
+        - taxonomy_skills: List[str] - skills from taxonomy matching
+        - llm_skills: List[str] - all skills from LLM extraction
+        - all_skills: List[str] - deduplicated union of both sources
+        - overlap: List[str] - skills found by both methods
+        - critical_skills: List[str] - must-have skills (from LLM)
+        - preferred_skills: List[str] - nice-to-have skills (from LLM)
+        - domain_skills: List[str] - domain-specific skills (from LLM)
+        - confidence: float - weighted confidence score (0.0-1.0)
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # Input validation
+    if not isinstance(jd_text, str):
+        raise TypeError("jd_text must be a string")
+    if len(jd_text) > 100000:  # 100KB limit
+        raise ValueError("jd_text exceeds maximum length (100KB)")
+    if not jd_text.strip():
+        raise ValueError("jd_text cannot be empty")
+
+    if context is not None and not isinstance(context, dict):
+        raise TypeError("context must be a dict or None")
+
+    # Step 1: Taxonomy extraction (baseline)
+    taxonomy_skills = extract_skills_keywords(jd_text)
+
+    result = {
+        'taxonomy_skills': taxonomy_skills,
+        'llm_skills': [],
+        'all_skills': taxonomy_skills.copy(),
+        'overlap': [],
+        'critical_skills': [],
+        'preferred_skills': [],
+        'domain_skills': [],
+        'confidence': 0.5  # Default to 0.5 if only taxonomy is used
+    }
+
+    # Step 2: LLM extraction (if enabled)
+    if use_llm:
+        try:
+            # Create LLM instance if not provided
+            if llm is None:
+                llm = MockLLM()
+
+            llm_result = await llm.extract_skills_from_jd(
+                jd_text=jd_text,
+                taxonomy_skills=taxonomy_skills,
+                job_title=job_title,
+                context=context
+            )
+
+            # Get all skills from LLM
+            llm_all_skills = llm_result.get('extracted_skills', [])
+
+            # Calculate overlap (skills found by both methods)
+            overlap = [s for s in taxonomy_skills if s in llm_all_skills]
+
+            # Combine all skills (deduplicated)
+            all_skills = list(set(taxonomy_skills + llm_all_skills))
+
+            # Calculate LLM-only skills for logging
+            llm_only_skills = [s for s in llm_all_skills if s not in taxonomy_skills]
+
+            # Calculate weighted confidence
+            # Higher confidence when both methods agree
+            taxonomy_count = len(taxonomy_skills)
+            llm_count = len(llm_all_skills)
+            overlap_count = len(overlap)
+
+            if taxonomy_count + llm_count > 0:
+                # Confidence based on overlap ratio and LLM confidence
+                overlap_ratio = overlap_count / max(taxonomy_count, llm_count) if max(taxonomy_count, llm_count) > 0 else 0
+                base_confidence = llm_result.get('confidence', 0.75)
+                result['confidence'] = min(1.0, base_confidence * (0.7 + 0.3 * overlap_ratio))
+            else:
+                result['confidence'] = 0.5
+
+            result['llm_skills'] = llm_all_skills  # All skills from LLM, not just LLM-only
+            result['all_skills'] = all_skills
+            result['overlap'] = overlap
+            result['critical_skills'] = llm_result.get('critical_skills', [])
+            result['preferred_skills'] = llm_result.get('preferred_skills', [])
+            result['domain_skills'] = llm_result.get('domain_skills', [])
+
+            logger.info(
+                f"Hybrid extraction: {len(taxonomy_skills)} taxonomy + "
+                f"{len(llm_only_skills)} LLM-only = {len(all_skills)} total "
+                f"(overlap: {len(overlap)}, confidence: {result['confidence']:.2f})"
+            )
+
+        except Exception as e:
+            logger.warning(f"LLM skill extraction failed, using taxonomy only: {e}")
+
+    return result
 
 
 async def parse_job_description(

@@ -57,21 +57,24 @@ async def extract_capability_clusters(
     jd_text: str,
     job_title: str,
     seniority: Optional[str] = None,
-    extracted_skills: Optional[List[str]] = None,
+    extracted_skills: Optional[List[str]] = None,  # DEPRECATED: Ignored for JD-first extraction
     use_mock: bool = False
 ) -> List[CapabilityCluster]:
     """
-    Extract 4-6 capability clusters from a job description using LLM.
+    Extract 4-6 capability clusters from a job description.
+
+    Uses JD-first architecture (v1.4+): Clusters are derived ONLY from JD text
+    and job title to prevent hallucination from user profile data.
 
     Args:
         jd_text: Full job description text
         job_title: Job title
         seniority: Optional seniority level (e.g., "Senior", "Director")
-        extracted_skills: Optional list of already-extracted skills
+        extracted_skills: [DEPRECATED] No longer used. Preserved for backward compatibility.
         use_mock: If True, use mock extraction instead of LLM
 
     Returns:
-        List of CapabilityCluster objects
+        List of CapabilityCluster objects representing what the JOB requires
     """
     if use_mock:
         return _mock_extract_clusters(jd_text, job_title, extracted_skills)
@@ -88,39 +91,51 @@ async def _llm_extract_clusters(
     jd_text: str,
     job_title: str,
     seniority: Optional[str],
-    extracted_skills: Optional[List[str]]
+    extracted_skills: Optional[List[str]]  # DEPRECATED: Ignored for JD-first extraction
 ) -> List[CapabilityCluster]:
     """
     Use LLM to extract capability clusters from JD.
+
+    NOTE: As of v1.4, this follows JD-first architecture.
+    Clusters are derived ONLY from JD text and job title.
+    The extracted_skills parameter is preserved for backward compatibility but IGNORED.
     """
-    llm_service = create_llm()
-
-    # Build context
-    skills_context = ""
+    # Log deprecation warning if extracted_skills provided
     if extracted_skills:
-        skills_context = f"\nAlready identified skills: {', '.join(extracted_skills[:20])}"
+        logger.warning(
+            "extracted_skills parameter is deprecated and ignored in LLM cluster extraction. "
+            "Clusters are now extracted from JD text only (JD-first architecture)."
+        )
 
+    llm_service = create_llm()
     ontology_summary = get_ontology_summary()
 
-    prompt = f"""Analyze this job description and extract 4-6 capability clusters that represent the core competencies required for the role.
+    prompt = f"""## CRITICAL ANTI-HALLUCINATION RULES (READ FIRST):
+- Extract ONLY capabilities that are EXPLICITLY mentioned or clearly required in this job description
+- DO NOT infer or add capabilities that are not stated in the JD
+- If the JD does not mention AI, do NOT include AI-related clusters
+- If the JD does not mention Machine Learning, do NOT include ML clusters
+- Focus on what the EMPLOYER is asking for, not what candidates might have
+- The job description is your ONLY source of truth
+
+Analyze this job description and extract 4-6 capability clusters that represent the core competencies required for the role.
 
 Job Title: {job_title}
 Seniority: {seniority or 'Not specified'}
-{skills_context}
 
 Job Description:
-{jd_text[:6000]}  # Truncate to avoid token limits
+{jd_text[:6000]}
 
-Reference Ontology (use as guidance, adapt as needed):
+Reference Ontology (use as guidance for naming, but only include if JD supports it):
 {ontology_summary}
 
 For each capability cluster, provide:
-1. name: A clear name (e.g., "AI & Data Strategy", "Solution Architecture")
+1. name: A clear name (e.g., "Data Governance & Compliance", "Program Management")
 2. description: 1-2 sentence description of what this capability entails for THIS role
 3. importance: "critical", "important", or "nice-to-have"
 4. component_skills: List of 3-8 specific skills/competencies within this cluster
    - Each with: name, required (true/false)
-5. evidence_keywords: Specific technologies/tools that demonstrate this capability
+5. evidence_keywords: Specific technologies/tools MENTIONED IN THE JD that demonstrate this capability
 
 Return valid JSON in this exact format:
 {{
@@ -138,11 +153,10 @@ Return valid JSON in this exact format:
   ]
 }}
 
-Focus on:
-- Strategic capabilities, not just technical skills
-- Compound skills that combine multiple competencies
-- Role-specific context and seniority level
-- Distinguishing must-haves from nice-to-haves
+IMPORTANT:
+- Only include clusters for capabilities EXPLICITLY requested in the JD
+- Do not hallucinate requirements not present in the job description
+- If unsure whether something is required, do NOT include it
 """
 
     try:
@@ -257,12 +271,22 @@ def _keyword_in_context(keyword: str, text: str) -> bool:
 def _mock_extract_clusters(
     jd_text: str,
     job_title: str,
-    extracted_skills: Optional[List[str]] = None
+    extracted_skills: Optional[List[str]] = None  # DEPRECATED: Ignored for JD-first extraction
 ) -> List[CapabilityCluster]:
     """
     Mock cluster extraction for testing and fallback.
-    Uses ontology matching based on keywords and job title.
+    Uses ontology matching based on JD keywords and job title ONLY.
+
+    NOTE: As of v1.4, this follows JD-first architecture.
+    Clusters are derived ONLY from JD text and job title to prevent hallucination.
+    The extracted_skills parameter is preserved for backward compatibility but IGNORED.
     """
+    # Log deprecation warning if extracted_skills provided
+    if extracted_skills:
+        logger.warning(
+            "extracted_skills parameter is deprecated and ignored in cluster extraction. "
+            "Clusters are now extracted from JD text only (JD-first architecture)."
+        )
     clusters = []
     jd_lower = jd_text.lower()
     job_title_lower = job_title.lower()
@@ -285,10 +309,8 @@ def _mock_extract_clusters(
     title_matches = get_clusters_by_role_indicators(job_title)
     matched_cluster_names.update(title_matches[:3])
 
-    # Match by extracted skills
-    if extracted_skills:
-        skill_matches = get_clusters_by_keywords(extracted_skills)
-        matched_cluster_names.update(skill_matches[:4])
+    # NOTE: extracted_skills is NO LONGER used here (JD-first architecture)
+    # Clusters are derived ONLY from JD text and job title
 
     # Match by JD keywords with stricter rules for domain clusters
     for cluster_name, cluster_data in CAPABILITY_ONTOLOGY.items():
