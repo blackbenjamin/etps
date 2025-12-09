@@ -163,16 +163,25 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 
-# CORS configuration from config.yaml
+# CORS configuration - check environment variable first, then config.yaml
 cors_config = config.get("cors", {})
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=cors_config.get("allowed_origins", [
+
+# Allow ALLOWED_ORIGINS environment variable to override config
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
+if allowed_origins_env:
+    # Support comma-separated list of origins
+    allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",")]
+else:
+    allowed_origins = cors_config.get("allowed_origins", [
         "http://localhost:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3001",
-    ]),
+    ])
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
     allow_credentials=cors_config.get("allow_credentials", True),
     allow_methods=cors_config.get("allowed_methods", ["GET", "POST", "PUT", "DELETE"]),
     allow_headers=cors_config.get("allowed_headers", ["Content-Type", "Authorization"]),
@@ -238,9 +247,20 @@ async def readiness_check():
     # Check Qdrant connectivity
     try:
         from qdrant_client import QdrantClient
-        qdrant_host = config.get("vector_store", {}).get("host", "localhost")
-        qdrant_port = config.get("vector_store", {}).get("port", 6333)
-        client = QdrantClient(host=qdrant_host, port=qdrant_port, timeout=5)
+        
+        # Check for URL-based connection (Qdrant Cloud) first
+        qdrant_url = os.getenv('QDRANT_URL')
+        qdrant_api_key = os.getenv('QDRANT_API_KEY')
+        
+        if qdrant_url:
+            # Qdrant Cloud connection
+            client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key, timeout=5)
+        else:
+            # Local Qdrant connection
+            qdrant_host = os.getenv('QDRANT_HOST') or config.get("vector_store", {}).get("host", "localhost")
+            qdrant_port = int(os.getenv('QDRANT_PORT', config.get("vector_store", {}).get("port", 6333)))
+            client = QdrantClient(host=qdrant_host, port=qdrant_port, timeout=5)
+        
         # Simple API call to check connectivity
         client.get_collections()
         health_status["checks"]["vector_store"] = "healthy"
