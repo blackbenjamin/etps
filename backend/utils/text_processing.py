@@ -11,6 +11,8 @@ from dataclasses import dataclass
 import requests
 from bs4 import BeautifulSoup
 
+from .url_security import validate_url_safety, SSRFError
+
 logger = logging.getLogger(__name__)
 
 
@@ -187,6 +189,7 @@ def fetch_url_content(url: str, timeout: int = 10, validate: bool = True) -> str
     Raises:
         requests.RequestException: If the request fails
         ValueError: If the URL is invalid or empty
+        SSRFError: If the URL is blocked for security reasons
         ExtractionFailedError: If extraction quality is too low
     """
     if not url or not url.strip():
@@ -198,6 +201,15 @@ def fetch_url_content(url: str, timeout: int = 10, validate: bool = True) -> str
     if not url.startswith(('http://', 'https://')):
         url = 'https://' + url
 
+    # SSRF protection - validate URL safety before making request
+    try:
+        validate_url_safety(url)
+    except SSRFError as e:
+        logger.warning(f"SSRF protection blocked URL {url}: {e}")
+        raise ValueError(f"URL access blocked for security reasons: {e}")
+    except ValueError as e:
+        raise ValueError(f"Invalid URL: {e}")
+
     # Normalize job board URLs to get job description page (not apply page)
     url = _normalize_job_url(url)
 
@@ -205,7 +217,23 @@ def fetch_url_content(url: str, timeout: int = 10, validate: bool = True) -> str
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
 
-    response = requests.get(url, timeout=timeout, headers=headers)
+    # SECURITY: Disable redirects to prevent SSRF bypass via redirect chains
+    # If a redirect is needed, we should validate the target URL first
+    response = requests.get(url, timeout=timeout, headers=headers, allow_redirects=False)
+
+    # Handle redirects manually with validation
+    if response.status_code in (301, 302, 303, 307, 308):
+        redirect_url = response.headers.get('Location')
+        if redirect_url:
+            # Validate redirect target
+            try:
+                validate_url_safety(redirect_url)
+            except (SSRFError, ValueError) as e:
+                logger.warning(f"SSRF protection blocked redirect to {redirect_url}: {e}")
+                raise ValueError(f"Redirect blocked for security reasons")
+            # Follow validated redirect (still no further redirects)
+            response = requests.get(redirect_url, timeout=timeout, headers=headers, allow_redirects=False)
+
     response.raise_for_status()
 
     # Parse HTML and extract text

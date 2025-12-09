@@ -479,7 +479,7 @@ async def get_or_extract_clusters(
     job_profile,
     db: Session,
     force_refresh: bool = False,
-    use_mock: bool = True  # Default to mock for now
+    use_mock: bool = False  # Use real LLM when ANTHROPIC_API_KEY is set
 ) -> Tuple[List[CapabilityCluster], bool]:
     """
     Get cached clusters or extract new ones.

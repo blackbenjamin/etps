@@ -497,7 +497,9 @@ CAPABILITY_ONTOLOGY: Dict[str, Dict[str, Any]] = {
             "Explainability", "Model Risk", "AI Governance"
         ],
         "typical_importance": "important",
-        "role_indicators": ["ethics", "responsible ai", "governance"]
+        # NOTE: "governance" alone is too broad - matches "Data Governance" roles incorrectly
+        # Use "ai governance" or "model governance" to require AI context
+        "role_indicators": ["ai ethics", "responsible ai", "ai governance", "model governance"]
     },
 
     # =========================================================================

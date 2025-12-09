@@ -1,14 +1,14 @@
 # ETPS Implementation Plan
 **Sprint Roadmap & Current Status**
-**Version 2.0 - December 2025**
+**Version 2.1 - December 2025**
 
 ---
 
 ## Current Status
 
-**Completed:** Phase 1 (Core Quality, Schema, LLM Enhancement, Vector Search, Frontend MVP) + Sprint 12 (Company Enrichment)
+**Completed:** Phase 1A (Core Quality) + Phase 1B (Company Enrichment)
 
-**Next Up:** Sprint 13B (Portfolio Security) -> Sprint 14 (Cloud Deployment)
+**Next Up:** Sprint 13 (Portfolio Security) -> Sprint 14 (Cloud Deployment)
 
 **Tests:** 711 passing
 
@@ -18,44 +18,56 @@
 
 ## Progress Summary
 
-| Sprint | Status | Notes |
-|--------|--------|-------|
-| Sprints 1-12 | Done | Core Quality, Schema, LLM, Vector Search, Frontend, Company Enrichment |
-| Sprint 13: Hiring Manager Inference | Not Started | JD parsing for reporting structure |
-| **Sprint 13B: Portfolio Security** | **Not Started** | **Minimum security for public demo** |
-| **Sprint 14: Cloud Deployment** | **Not Started** | **Railway + Vercel deployment** |
-| Sprint 15+: Future Enhancements | Deferred | Networking, Application Tracking, Full Auth |
+| Sprint | Phase | Status | Notes |
+|--------|-------|--------|-------|
+| Sprints 1-10 | Phase 1A | Done | Core Quality, Schema, LLM, Vector Search, Frontend MVP |
+| Sprints 11-12 | Phase 1B | Done | Company Profile Enrichment |
+| **Sprint 13: Portfolio Security** | **Phase 1C** | **Not Started** | **Minimum security for public demo** |
+| **Sprint 14: Cloud Deployment** | **Phase 1C** | **Not Started** | **Railway + Vercel deployment** |
+| Sprints 15-17: Company Intelligence | Phase 2 | Not Started | Hiring Manager Inference, Warm Contacts, Outreach |
+| Sprints 18+: Application Tracking | Phase 3 | Deferred | Tracking, Reminders, Full Auth |
 
 ---
 
-## Phase Overview
+## Phase Overview (Aligned with PRD Section 7.2)
 
 ```
-Phase 1: Core Quality (Sprints 1-12)                    COMPLETE
-  - Resume/Cover Letter Critic & ATS Scoring
-  - Skill-Gap Analysis with Semantic Matching
-  - Schema Migration (v1.3.0 with engagements)
-  - Bullet Rewriting & Summary Rewrite Engine
-  - Qdrant Vector Search & Learning System
-  - Pagination-Aware Layout
-  - Frontend MVP (Next.js + Job Intake UI)
-  - Capability-Aware Skill Extraction
-  - Company Profile Enrichment
+Phase 1: Core (Sprints 1-14)                            IN PROGRESS
+  Phase 1A: Core Quality (Sprints 1-10)                 COMPLETE
+    - Resume Tailoring & Cover Letter Generation
+    - Critic Agent & ATS Scoring
+    - Skill-Gap Analysis with Semantic Matching
+    - Schema Migration (v1.3.0 with engagements)
+    - Bullet Rewriting & Summary Rewrite Engine
+    - Qdrant Vector Search & Learning System
+    - Pagination-Aware Layout
+    - Frontend MVP (Next.js + Job Intake UI)
+    - Capability-Aware Skill Extraction
 
-Phase 2B: Portfolio Deployment (Sprints 13B-14)         TARGET
-  - Portfolio Security Hardening
-  - Cloud Deployment (Railway + Vercel)
+  Phase 1B: Company Enrichment (Sprints 11-12)          COMPLETE
+    - Company Profile Enrichment from JD
+    - Industry/Size/Culture Inference
 
-Phase 3+: Future Enhancements                           DEFERRED
-  - Hiring Manager Inference
-  - Warm Contact Identification
-  - Application Status Tracking
-  - Full Authentication
+  Phase 1C: Deployment (Sprints 13-14)                  TARGET
+    - Portfolio Security Hardening
+    - Cloud Deployment (Railway + Vercel)
+
+Phase 2: Company Intelligence & Networking (Sprints 15-17)  NOT STARTED
+  - Hiring Manager Inference (PRD 5.3)
+  - Warm Contact Identification (PRD 5.4)
+  - Networking Suggestions & Outreach Drafts (PRD 5.5-5.6)
+
+Phase 3: Application Tracking & Workflows (Sprints 18+)     DEFERRED
+  - Application Status Tracking (PRD 5.8)
+  - Contact Management & Tasks
+  - Calendar/Email Integration
+  - Interview Prep Modules
+  - Full Authentication (multi-user)
 ```
 
 ---
 
-## Sprint 13B: Portfolio Security Hardening
+## Sprint 13: Portfolio Security Hardening
 
 **Goal:** Implement minimum security measures required for safe public portfolio deployment.
 
@@ -65,14 +77,14 @@ Phase 3+: Future Enhancements                           DEFERRED
 
 | ID | Task | Severity | Est. |
 |----|------|----------|------|
-| 13B.1 | Implement rate limiting middleware | HIGH | 2h |
-| 13B.2 | Restrict CORS to production domain only | CRITICAL | 30m |
-| 13B.3 | Add SSRF prevention to URL fetch | HIGH | 3h |
-| 13B.4 | Add request body size limits | HIGH | 1h |
-| 13B.5 | Sanitize error messages (no stack traces) | HIGH | 2h |
-| 13B.6 | Configure secrets in Railway/Vercel env | CRITICAL | 1h |
-| 13B.7 | Add security headers (CSP, X-Frame-Options) | MEDIUM | 1h |
-| 13B.8 | Add health check with version info | LOW | 30m |
+| 13.1 | Implement rate limiting middleware | HIGH | 2h |
+| 13.2 | Restrict CORS to production domain only | CRITICAL | 30m |
+| 13.3 | Add SSRF prevention to URL fetch | HIGH | 3h |
+| 13.4 | Add request body size limits | HIGH | 1h |
+| 13.5 | Sanitize error messages (no stack traces) | HIGH | 2h |
+| 13.6 | Configure secrets in Railway/Vercel env | CRITICAL | 1h |
+| 13.7 | Add security headers (CSP, X-Frame-Options) | MEDIUM | 1h |
+| 13.8 | Add health check with version info | LOW | 30m |
 
 ### Implementation Notes
 
@@ -184,20 +196,60 @@ NEXT_PUBLIC_USER_NAME=Benjamin Black
 
 ---
 
-## Deferred Sprints (Post-Deployment)
+## Phase 2 Sprints: Company Intelligence & Networking (PRD Section 5)
 
-### Sprint 13: Hiring Manager Inference (PRD 5.3)
+### Sprint 15: Hiring Manager Inference (PRD 5.3)
 
-Extract reporting hints from JD, parse team keywords, score and rank hiring manager candidates with confidence levels.
+**Goal:** Use JD and company data to infer likely hiring managers.
 
-### Sprint 15+: Networking & Application Tracking
+**Tasks:**
+- Extract reporting hints from JD (team keywords, title patterns)
+- Use company size and industry norms for HM seniority heuristics
+- Score and rank hiring manager candidates with confidence levels
+- Output ranked list with justifications
 
-- Warm Contact Identification (shared schools, employers, industries)
-- Networking Output Generation (contact lists, outreach messages)
-- Application Status Tracking
-- Contact Management & Tasks
+### Sprint 16: Warm Contact Identification (PRD 5.4)
 
-### Sprint 18: Full Production Hardening
+**Goal:** Identify potential warm contacts for networking.
+
+**Tasks:**
+- Find contacts based on shared schools (MIT, Tufts, Sloan)
+- Find contacts based on shared employers (Fidelity, Santander)
+- Find contacts based on shared industries (FS, consulting, defense)
+- Generate relationship strength, relevance, and role compatibility scores
+
+### Sprint 17: Networking Output Generation (PRD 5.5-5.6)
+
+**Goal:** Generate networking outputs and outreach messages.
+
+**Tasks:**
+- Produce ranked lists of hiring managers and contacts
+- Generate narrative summaries of org structure
+- Create outreach messages (LinkedIn notes, InMail, email variants)
+- Tailor messages by recipient type (HM, recruiter, peer, alumni)
+
+---
+
+## Phase 3 Sprints: Application Tracking & Workflows (PRD 5.8)
+
+### Sprint 18: Application Status Tracking
+
+**Goal:** Track application lifecycle and history.
+
+**Tasks:**
+- Track company, job, application status, contacts reached
+- Store timeline and outcomes
+- Link resume/cover letter versions used
+
+### Sprint 19: Contact Management & Tasks
+
+**Goal:** Manage networking contacts and follow-up tasks.
+
+**Tasks:**
+- Track tasks and reminders per contact
+- Follow-up workflow automation
+
+### Sprint 20+: Full Production Hardening
 
 JWT authentication, ownership validation, CSRF protection, audit logging - required only for multi-user deployment.
 
@@ -238,23 +290,37 @@ bandit -r . -ll --exclude ./test*  # Security scan
 
 ### Sprint Dependencies
 ```
-Sprint 13B (Security) -> Sprint 14 (Deployment)
+Phase 1C: Sprint 13 (Security) -> Sprint 14 (Deployment)
+Phase 2:  Sprint 15 (HM Inference) -> Sprint 16 (Warm Contacts) -> Sprint 17 (Outreach)
+Phase 3:  Sprint 18 (Tracking) -> Sprint 19 (Contact Mgmt) -> Sprint 20+ (Full Auth)
 ```
 
 ---
 
 ## Success Metrics
 
-### Phase 1 (Complete)
+### Phase 1A-1B (Complete)
 - Resume generation < 60 seconds
 - ATS score > 75 for all outputs
 - Zero banned phrases in outputs
 - Skill-gap analysis accurate and actionable
+- Company profile enrichment from JD
 
-### Phase 2B (Target)
+### Phase 1C (Target - Deployment)
 - Deployed and accessible via public URL
 - All generation flows work end-to-end
 - Security scan passes
+- Rate limiting active
+- CORS restricted to production domain
+
+### Phase 2 (Networking - Future)
+- Hiring manager inference with confidence scores
+- Warm contact identification with relationship strength
+- Outreach message generation by recipient type
+
+### Phase 3 (Tracking - Future)
+- Application status tracking
+- Contact management with follow-up tasks
 
 ---
 

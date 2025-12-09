@@ -43,7 +43,8 @@ class TailorResumeRequest(BaseModel):
     )
     custom_instructions: Optional[str] = Field(
         None,
-        description="User-provided custom instructions for tailoring"
+        max_length=2000,
+        description="User-provided custom instructions for tailoring (max 2,000 chars)"
     )
     enable_bullet_rewriting: bool = Field(
         default=False,

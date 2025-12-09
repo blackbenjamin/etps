@@ -1,23 +1,40 @@
 # ETPS Architecture Overview
 
+**Version:** 2.0
+**Last Updated:** December 2025
+
 ## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Frontend (Next.js)                        │
-│                   ✅ COMPLETE (Sprint 9-10E)                     │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
+│                   Frontend (Next.js + shadcn/ui)                │
+│                     Phase 1A-1B COMPLETE                        │
+│                                                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │ Job Intake  │  │  Generate   │  │   Results   │             │
+│  │    Form     │  │   Buttons   │  │    Panel    │             │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
+│         └────────────────┼────────────────┘                     │
+└──────────────────────────┼──────────────────────────────────────┘
+                           │ HTTP/REST
+                           ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      FastAPI Backend                             │
+│                                                                  │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │   /resume   │  │ /cover-letter│  │   /jobs     │              │
-│  │   endpoints │  │  endpoints  │  │  endpoints  │              │
+│  │ /api/v1/job │  │/api/v1/resume│  │/api/v1/     │              │
+│  │   (parse,   │  │  (generate, │  │cover-letter │              │
+│  │  skill-gap) │  │   docx)     │  │  (generate) │              │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘              │
-└─────────┼────────────────┼────────────────┼─────────────────────┘
-          │                │                │
-          ▼                ▼                ▼
+│         │                │                │                      │
+│  ┌──────┴──────┐  ┌──────┴──────┐  ┌──────┴──────┐              │
+│  │/api/v1/     │  │/api/v1/     │  │/api/v1/     │              │
+│  │ company     │  │ capability  │  │  critic     │              │
+│  │  (enrich)   │  │ (clusters)  │  │ (evaluate)  │              │
+│  └─────────────┘  └─────────────┘  └─────────────┘              │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                       Service Layer                              │
 │                                                                  │
@@ -45,13 +62,20 @@
 │  └──────────────────┘    └──────────────────┘                   │
 │                                                                  │
 │  ┌──────────────────┐    ┌──────────────────┐                   │
-│  │capability_extract│    │   llm/base       │                   │
-│  │ evidence_mapper  │    │   llm/mock_llm   │                   │
-│  │ cluster_cache    │    │   llm/claude_llm │                   │
+│  │capability_extract│    │company_enrichment│                   │
+│  │ evidence_mapper  │    │ (industry, AI    │                   │
+│  │ cluster_cache    │    │  maturity)       │                   │
 │  └──────────────────┘    └──────────────────┘                   │
+│                                                                  │
+│  ┌──────────────────┐                                           │
+│  │   llm/           │                                           │
+│  │   - base.py      │  Auto-selects based on ANTHROPIC_API_KEY  │
+│  │   - mock_llm.py  │  MockLLM for testing without API costs    │
+│  │   - claude_llm.py│  ClaudeLLM for production quality         │
+│  └──────────────────┘                                           │
 └─────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
+                              │
+                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                       Data Layer                                 │
 │                                                                  │
@@ -61,12 +85,81 @@
 │  │                  │    │                  │                   │
 │  │  - Users         │    │  - Bullet embeds │                   │
 │  │  - Experiences   │    │  - Job embeds    │                   │
-│  │  - Bullets       │    │  - Approved out  │                   │
+│  │  - Engagements   │    │  - Approved out  │                   │
+│  │  - Bullets       │    │                  │                   │
 │  │  - JobProfiles   │    │                  │                   │
+│  │  - CompanyProfiles│   │                  │                   │
 │  │  - Applications  │    │                  │                   │
+│  │  - ApprovedOutput│    │                  │                   │
 │  └──────────────────┘    └──────────────────┘                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## API Endpoints
+
+### Job Endpoints (`/api/v1/job`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/parse` | Parse JD text/URL into structured JobProfile |
+| POST | `/skill-gap` | Analyze skill gaps between user and job |
+| PUT | `/job-profiles/{id}/skills` | Update skill selection/ordering |
+| GET | `/job-profiles/{id}/skills` | Get skill selection state |
+
+### Resume Endpoints (`/api/v1/resume`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/generate` | Generate tailored resume JSON |
+| POST | `/docx` | Generate resume as DOCX download |
+| GET | `/bullets/{id}/versions` | Get bullet version history |
+
+### Cover Letter Endpoints (`/api/v1/cover-letter`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/generate` | Generate cover letter JSON |
+| POST | `/docx` | Generate cover letter as DOCX download |
+| POST | `/text` | Generate cover letter as plain text |
+
+### Company Endpoints (`/api/v1/company`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/enrich` | Enrich company profile with industry/culture/AI data |
+
+### Capability Endpoints (`/api/v1/capability`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/clusters/{job_profile_id}` | Get capability clusters for job |
+| POST | `/extract` | Extract capabilities from JD text |
+| PUT | `/clusters/{job_profile_id}` | Update/cache capability clusters |
+| GET | `/user-skills/{user_id}` | Get user's extracted skills |
+| POST | `/user-skills/{user_id}` | Extract skills from user profile |
+
+### Critic Endpoints (`/api/v1/critic`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/evaluate` | Evaluate content quality |
+
+### Outputs Endpoints (`/api/v1/outputs`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/approve` | Mark output as approved (for learning) |
+| GET | `/similar` | Find similar approved outputs |
+
+### Users Endpoints (`/api/v1/users`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/users/{user_id}` | Get user profile |
+
+---
 
 ## Core Data Flow
 
@@ -74,32 +167,41 @@
 
 ```
 1. Job Intake
-   └── Parse JD → JobProfile
+   └── Parse JD (text or URL) → JobProfile
+   └── Validate extraction quality
+   └── Extract capability clusters
 
-2. Skill-Gap Analysis
+2. Company Enrichment (optional)
+   └── Infer industry, size, culture
+   └── Assess data/AI maturity
+
+3. Skill-Gap Analysis
    └── Compare user skills vs JD requirements
-   └── Generate positioning angles
+   └── Generate positioning strategies
+   └── Semantic similarity via embeddings
 
-3. Bullet Selection
+4. Bullet Selection
    └── Score bullets by relevance
    └── Apply pagination constraints
    └── Optional: Rewrite for keywords
 
-4. Summary Generation
+5. Summary Generation
    └── Generate tailored summary
    └── Enforce word/line limits
 
-5. Critic Loop (max 3 iterations)
+6. Critic Loop (max 3 iterations)
    └── Evaluate quality scores
    └── Check truthfulness
    └── Verify ATS compliance
    └── Adjust if needed
 
-6. Output
+7. Output
    └── JSON structure
    └── Plain text rendering
-   └── (Future: PDF/DOCX)
+   └── DOCX (preserves template formatting)
 ```
+
+---
 
 ## Service Responsibilities
 
@@ -143,16 +245,35 @@
 - Bullet compression
 
 ### cover_letter.py
-- Cover letter generation
+- Cover letter generation with critic loop
 - Paragraph structure (hook, body, close)
-- Critic loop integration
 - Style guide enforcement
+- Requirement coverage tracking
+
+### company_enrichment.py
+- Company profile creation/update
+- Industry and size inference
+- Culture signals extraction
+- Data/AI maturity assessment
+
+### capability_extractor.py
+- LLM-based capability cluster extraction
+- Evidence mapping from JD text
+- Cluster caching for performance
 
 ### vector_store.py
 - Qdrant integration
 - Bullet/job indexing
 - Semantic search
 - Similar output retrieval
+
+### llm/ (LLM Layer)
+- `base.py` - Abstract interface
+- `mock_llm.py` - Template-based for testing
+- `claude_llm.py` - Claude API integration
+- `create_llm()` - Factory auto-selects based on `ANTHROPIC_API_KEY`
+
+---
 
 ## Database Schema (v1.4.2)
 
@@ -171,8 +292,15 @@ JobProfile
 ├── job_title, company_name, seniority
 ├── extracted_skills[], must_have[], nice_to_have[]
 ├── core_priorities[], culture_keywords[]
-├── selected_skills[], key_skills[] (Sprint 10E)
-├── capability_clusters[], capability_cluster_cache_key (Sprint 11)
+├── selected_skills[], key_skills[]
+├── capability_clusters[], capability_cluster_cache_key
+└── embedding (384-dim vector)
+
+CompanyProfile
+├── id, name, website
+├── industry, size_band, headquarters
+├── business_lines, known_initiatives
+├── culture_signals[], data_ai_maturity
 └── embedding (384-dim vector)
 
 Application
@@ -187,6 +315,8 @@ ApprovedOutput
 ├── content, quality_score
 └── embedding (384-dim vector)
 ```
+
+---
 
 ## Configuration
 
@@ -211,35 +341,50 @@ pagination:
   compression_enabled: true
 ```
 
+### Environment Variables
+```bash
+ANTHROPIC_API_KEY=sk-ant-...   # Enables Claude LLM (required for production)
+OPENAI_API_KEY=sk-...          # For embeddings
+DATABASE_URL=sqlite:///...      # Database connection (PostgreSQL in production)
+QDRANT_URL=http://localhost:6333  # Vector store
+```
+
+---
+
 ## Security Considerations
 
 ### Input Validation
 - All API parameters bounds-checked
 - String lengths limited
 - Regex patterns pre-compiled with length limits
+- Request body size limits (Sprint 13)
 
 ### Data Protection
 - API keys in environment variables only
 - No secrets in code or logs
 - User data isolated by user_id
+- PII handling via Contact table (pseudonymous IDs elsewhere)
 
 ### Error Handling
 - Specific exception types
-- Full tracebacks for debugging
-- No sensitive data in error messages
+- Sanitized error messages (no stack traces in production)
+- Full tracebacks in development only
+
+### Planned Security (Sprint 13)
+- Rate limiting (10 req/min for generation)
+- CORS restriction to production domains
+- SSRF prevention in URL fetch
+- Security headers (CSP, X-Frame-Options)
+
+---
 
 ## Testing Strategy
 
-### Unit Tests (593 total - December 2025)
+### Unit Tests (711 total - December 2025)
 - Service-level tests
 - Mock LLM for deterministic results
 - Mock vector store for speed
-- Real LLM integration via ClaudeLLM (Sprint 11+)
-
-### Integration Tests
-- Cross-service workflows
-- Database operations
-- API endpoints (future)
+- Real LLM integration via ClaudeLLM
 
 ### Test Files
 - `test_pagination_allocation.py` - Pagination service
@@ -248,19 +393,36 @@ pagination:
 - `test_critic.py` - Quality evaluation
 - `test_skill_gap.py` - Skill analysis
 - `test_vector_store.py` - Qdrant operations
-- `test_capability_clusters.py` - Capability extraction (Sprint 11)
-- `test_skill_selection.py` - Interactive skill selection (Sprint 10E)
-- `test_job_parser_extraction.py` - JD parsing quality (Sprint 10B-C)
+- `test_capability_clusters.py` - Capability extraction
+- `test_skill_selection.py` - Interactive skill selection
+- `test_job_parser_extraction.py` - JD parsing quality
+- `test_company_enrichment.py` - Company profile enrichment
 
-## Deployment (Planned - Sprint 19)
+---
+
+## Deployment
 
 ### Development
 - SQLite database
 - Mock vector store option
 - Local Qdrant container
+- Both localhost:3000 (frontend) and localhost:8000 (backend)
 
-### Production
-- PostgreSQL database
+### Production (Sprint 14)
+- PostgreSQL database (Railway addon)
 - Qdrant Cloud
 - Railway (backend)
 - Vercel (frontend)
+- Custom domain: etps.benjaminblack.ai
+
+---
+
+## Phase Roadmap
+
+```
+Phase 1A: Core Quality (Sprints 1-10)           COMPLETE
+Phase 1B: Company Enrichment (Sprints 11-12)    COMPLETE
+Phase 1C: Deployment (Sprints 13-14)            TARGET
+Phase 2:  Networking (Sprints 15-17)            NOT STARTED
+Phase 3:  Application Tracking (Sprints 18+)    DEFERRED
+```

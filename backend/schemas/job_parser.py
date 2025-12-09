@@ -14,8 +14,8 @@ class JobParseRequest(BaseModel):
 
     Must provide either jd_text or jd_url, but not both.
     """
-    jd_text: Optional[str] = Field(None, description="Raw job description text")
-    jd_url: Optional[str] = Field(None, description="URL to fetch job description from")
+    jd_text: Optional[str] = Field(None, max_length=50000, description="Raw job description text (max 50,000 chars)")
+    jd_url: Optional[str] = Field(None, max_length=2000, description="URL to fetch job description from (max 2,000 chars)")
     user_id: int = Field(..., description="User ID for associating the job profile", gt=0)
 
     @field_validator('jd_text')

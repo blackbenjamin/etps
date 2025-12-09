@@ -1011,7 +1011,7 @@ async def tailor_resume(
             job_profile_id=job_profile_id,
             user_id=user_id,
             db=db,
-            use_mock=True  # Use mock for now (no LLM API calls)
+            use_mock=False  # Use real LLM when ANTHROPIC_API_KEY is set
         )
         if cluster_analysis:
             logger.info(

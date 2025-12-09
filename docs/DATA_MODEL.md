@@ -1,8 +1,9 @@
 # ETPS Data Model Reference
 
-**Version:** 1.4.0
+**Version:** 1.4.2
 **Last Updated:** December 2025
 **Source:** `backend/db/models.py`
+**Phase Status:** Phase 1A-1B Complete, Phase 1C (Deployment) in progress
 
 ---
 

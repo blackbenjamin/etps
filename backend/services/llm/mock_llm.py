@@ -20,11 +20,17 @@ class MockLLM(BaseLLM):
 
     # Priority templates organized by domain
     PRIORITY_TEMPLATES = {
-        'governance': [
+        'ai_governance': [
             "AI governance framework development and implementation",
             "Policy and compliance oversight for AI systems",
             "Risk management and ethical AI practices",
             "Stakeholder alignment on AI ethics standards"
+        ],
+        'data_governance': [
+            "Data governance framework development and policy enforcement",
+            "Data quality management and stewardship programs",
+            "Regulatory compliance and data privacy oversight",
+            "Metadata management and data lineage tracking"
         ],
         'cloud': [
             "Cloud infrastructure architecture and optimization",
@@ -215,7 +221,8 @@ class MockLLM(BaseLLM):
             List of keywords associated with the domain
         """
         keyword_map = {
-            'governance': ['governance', 'policy', 'ethics', 'compliance', 'risk', 'regulation'],
+            'ai_governance': ['ai governance', 'ai ethics', 'responsible ai', 'model governance', 'ai policy'],
+            'data_governance': ['data governance', 'data steward', 'data quality', 'metadata', 'data lineage', 'data catalog'],
             'cloud': ['cloud', 'aws', 'azure', 'gcp', 'kubernetes', 'infrastructure', 'devops'],
             'ai_ml': ['machine learning', 'ml', 'ai', 'artificial intelligence', 'model', 'neural'],
             'product': ['product', 'roadmap', 'user experience', 'ux', 'customer', 'feature'],

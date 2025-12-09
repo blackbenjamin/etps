@@ -3,7 +3,7 @@
 Author: Benjamin Black
 Version: 1.0 — December 2025
 
-> **Implementation Status:** The data model has evolved to v1.4.0 (see `docs/DATA_MODEL.md`) with additional fields for engagements, PII handling, and learning systems. Core PRD requirements remain stable. Phase 1E (Frontend MVP) is complete including Sprint 10B improvements to JD extraction quality validation and job parser accuracy.
+> **Implementation Status:** The data model has evolved to v1.4.2 (see `docs/DATA_MODEL.md`) with additional fields for engagements, PII handling, capability clusters, and learning systems. Core PRD requirements remain stable. Phase 1A (Core Quality) and Phase 1B (Company Enrichment) are complete. Phase 1C (Deployment) is next.
 
 ---
 

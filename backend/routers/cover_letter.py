@@ -7,7 +7,7 @@ FastAPI endpoints for cover letter generation with critic integration.
 import logging
 import re
 from typing import Optional, Literal
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse, Response, PlainTextResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -20,6 +20,7 @@ from services.cover_letter import generate_cover_letter
 from services.critic import evaluate_cover_letter
 from services.docx_cover_letter import create_cover_letter_docx
 from services.text_cover_letter import create_cover_letter_text
+from middleware import limiter
 
 
 logger = logging.getLogger(__name__)
@@ -67,7 +68,9 @@ class CoverLetterDocxRequest(BaseModel):
 
 
 @router.post("/generate", response_model=GeneratedCoverLetter, status_code=status.HTTP_200_OK)
+@limiter.limit("10/minute")
 async def generate_cover_letter_endpoint(
+    http_request: Request,
     request: CoverLetterRequest,
     db: Session = Depends(get_db)
 ) -> GeneratedCoverLetter:
@@ -156,7 +159,9 @@ async def generate_cover_letter_endpoint(
     response_model=CoverLetterWithCriticResponse,
     status_code=status.HTTP_200_OK
 )
+@limiter.limit("10/minute")
 async def generate_cover_letter_with_critic_endpoint(
+    http_request: Request,
     request: CoverLetterRequest,
     strict_mode: bool = Query(
         default=False,
@@ -312,7 +317,9 @@ def _sanitize_filename(name: str) -> str:
     },
     status_code=status.HTTP_200_OK
 )
+@limiter.limit("10/minute")
 async def generate_cover_letter_docx_endpoint(
+    http_request: Request,
     request: CoverLetterDocxRequest,
     recipient_name: Optional[str] = Query(
         default=None,

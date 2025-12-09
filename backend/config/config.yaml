@@ -7,6 +7,42 @@ app:
   version: "0.1.0"
   environment: "development"  # development | staging | production
 
+# CORS settings
+cors:
+  allowed_origins:
+    - "http://localhost:3000"
+    - "http://localhost:3001"
+    - "http://127.0.0.1:3000"
+    - "http://127.0.0.1:3001"
+    - "https://etps.benjaminblack.ai"  # Production origin
+  allowed_methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+  allowed_headers:
+    - "Content-Type"
+    - "Authorization"
+  allow_credentials: true
+
+# Rate limiting settings
+rate_limiting:
+  enabled: true
+  generation_endpoints:
+    limit: "10/minute"  # 10 requests per minute for generation endpoints
+    endpoints:
+      - "/api/v1/resume/generate"
+      - "/api/v1/resume/docx"
+      - "/api/v1/cover-letter/generate"
+      - "/api/v1/cover-letter/docx"
+  read_endpoints:
+    limit: "60/minute"  # 60 requests per minute for read endpoints
+
+# Error handling settings
+error_handling:
+  sanitize_errors: true  # Remove file paths and stack traces from error responses
+  include_error_id: true  # Include unique error ID for tracking
+
 # Model configuration (API keys via environment variables)
 models:
   premium_model: "claude-sonnet-4-20250514"

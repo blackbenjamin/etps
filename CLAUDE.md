@@ -6,7 +6,7 @@
 
 **Tech Stack:**
 - Backend: Python 3.13, FastAPI, SQLAlchemy, Pydantic
-- Frontend: Next.js (planned)
+- Frontend: Next.js + shadcn/ui (complete)
 - Database: SQLite (dev), PostgreSQL (prod)
 - Vector Store: Qdrant (semantic search)
 - LLMs: Claude (primary), GPT-4o (fallback), text-embedding-3-small (embeddings)
@@ -16,7 +16,7 @@
 - `ETPS_PRD.md` - Product Requirements Document (source of truth)
 - `docs/IMPLEMENTATION_PLAN.md` - Sprint roadmap and progress
 - `docs/ARCHITECTURE.md` - System architecture and service map
-- `docs/DATA_MODEL.md` - Database schema reference (v1.3.0)
+- `docs/DATA_MODEL.md` - Database schema reference (v1.4.2)
 - `docs/cover_letter_style_guide.md` - Writing style rules
 - `backend/README.md` - Backend setup and API reference
 
@@ -85,6 +85,8 @@ All services in `backend/services/` follow this pattern:
 | `pagination.py` | Line budget and page layout simulation |
 | `bullet_rewriter.py` | LLM-powered bullet optimization |
 | `summary_rewrite.py` | Professional summary generation |
+| `company_enrichment.py` | Company profile enrichment (industry, culture, AI maturity) |
+| `capability_extractor.py` | LLM-based capability cluster extraction |
 
 ## Security Requirements
 
@@ -103,9 +105,18 @@ All services in `backend/services/` follow this pattern:
 
 ## Current Status
 
-**Completed Sprints:** 1-10C (Core quality, semantic search, learning, pagination, frontend MVP, JD parsing)
-**Next:** Sprint 11-14 (Company Intelligence)
-**Test Count:** 550 passing
+**Completed:** Phase 1A (Sprints 1-10) + Phase 1B (Sprints 11-12)
+**Next:** Phase 1C - Sprint 13 (Portfolio Security) -> Sprint 14 (Cloud Deployment)
+**Test Count:** 711 passing
+
+### Phase Roadmap
+```
+Phase 1A: Core Quality (Sprints 1-10)           COMPLETE
+Phase 1B: Company Enrichment (Sprints 11-12)    COMPLETE
+Phase 1C: Deployment (Sprints 13-14)            TARGET
+Phase 2:  Networking (Sprints 15-17)            NOT STARTED
+Phase 3:  Application Tracking (Sprints 18+)    DEFERRED
+```
 
 ## Useful Commands
 
@@ -119,6 +130,9 @@ python -m pytest tests/test_pagination_allocation.py -v
 # Check for issues
 python -m pytest --tb=long  # Full tracebacks
 
-# Start dev server (future)
-uvicorn main:app --reload
+# Start backend dev server
+uvicorn main:app --reload --port 8000
+
+# Start frontend dev server
+cd ../frontend && npm run dev
 ```

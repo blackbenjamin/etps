@@ -8,7 +8,7 @@ Provides intelligent resume optimization based on job requirements.
 import logging
 import re
 from typing import Literal, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response, PlainTextResponse, JSONResponse
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,7 @@ from services.resume_tailor import tailor_resume
 from services.docx_resume import create_resume_docx
 from services.text_resume import create_resume_text
 from services.llm import create_llm
+from middleware import limiter
 
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,9 @@ router = APIRouter()
 
 
 @router.post("/generate", response_model=TailoredResume, status_code=status.HTTP_200_OK)
+@limiter.limit("10/minute")
 async def generate_tailored_resume(
+    http_request: Request,
     request: TailorResumeRequest,
     db: Session = Depends(get_db)
 ) -> TailoredResume:
@@ -115,7 +118,9 @@ async def generate_tailored_resume(
 
 
 @router.post("/docx", status_code=status.HTTP_200_OK)
+@limiter.limit("10/minute")
 async def generate_resume_docx(
+    http_request: Request,
     request: ResumeDocxRequest,
     format: Literal["docx", "text", "json"] = Query(
         default="docx",
@@ -260,7 +265,9 @@ async def generate_resume_docx(
 
 
 @router.get("/bullets/{bullet_id}/versions", status_code=status.HTTP_200_OK)
+@limiter.limit("60/minute")
 async def get_bullet_versions(
+    request: Request,
     bullet_id: int,
     db: Session = Depends(get_db)
 ):
