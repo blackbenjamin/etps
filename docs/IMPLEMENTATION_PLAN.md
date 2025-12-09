@@ -6,11 +6,11 @@
 
 ## Current Status
 
-**Completed:** Phase 1A (Core Quality) + Phase 1B (Company Enrichment)
+**Completed:** Phase 1A (Core Quality) + Phase 1B (Company Enrichment) + Sprint 13 (Portfolio Security)
 
-**Next Up:** Sprint 13 (Portfolio Security) -> Sprint 14 (Cloud Deployment)
+**Next Up:** Sprint 14 (Cloud Deployment)
 
-**Tests:** 711 passing
+**Tests:** 753 passing
 
 > For detailed task lists and implementation notes from completed sprints, see `docs/archive/COMPLETED_SPRINTS.md`
 
@@ -22,7 +22,7 @@
 |--------|-------|--------|-------|
 | Sprints 1-10 | Phase 1A | Done | Core Quality, Schema, LLM, Vector Search, Frontend MVP |
 | Sprints 11-12 | Phase 1B | Done | Company Profile Enrichment |
-| **Sprint 13: Portfolio Security** | **Phase 1C** | **Not Started** | **Minimum security for public demo** |
+| Sprint 13: Portfolio Security | Phase 1C | Done | Rate limiting, CORS, SSRF prevention, security headers |
 | **Sprint 14: Cloud Deployment** | **Phase 1C** | **Not Started** | **Railway + Vercel deployment** |
 | Sprints 15-17: Company Intelligence | Phase 2 | Not Started | Hiring Manager Inference, Warm Contacts, Outreach |
 | Sprints 18+: Application Tracking | Phase 3 | Deferred | Tracking, Reminders, Full Auth |
@@ -71,7 +71,7 @@ Phase 3: Application Tracking & Workflows (Sprints 18+)     DEFERRED
 
 **Goal:** Implement minimum security measures required for safe public portfolio deployment.
 
-**Status:** Not Started
+**Status:** COMPLETE (December 2025)
 
 ### Tasks
 
@@ -98,8 +98,8 @@ limiter = Limiter(key_func=get_remote_address)
 **CORS Restriction:**
 ```python
 ALLOWED_ORIGINS = [
-    "https://etps.benjaminblack.ai",  # Production
-    "http://localhost:3000",           # Development
+    "https://projects.benjaminblack.consulting",  # Production
+    "http://localhost:3000",                       # Development
 ]
 ```
 
@@ -140,7 +140,7 @@ class JobParseRequest(BaseModel):
 | 14.2 | Configure Procfile/railway.toml | P0 | 1h |
 | 14.3 | Set up environment variables | P0 | 1h |
 | 14.4 | Configure PostgreSQL (Railway addon) | P0 | 2h |
-| 14.5 | Configure Qdrant Cloud or Railway addon | P1 | 2h |
+| 14.5 | Set up Qdrant Cloud (free tier) | P1 | 1h |
 | 14.6 | Test backend deployment | P0 | 1h |
 | **Frontend (Vercel)** | | | |
 | 14.7 | Create Vercel project | P0 | 30m |
@@ -159,15 +159,16 @@ class JobParseRequest(BaseModel):
 ```
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
-DATABASE_URL=postgresql://...
-QDRANT_URL=https://...
+DATABASE_URL=postgresql://...  # Railway PostgreSQL addon
+QDRANT_URL=https://xxx-xxx.aws.cloud.qdrant.io  # Qdrant Cloud (free tier)
+QDRANT_API_KEY=your_qdrant_cloud_api_key
 ENVIRONMENT=production
-ALLOWED_ORIGINS=https://etps.benjaminblack.ai
+ALLOWED_ORIGINS=https://projects.benjaminblack.consulting
 ```
 
 **Vercel (Frontend):**
 ```
-NEXT_PUBLIC_API_URL=https://etps-backend.up.railway.app
+NEXT_PUBLIC_API_URL=https://etps-production.up.railway.app
 NEXT_PUBLIC_USER_NAME=Benjamin Black
 ```
 
@@ -185,14 +186,14 @@ NEXT_PUBLIC_USER_NAME=Benjamin Black
 
 ### Cost Estimates (Monthly)
 
-| Service | Est. Cost |
-|---------|-----------|
-| Railway | $5-10 |
-| Vercel | Free |
-| Qdrant Cloud | Free (1GB) |
-| Anthropic API | ~$10-20 |
-| OpenAI API | ~$5 |
-| **Total** | **~$20-35/month** |
+| Service | Est. Cost | Notes |
+|---------|-----------|-------|
+| Railway (Hobby) | $5 | Includes $5 usage credit |
+| Vercel | Free | Hobby tier |
+| Qdrant Cloud | Free | 1GB free tier |
+| Anthropic API | ~$10-20 | Usage-based |
+| OpenAI API | ~$5 | Usage-based |
+| **Total** | **~$20-30/month** | Mostly API usage |
 
 ---
 
