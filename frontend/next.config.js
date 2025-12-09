@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // TODO: Add configuration as needed
+  basePath: '/etps',
+  assetPrefix: '/etps',
 };
 
 module.exports = nextConfig;
