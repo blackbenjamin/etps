@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  basePath: '/etps',
-  assetPrefix: '/etps',
+  // No basePath needed - proxy rewrite handles /etps routing
 };
 
 module.exports = nextConfig;
