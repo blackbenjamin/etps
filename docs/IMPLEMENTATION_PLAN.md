@@ -6,9 +6,13 @@
 
 ## Current Status
 
-**Completed:** Phase 1A (Core Quality) + Phase 1B (Company Enrichment) + Sprint 13 (Portfolio Security)
+**Completed:** Phase 1A + Phase 1B + Phase 1C (Sprints 1-14)
 
-**Next Up:** Sprint 14 (Cloud Deployment)
+**Live URLs:**
+- Frontend: https://etps.benjaminblack.consulting
+- Backend: https://etps-production.up.railway.app
+
+**Next Up:** Phase 2 - Company Intelligence & Networking (Sprints 15-17)
 
 **Tests:** 753 passing
 
@@ -23,7 +27,7 @@
 | Sprints 1-10 | Phase 1A | Done | Core Quality, Schema, LLM, Vector Search, Frontend MVP |
 | Sprints 11-12 | Phase 1B | Done | Company Profile Enrichment |
 | Sprint 13: Portfolio Security | Phase 1C | Done | Rate limiting, CORS, SSRF prevention, security headers |
-| **Sprint 14: Cloud Deployment** | **Phase 1C** | **Not Started** | **Railway + Vercel deployment** |
+| **Sprint 14: Cloud Deployment** | **Phase 1C** | **Done** | **Railway + Vercel deployment** |
 | Sprints 15-17: Company Intelligence | Phase 2 | Not Started | Hiring Manager Inference, Warm Contacts, Outreach |
 | Sprints 18+: Application Tracking | Phase 3 | Deferred | Tracking, Reminders, Full Auth |
 
@@ -32,7 +36,7 @@
 ## Phase Overview (Aligned with PRD Section 7.2)
 
 ```
-Phase 1: Core (Sprints 1-14)                            IN PROGRESS
+Phase 1: Core (Sprints 1-14)                            COMPLETE
   Phase 1A: Core Quality (Sprints 1-10)                 COMPLETE
     - Resume Tailoring & Cover Letter Generation
     - Critic Agent & ATS Scoring
@@ -48,9 +52,10 @@ Phase 1: Core (Sprints 1-14)                            IN PROGRESS
     - Company Profile Enrichment from JD
     - Industry/Size/Culture Inference
 
-  Phase 1C: Deployment (Sprints 13-14)                  TARGET
-    - Portfolio Security Hardening
-    - Cloud Deployment (Railway + Vercel)
+  Phase 1C: Deployment (Sprints 13-14)                  COMPLETE
+    - Portfolio Security Hardening (Sprint 13)
+    - Cloud Deployment - Railway + Vercel (Sprint 14)
+    - Live at: https://etps.benjaminblack.consulting
 
 Phase 2: Company Intelligence & Networking (Sprints 15-17)  NOT STARTED
   - Hiring Manager Inference (PRD 5.3)
@@ -127,9 +132,9 @@ class JobParseRequest(BaseModel):
 
 **Goal:** Deploy ETPS to Railway (backend) and Vercel (frontend) for public portfolio access.
 
-**Status:** Not Started
+**Status:** Complete (December 9, 2025)
 
-**Prerequisite:** Sprint 13B (Portfolio Security) must be complete.
+**Prerequisite:** Sprint 13 (Portfolio Security) recommended but not blocking.
 
 ### Tasks
 

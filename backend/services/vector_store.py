@@ -257,15 +257,23 @@ class QdrantVectorStore(BaseVectorStore):
         self,
         host: Optional[str] = None,
         port: Optional[int] = None,
-        collection_prefix: Optional[str] = None
+        collection_prefix: Optional[str] = None,
+        url: Optional[str] = None,
+        api_key: Optional[str] = None
     ):
         """
         Initialize Qdrant vector store.
 
+        Supports two connection modes:
+        1. URL-based (for Qdrant Cloud): Provide url and api_key
+        2. Host/Port (for local Qdrant): Provide host and port
+
         Args:
-            host: Qdrant server host (defaults to config)
+            host: Qdrant server host (defaults to config or env)
             port: Qdrant server port (defaults to config)
             collection_prefix: Prefix for collection names (defaults to config)
+            url: Qdrant Cloud URL (e.g., https://xxx.cloud.qdrant.io)
+            api_key: Qdrant Cloud API key
 
         Raises:
             ImportError: If qdrant-client not installed
@@ -289,15 +297,33 @@ class QdrantVectorStore(BaseVectorStore):
 
         # Get config values
         vs_config = CONFIG.get('vector_store', {})
-        self.host = host or vs_config.get('host', 'localhost')
-        self.port = port or vs_config.get('port', 6333)
         self.collection_prefix = collection_prefix or vs_config.get('collection_prefix', 'etps_')
 
+        # Check for URL-based connection (Qdrant Cloud) from env or params
+        qdrant_url = url or os.getenv('QDRANT_URL')
+        qdrant_api_key = api_key or os.getenv('QDRANT_API_KEY')
+
         try:
-            self.client = self.QdrantClient(host=self.host, port=self.port)
+            if qdrant_url:
+                # URL-based connection (Qdrant Cloud)
+                logger.info(f"Connecting to Qdrant Cloud at {qdrant_url}")
+                self.client = self.QdrantClient(
+                    url=qdrant_url,
+                    api_key=qdrant_api_key,
+                    timeout=10
+                )
+                self.host = qdrant_url
+                self.port = None
+            else:
+                # Host/port connection (local Qdrant)
+                self.host = host or os.getenv('QDRANT_HOST') or vs_config.get('host', 'localhost')
+                self.port = port or int(os.getenv('QDRANT_PORT', vs_config.get('port', 6333)))
+                logger.info(f"Connecting to Qdrant at {self.host}:{self.port}")
+                self.client = self.QdrantClient(host=self.host, port=self.port)
         except Exception as e:
+            connection_info = qdrant_url if qdrant_url else f"{self.host}:{self.port}"
             raise RuntimeError(
-                f"Failed to connect to Qdrant at {self.host}:{self.port}: {str(e)}"
+                f"Failed to connect to Qdrant at {connection_info}: {str(e)}"
             ) from e
 
         self._initialized = True
