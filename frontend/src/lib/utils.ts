@@ -7,8 +7,8 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Generate a filename for resume or cover letter downloads
- * Format: Benjamin_Black_Resume_CompanyName_YYYYMMDD.ext
- * or: Benjamin_Black_Cover_Letter_CompanyName_YYYYMMDD.ext
+ * Format: FirstName_LastName_Resume_CompanyName_YYYYMMDD.ext
+ * or: FirstName_LastName_Cover_Letter_CompanyName_YYYYMMDD.ext
  */
 export function generateDownloadFilename(
   type: 'resume' | 'cover-letter',

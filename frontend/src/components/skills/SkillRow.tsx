@@ -2,7 +2,7 @@
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, X } from 'lucide-react'
+import { GripVertical, X, Plus } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -20,10 +20,11 @@ interface SkillRowProps {
   data: SkillRowData
   onToggleKey: (skill: string) => void
   onRemove: (skill: string) => void
+  onAddSkill?: (skill: string) => void
   isDragging?: boolean
 }
 
-export function SkillRow({ data, onToggleKey, onRemove, isDragging }: SkillRowProps) {
+export function SkillRow({ data, onToggleKey, onRemove, onAddSkill, isDragging }: SkillRowProps) {
   const {
     attributes,
     listeners,
@@ -94,6 +95,22 @@ export function SkillRow({ data, onToggleKey, onRemove, isDragging }: SkillRowPr
           {Math.round(data.match_pct)}%
         </span>
       </div>
+
+      {/* "I have this" Button - for low match skills */}
+      {data.match_pct < 40 && onAddSkill && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs"
+          onClick={(e) => {
+            e.stopPropagation()
+            onAddSkill(data.skill)
+          }}
+        >
+          <Plus className="h-3 w-3 mr-1" />
+          I have this
+        </Button>
+      )}
 
       {/* Remove Button */}
       <Button

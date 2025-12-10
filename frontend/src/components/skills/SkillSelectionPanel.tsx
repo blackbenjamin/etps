@@ -16,13 +16,14 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { AlertCircle, Loader2, Save, CheckCircle2 } from 'lucide-react'
+import { AlertCircle, Loader2, Save, CheckCircle2, RefreshCw } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { SkillRow, type SkillRowData } from './SkillRow'
-import { updateSkillSelection } from '@/lib/api'
-import type { SkillGapResponse } from '@/types'
+import { SkillEvidenceModal } from '@/components/capability/SkillEvidenceModal'
+import { updateSkillSelection, api } from '@/lib/api'
+import type { SkillGapResponse, ExperienceWithDetails, EvidenceMapping, AddUserSkillRequest } from '@/types'
 
 interface SkillSelectionPanelProps {
   jobProfileId: number
@@ -37,6 +38,15 @@ export function SkillSelectionPanel({ jobProfileId, analysis, isLoading, onSaved
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
+
+  // State for "I have this" modal
+  const [selectedSkill, setSelectedSkill] = useState<string | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [experiences, setExperiences] = useState<ExperienceWithDetails[]>([])
+  const [isLoadingExperiences, setIsLoadingExperiences] = useState(false)
+  const [experienceLoadError, setExperienceLoadError] = useState<string | null>(null)
+  const [skillsAddedCount, setSkillsAddedCount] = useState(0)
+  const [isRerunning, setIsRerunning] = useState(false)
 
   // Initialize skills from analysis
   useEffect(() => {
@@ -94,6 +104,22 @@ export function SkillSelectionPanel({ jobProfileId, analysis, isLoading, onSaved
     setKeySkills(new Set())
     setSaveSuccess(false)
   }, [analysis])
+
+  // Load experiences when modal opens
+  useEffect(() => {
+    if (isModalOpen) {
+      setIsLoadingExperiences(true)
+      setExperienceLoadError(null)
+      api.getUserExperiences()
+        .then(setExperiences)
+        .catch(err => {
+          console.error('Failed to load experiences:', err)
+          setExperienceLoadError(`Failed to load experiences: ${err instanceof Error ? err.message : 'Unknown error'}`)
+          setExperiences([])
+        })
+        .finally(() => setIsLoadingExperiences(false))
+    }
+  }, [isModalOpen])
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -192,6 +218,49 @@ export function SkillSelectionPanel({ jobProfileId, analysis, isLoading, onSaved
     }
   }
 
+  // Handle "I have this" skill addition
+  const handleAddSkill = (skillName: string) => {
+    setSelectedSkill(skillName)
+    setIsModalOpen(true)
+  }
+
+  const handleConfirmSkill = async (evidenceMappings: EvidenceMapping[]) => {
+    if (!selectedSkill) return
+
+    const request: AddUserSkillRequest = {
+      skill_name: selectedSkill,
+      user_id: 1,
+      evidence_mappings: evidenceMappings
+    }
+
+    await api.addUserSkill(jobProfileId, request)
+    setSkillsAddedCount(prev => prev + 1)
+
+    // Update match percentage for the skill locally (boost to 70%)
+    setSkills(prev =>
+      prev.map(s =>
+        s.skill === selectedSkill
+          ? { ...s, match_pct: Math.max(s.match_pct, 70) }
+          : s
+      )
+    )
+    setSaveSuccess(false)
+  }
+
+  // Handle re-running skill gap analysis
+  const handleUpdateAnalysis = async () => {
+    setIsRerunning(true)
+    try {
+      await api.analyzeSkillGap({ job_profile_id: jobProfileId })
+      setSkillsAddedCount(0)
+      onSaved?.()
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to update analysis')
+    } finally {
+      setIsRerunning(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <Card>
@@ -215,6 +284,7 @@ export function SkillSelectionPanel({ jobProfileId, analysis, isLoading, onSaved
   const removedSkills = skills.filter((s) => !s.included)
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -290,6 +360,7 @@ export function SkillSelectionPanel({ jobProfileId, analysis, isLoading, onSaved
                   data={skill}
                   onToggleKey={handleToggleKey}
                   onRemove={handleRemove}
+                  onAddSkill={handleAddSkill}
                 />
               ))}
             </div>
@@ -327,7 +398,51 @@ export function SkillSelectionPanel({ jobProfileId, analysis, isLoading, onSaved
             </div>
           </details>
         )}
+
+        {/* Floating Update Analysis Button */}
+        {skillsAddedCount > 0 && (
+          <div className="sticky bottom-4 left-0 right-0 flex justify-center pointer-events-none mt-4">
+            <div className="pointer-events-auto">
+              <Button
+                size="lg"
+                onClick={handleUpdateAnalysis}
+                disabled={isRerunning}
+                className="shadow-lg"
+              >
+                {isRerunning ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Updating Analysis...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2 h-5 w-5" />
+                    Update Analysis ({skillsAddedCount} skill{skillsAddedCount > 1 ? 's' : ''} added)
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
+
+    {/* Skill Evidence Modal */}
+    {selectedSkill && (
+      <SkillEvidenceModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          setSelectedSkill(null)
+          setExperienceLoadError(null)
+        }}
+        skillName={selectedSkill}
+        experiences={experiences}
+        onConfirm={handleConfirmSkill}
+        isLoading={isLoadingExperiences}
+        loadError={experienceLoadError}
+      />
+    )}
+  </>
   )
 }

@@ -118,7 +118,7 @@ function ClusterCard({ cluster, onKeySkillToggle, selectedKeySkills, onAddSkill 
   selectedKeySkills?: Set<string>
   onAddSkill?: (skillName: string) => void
 }) {
-  const [isExpanded, setIsExpanded] = useState(cluster.is_expanded ?? true)
+  const [isExpanded, setIsExpanded] = useState(cluster.is_expanded ?? false)
 
   const matchedCount = cluster.component_skills.filter(s => s.matched).length
   const totalCount = cluster.component_skills.length
@@ -345,35 +345,13 @@ export function CapabilityClusterPanel({
                 Strategic capability matching for this role
               </CardDescription>
             </div>
-            <div className="flex items-center gap-3">
-              {skillsAddedCount > 0 && onRerunAnalysis && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleRerunAnalysis}
-                  disabled={isRerunning}
-                >
-                  {isRerunning ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Re-running...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Re-run Analysis ({skillsAddedCount} skill{skillsAddedCount > 1 ? 's' : ''} added)
-                    </>
-                  )}
-                </Button>
-              )}
-              <div className="text-right">
-                <Badge className={getRecommendationStyle(analysis.recommendation)}>
-                  {Math.round(analysis.overall_match_score)}% Overall
-                </Badge>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {getRecommendationLabel(analysis.recommendation)}
-                </p>
-              </div>
+            <div className="text-right">
+              <Badge className={getRecommendationStyle(analysis.recommendation)}>
+                {Math.round(analysis.overall_match_score)}% Overall
+              </Badge>
+              <p className="text-xs text-muted-foreground mt-1">
+                {getRecommendationLabel(analysis.recommendation)}
+              </p>
             </div>
           </div>
         </CardHeader>
@@ -423,6 +401,32 @@ export function CapabilityClusterPanel({
             <p className="text-sm text-muted-foreground">
               {analysis.positioning_summary}
             </p>
+          </div>
+        )}
+
+        {/* Floating Update Analysis Button */}
+        {skillsAddedCount > 0 && onRerunAnalysis && (
+          <div className="sticky bottom-4 left-0 right-0 flex justify-center pointer-events-none mt-4">
+            <div className="pointer-events-auto">
+              <Button
+                size="lg"
+                onClick={handleRerunAnalysis}
+                disabled={isRerunning}
+                className="shadow-lg"
+              >
+                {isRerunning ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Updating Analysis...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2 h-5 w-5" />
+                    Update Analysis ({skillsAddedCount} skill{skillsAddedCount > 1 ? 's' : ''} added)
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

@@ -26,16 +26,26 @@ function getJobId(job: JobProfile | null): number | null {
 export default function Home() {
   const { currentJob, setCurrentJob, setSkillGapAnalysis } = useJobStore()
   const { resume, coverLetter } = useGenerationStore()
+
+  // Editable fields state
   const [editingCompany, setEditingCompany] = useState(false)
   const [companyNameInput, setCompanyNameInput] = useState('')
+  const [editingJobTitle, setEditingJobTitle] = useState(false)
+  const [jobTitleInput, setJobTitleInput] = useState('')
+  const [editingLocation, setEditingLocation] = useState(false)
+  const [locationInput, setLocationInput] = useState('')
 
   // Get the job ID safely
   const jobId = getJobId(currentJob)
 
-  // Sync company name input when job changes
+  // Sync editable inputs when job changes
   useEffect(() => {
     setCompanyNameInput(currentJob?.company_name || '')
     setEditingCompany(false)
+    setJobTitleInput(currentJob?.job_title || '')
+    setEditingJobTitle(false)
+    setLocationInput(currentJob?.location || '')
+    setEditingLocation(false)
   }, [currentJob?.job_profile_id])
 
   // Handle saving edited company name
@@ -44,6 +54,22 @@ export default function Home() {
       setCurrentJob({ ...currentJob, company_name: companyNameInput.trim() })
     }
     setEditingCompany(false)
+  }
+
+  // Handle saving edited job title
+  const handleSaveJobTitle = () => {
+    if (currentJob && jobTitleInput.trim()) {
+      setCurrentJob({ ...currentJob, job_title: jobTitleInput.trim() })
+    }
+    setEditingJobTitle(false)
+  }
+
+  // Handle saving edited location
+  const handleSaveLocation = () => {
+    if (currentJob) {
+      setCurrentJob({ ...currentJob, location: locationInput.trim() || undefined })
+    }
+    setEditingLocation(false)
   }
 
   // Auto-fetch skill gap when job is parsed
@@ -107,7 +133,36 @@ export default function Home() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-muted-foreground">Title</p>
-                        <p className="font-medium">{currentJob.job_title || 'Unknown Position'}</p>
+                        {editingJobTitle ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              value={jobTitleInput}
+                              onChange={(e) => setJobTitleInput(e.target.value)}
+                              placeholder="Enter job title"
+                              className="h-7 text-sm"
+                              onKeyDown={(e) => e.key === 'Enter' && handleSaveJobTitle()}
+                              autoFocus
+                            />
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleSaveJobTitle}>
+                              <Check className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <p className="font-medium">{currentJob.job_title || 'Unknown Position'}</p>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                setJobTitleInput(currentJob.job_title || '')
+                                setEditingJobTitle(true)
+                              }}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <p className="text-muted-foreground">Company</p>
@@ -142,12 +197,39 @@ export default function Home() {
                           </div>
                         )}
                       </div>
-                      {currentJob.location && (
-                        <div>
-                          <p className="text-muted-foreground">Location</p>
-                          <p className="font-medium">{currentJob.location}</p>
-                        </div>
-                      )}
+                      <div>
+                        <p className="text-muted-foreground">Location</p>
+                        {editingLocation ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              value={locationInput}
+                              onChange={(e) => setLocationInput(e.target.value)}
+                              placeholder="Enter location"
+                              className="h-7 text-sm"
+                              onKeyDown={(e) => e.key === 'Enter' && handleSaveLocation()}
+                              autoFocus
+                            />
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleSaveLocation}>
+                              <Check className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <p className="font-medium">{currentJob.location || 'Not specified'}</p>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                setLocationInput(currentJob.location || '')
+                                setEditingLocation(true)
+                              }}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                       {currentJob.extracted_skills && currentJob.extracted_skills.length > 0 && (
                         <div className="col-span-2">
                           <p className="text-muted-foreground mb-1">Key Skills</p>
