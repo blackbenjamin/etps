@@ -14,7 +14,7 @@
 
 **Next Up:** Phase 2 - Company Intelligence & Networking (Sprints 15-17)
 
-**Tests:** 753 passing
+**Tests:** 700 passing
 
 > For detailed task lists and implementation notes from completed sprints, see `docs/archive/COMPLETED_SPRINTS.md`
 
@@ -177,17 +177,41 @@ NEXT_PUBLIC_API_URL=https://etps-production.up.railway.app
 NEXT_PUBLIC_USER_NAME=Benjamin Black
 ```
 
+### Implementation Notes
+
+**Database Configuration (db/database.py):**
+- Added `DATABASE_URL` environment variable support (defaults to SQLite for dev)
+- Handles Railway's `postgres://` → `postgresql://` URL conversion for SQLAlchemy 2.0
+- Added startup event in `main.py` to auto-initialize database tables
+
+**PostgreSQL Compatibility (db/models.py):**
+- Removed B-tree index on `tags` JSON column (PostgreSQL can't B-tree index JSON)
+- Note: Use GIN index for JSON indexing in PostgreSQL if needed in future
+
+**Dependencies (requirements.txt):**
+- Added `psycopg2-binary>=2.9.0` for PostgreSQL driver support
+
+**Rate Limiter Fix (routers/*.py):**
+- Fixed slowapi compatibility - parameter must be named exactly `request`
+- Renamed `http_request: Request` → `request: Request`
+- Renamed `request: BodySchema` → `body: BodySchema`
+- Affected files: `resume.py`, `cover_letter.py`
+
+**Data Migration:**
+- Migrated from local SQLite: 8 experiences, 8 engagements, 28 bullets
+- User candidate_profile JSON configured via direct DB update
+
 ### Acceptance Criteria
 
-- [ ] Backend accessible at Railway URL
-- [ ] Frontend accessible at Vercel URL
-- [ ] All API endpoints functional in production
-- [ ] Resume/cover letter generation works end-to-end
-- [ ] DOCX downloads work correctly
-- [ ] No CORS errors in browser console
-- [ ] Site loads in <3 seconds
+- [x] Backend accessible at Railway URL
+- [x] Frontend accessible at Vercel URL
+- [x] All API endpoints functional in production
+- [x] Resume/cover letter generation works end-to-end
+- [x] DOCX downloads work correctly
+- [x] No CORS errors in browser console
+- [x] Site loads in <3 seconds
 
-**Estimated Effort:** 16.5 hours
+**Estimated Effort:** 16.5 hours (actual: ~12 hours)
 
 ### Cost Estimates (Monthly)
 
@@ -281,9 +305,9 @@ bandit -r . -ll --exclude ./test*  # Security scan
 
 ## Test Coverage
 
-- **Total Tests:** 711 passing
-- **Coverage:** All Sprint 1-12 functionality tested
-- **Key Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_pagination_allocation.py, test_job_parser_extraction.py, test_skill_selection.py, test_capability_clusters.py, test_company_enrichment.py
+- **Total Tests:** 700 passing
+- **Coverage:** All Sprint 1-14 functionality tested
+- **Key Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_pagination_allocation.py, test_job_parser_extraction.py, test_skill_selection.py, test_capability_clusters.py, test_company_enrichment.py, test_security.py
 
 ---
 
@@ -312,12 +336,14 @@ Phase 3:  Sprint 18 (Tracking) -> Sprint 19 (Contact Mgmt) -> Sprint 20+ (Full A
 - Skill-gap analysis accurate and actionable
 - Company profile enrichment from JD
 
-### Phase 1C (Target - Deployment)
-- Deployed and accessible via public URL
-- All generation flows work end-to-end
-- Security scan passes
-- Rate limiting active
-- CORS restricted to production domain
+### Phase 1C (Complete - Deployment)
+- [x] Deployed and accessible via public URL (https://etps.benjaminblack.consulting)
+- [x] All generation flows work end-to-end
+- [x] Security scan passes
+- [x] Rate limiting active (slowapi)
+- [x] CORS restricted to production domain
+- [x] PostgreSQL database (Railway)
+- [x] Auto-deploy on git push
 
 ### Phase 2 (Networking - Future)
 - Hiring manager inference with confidence scores

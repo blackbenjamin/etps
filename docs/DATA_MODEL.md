@@ -1,9 +1,9 @@
 # ETPS Data Model Reference
 
-**Version:** 1.4.2
+**Version:** 1.4.3
 **Last Updated:** December 2025
 **Source:** `backend/db/models.py`
-**Phase Status:** Phase 1A-1B Complete, Phase 1C (Deployment) in progress
+**Phase Status:** Phase 1A-1C Complete (Deployed to Railway + Vercel)
 
 ---
 
@@ -194,9 +194,9 @@ Individual bullet point describing an achievement or responsibility.
 ```
 
 **Indexes:**
-- `ix_bullets_tags` on tags
 - `ix_bullets_retired` on retired
 - `ix_bullets_engagement` on engagement_id
+- Note: `ix_bullets_tags` removed for PostgreSQL compatibility (B-tree cannot index JSON)
 
 ---
 
@@ -424,9 +424,9 @@ The following entities have 384-dimensional embeddings for semantic search:
 
 | Table | Index Name | Columns | Purpose |
 |-------|------------|---------|---------|
-| bullets | ix_bullets_tags | tags | Tag-based filtering |
 | bullets | ix_bullets_retired | retired | Active bullet queries |
 | bullets | ix_bullets_engagement | engagement_id | Engagement lookup |
+| ~~bullets~~ | ~~ix_bullets_tags~~ | ~~tags~~ | ~~Removed - PostgreSQL B-tree can't index JSON~~ |
 | contacts | ix_contacts_company_hiring | company_id, is_hiring_manager_candidate | Hiring manager search |
 | log_entries | ix_log_entries_type_level | log_type, level | Log filtering |
 | critic_logs | ix_critic_logs_session | session_id, iteration | Session queries |
@@ -448,6 +448,7 @@ The following entities have 384-dimensional embeddings for semantic search:
 | 1.4.0 | Dec 2025 | Added PII handling: Contact.deleted_at, sanitization utilities |
 | 1.4.1 | Dec 2025 | Added selected_skills, key_skills to JobProfile (Sprint 10E) |
 | 1.4.2 | Dec 2025 | Added capability_clusters, capability_cluster_cache_key, capability_analysis_timestamp to JobProfile (Sprint 11) |
+| 1.4.3 | Dec 2025 | PostgreSQL compatibility: removed ix_bullets_tags index (B-tree can't index JSON); added psycopg2-binary driver (Sprint 14) |
 
 ---
 

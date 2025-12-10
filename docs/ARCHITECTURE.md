@@ -80,8 +80,9 @@
 │                       Data Layer                                 │
 │                                                                  │
 │  ┌──────────────────┐    ┌──────────────────┐                   │
-│  │     SQLite       │    │     Qdrant       │                   │
-│  │  (relational)    │    │   (vectors)      │                   │
+│  │   PostgreSQL     │    │     Qdrant       │                   │
+│  │  (Railway prod)  │    │   (vectors)      │                   │
+│  │  SQLite (dev)    │    │                  │                   │
 │  │                  │    │                  │                   │
 │  │  - Users         │    │  - Bullet embeds │                   │
 │  │  - Experiences   │    │  - Job embeds    │                   │
@@ -380,7 +381,7 @@ QDRANT_URL=http://localhost:6333  # Vector store
 
 ## Testing Strategy
 
-### Unit Tests (711 total - December 2025)
+### Unit Tests (700 total - December 2025)
 - Service-level tests
 - Mock LLM for deterministic results
 - Mock vector store for speed
@@ -403,17 +404,29 @@ QDRANT_URL=http://localhost:6333  # Vector store
 ## Deployment
 
 ### Development
-- SQLite database
+- SQLite database (default, via `DATABASE_URL` env fallback)
 - Mock vector store option
 - Local Qdrant container
 - Both localhost:3000 (frontend) and localhost:8000 (backend)
 
-### Production (Sprint 14)
-- PostgreSQL database (Railway addon)
-- Qdrant Cloud
-- Railway (backend)
-- Vercel (frontend)
-- Custom domain: etps.benjaminblack.ai
+### Production (Sprint 14 - COMPLETE)
+- **Backend:** Railway (https://etps-production.up.railway.app)
+- **Frontend:** Vercel (https://etps.benjaminblack.consulting)
+- **Database:** PostgreSQL (Railway addon)
+- **Vector Store:** Qdrant Cloud (free tier)
+- **Auto-deploy:** Git push triggers Railway/Vercel deployments
+
+### Database Configuration
+```python
+# db/database.py - auto-selects based on DATABASE_URL
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./etps.db")
+# Handles Railway's postgres:// → postgresql:// conversion for SQLAlchemy 2.0
+```
+
+### Rate Limiting
+- slowapi middleware requires `request: Request` parameter naming
+- 10 requests/minute for generation endpoints
+- 60 requests/minute for read endpoints
 
 ---
 
@@ -422,7 +435,11 @@ QDRANT_URL=http://localhost:6333  # Vector store
 ```
 Phase 1A: Core Quality (Sprints 1-10)           COMPLETE
 Phase 1B: Company Enrichment (Sprints 11-12)    COMPLETE
-Phase 1C: Deployment (Sprints 13-14)            TARGET
+Phase 1C: Deployment (Sprints 13-14)            COMPLETE (Dec 2025)
 Phase 2:  Networking (Sprints 15-17)            NOT STARTED
 Phase 3:  Application Tracking (Sprints 18+)    DEFERRED
 ```
+
+**Live URLs:**
+- Frontend: https://etps.benjaminblack.consulting
+- Backend: https://etps-production.up.railway.app
