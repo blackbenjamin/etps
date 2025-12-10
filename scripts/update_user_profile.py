@@ -52,7 +52,7 @@ def update_user_profile():
         # Note: User model might not have portfolio_url field yet based on schema review
         # Checking backend/db/models.py would confirm, but let's try to set it if it exists
         if hasattr(user, 'portfolio_url'):
-            user.portfolio_url = "benjaminblack.consulting/projects"
+            user.portfolio_url = "projects.benjaminblack.consulting"
             print("Updated portfolio_url")
         else:
             print("User model does not have portfolio_url field. Skipping.")
