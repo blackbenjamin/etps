@@ -279,6 +279,16 @@ async def readiness_check():
     return health_status
 
 
+# Initialize database on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database tables on application startup."""
+    from db.database import init_db
+    logger.info("Initializing database tables...")
+    init_db()
+    logger.info("Database initialization complete")
+
+
 # Register routers
 app.include_router(job_router, prefix="/api/v1/job", tags=["job"])
 app.include_router(resume_router, prefix="/api/v1/resume", tags=["resume"])

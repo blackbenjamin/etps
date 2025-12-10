@@ -1,16 +1,26 @@
 """
 ETPS Database Configuration
 
-SQLite database setup for Phase 1-2.
+Supports SQLite (development) and PostgreSQL (production).
 """
 
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# SQLite database URL - stored in project root
-DATABASE_URL = "sqlite:///./etps.db"
+# Get database URL from environment, fallback to SQLite for local dev
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./etps.db")
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# SQLAlchemy engine configuration
+if DATABASE_URL.startswith("sqlite"):
+    # SQLite requires check_same_thread=False for FastAPI
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    # PostgreSQL - no special connect_args needed
+    # Railway uses postgres:// but SQLAlchemy 2.0 requires postgresql://
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    engine = create_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
