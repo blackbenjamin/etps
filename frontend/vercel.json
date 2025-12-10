@@ -5,12 +5,6 @@
     "installCommand": "npm install",
     "framework": "nextjs",
     "outputDirectory": ".next",
-    "routes": [
-        {
-            "src": "/etps/(.*)",
-            "dest": "/$1"
-        }
-    ],
     "rewrites": [
         {
             "source": "/etps/:path*",
