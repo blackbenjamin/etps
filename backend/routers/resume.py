@@ -31,8 +31,8 @@ router = APIRouter()
 @router.post("/generate", response_model=TailoredResume, status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
 async def generate_tailored_resume(
-    http_request: Request,
-    request: TailorResumeRequest,
+    request: Request,
+    body: TailorResumeRequest,
     db: Session = Depends(get_db)
 ) -> TailoredResume:
     """
@@ -71,30 +71,30 @@ async def generate_tailored_resume(
     """
     try:
         # Validate user exists
-        user = db.query(User).filter(User.id == request.user_id).first()
+        user = db.query(User).filter(User.id == body.user_id).first()
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User {request.user_id} not found"
+                detail=f"User {body.user_id} not found"
             )
 
         # Validate job profile exists
-        job_profile = db.query(JobProfile).filter(JobProfile.id == request.job_profile_id).first()
+        job_profile = db.query(JobProfile).filter(JobProfile.id == body.job_profile_id).first()
         if not job_profile:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Job profile {request.job_profile_id} not found"
+                detail=f"Job profile {body.job_profile_id} not found"
             )
 
         # Generate tailored resume using service with real LLM if available
         llm = create_llm()  # Uses Claude if ANTHROPIC_API_KEY is set, else MockLLM
         tailored_resume = await tailor_resume(
-            job_profile_id=request.job_profile_id,
-            user_id=request.user_id,
+            job_profile_id=body.job_profile_id,
+            user_id=body.user_id,
             db=db,
-            max_bullets_per_role=request.max_bullets_per_role,
-            max_skills=request.max_skills,
-            custom_instructions=request.custom_instructions,
+            max_bullets_per_role=body.max_bullets_per_role,
+            max_skills=body.max_skills,
+            custom_instructions=body.custom_instructions,
             llm=llm,
         )
 
@@ -120,8 +120,8 @@ async def generate_tailored_resume(
 @router.post("/docx", status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
 async def generate_resume_docx(
-    http_request: Request,
-    request: ResumeDocxRequest,
+    request: Request,
+    body: ResumeDocxRequest,
     format: Literal["docx", "text", "json"] = Query(
         default="docx",
         description="Output format: docx (Word document), text (plain text), json (TailoredResume JSON)"
@@ -175,7 +175,7 @@ async def generate_resume_docx(
     """
     try:
         # Validate we have content to render
-        if not request.tailored_resume.selected_roles:
+        if not body.tailored_resume.selected_roles:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="TailoredResume must have at least one selected role"
@@ -189,11 +189,11 @@ async def generate_resume_docx(
                 "degree": edu.degree,
                 "details": edu.details
             }
-            for edu in request.education
-        ] if request.education else None
+            for edu in body.education
+        ] if body.education else None
 
         # Create filename base from user name with robust sanitization
-        safe_name = re.sub(r'[^\w\s-]', '', request.user_name, flags=re.UNICODE)
+        safe_name = re.sub(r'[^\w\s-]', '', body.user_name, flags=re.UNICODE)
         safe_name = re.sub(r'[-\s]+', '_', safe_name).strip('_')
         safe_name = safe_name or "Resume"  # Fallback for empty/invalid names
 
@@ -201,7 +201,7 @@ async def generate_resume_docx(
         if format == "json":
             # Return TailoredResume as JSON
             return JSONResponse(
-                content=request.tailored_resume.model_dump(),
+                content=body.tailored_resume.model_dump(),
                 headers={
                     "Content-Disposition": f'attachment; filename="{safe_name}_Resume.json"'
                 }
@@ -210,12 +210,12 @@ async def generate_resume_docx(
         elif format == "text":
             # Generate plain text resume
             text_content = create_resume_text(
-                tailored_resume=request.tailored_resume,
-                user_name=request.user_name,
-                user_email=request.user_email,
-                user_phone=request.user_phone,
-                user_linkedin=request.user_linkedin,
-                user_portfolio=request.user_portfolio,
+                tailored_resume=body.tailored_resume,
+                user_name=body.user_name,
+                user_email=body.user_email,
+                user_phone=body.user_phone,
+                user_linkedin=body.user_linkedin,
+                user_portfolio=body.user_portfolio,
                 education=education_dicts
             )
 
@@ -230,12 +230,12 @@ async def generate_resume_docx(
         else:  # format == "docx" (default)
             # Generate DOCX
             docx_bytes = create_resume_docx(
-                tailored_resume=request.tailored_resume,
-                user_name=request.user_name,
-                user_email=request.user_email,
-                user_phone=request.user_phone,
-                user_linkedin=request.user_linkedin,
-                user_portfolio=request.user_portfolio,
+                tailored_resume=body.tailored_resume,
+                user_name=body.user_name,
+                user_email=body.user_email,
+                user_phone=body.user_phone,
+                user_linkedin=body.user_linkedin,
+                user_portfolio=body.user_portfolio,
                 education=education_dicts
             )
 

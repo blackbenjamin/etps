@@ -70,8 +70,8 @@ class CoverLetterDocxRequest(BaseModel):
 @router.post("/generate", response_model=GeneratedCoverLetter, status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
 async def generate_cover_letter_endpoint(
-    http_request: Request,
-    request: CoverLetterRequest,
+    request: Request,
+    body: CoverLetterRequest,
     db: Session = Depends(get_db)
 ) -> GeneratedCoverLetter:
     """
@@ -108,22 +108,22 @@ async def generate_cover_letter_endpoint(
     """
     try:
         # Validate user exists
-        user = db.query(User).filter(User.id == request.user_id).first()
+        user = db.query(User).filter(User.id == body.user_id).first()
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User {request.user_id} not found"
+                detail=f"User {body.user_id} not found"
             )
 
         # Generate cover letter
         cover_letter = await generate_cover_letter(
-            job_profile_id=request.job_profile_id,
-            user_id=request.user_id,
+            job_profile_id=body.job_profile_id,
+            user_id=body.user_id,
             db=db,
-            company_profile_id=request.company_profile_id,
-            context_notes=request.context_notes,
-            referral_name=request.referral_name,
-            company_name=request.company_name,
+            company_profile_id=body.company_profile_id,
+            context_notes=body.context_notes,
+            referral_name=body.referral_name,
+            company_name=body.company_name,
         )
 
         return cover_letter
@@ -161,8 +161,8 @@ async def generate_cover_letter_endpoint(
 )
 @limiter.limit("10/minute")
 async def generate_cover_letter_with_critic_endpoint(
-    http_request: Request,
-    request: CoverLetterRequest,
+    request: Request,
+    body: CoverLetterRequest,
     strict_mode: bool = Query(
         default=False,
         description="If True, treat warnings as blocking issues"
@@ -212,33 +212,33 @@ async def generate_cover_letter_with_critic_endpoint(
     """
     try:
         # Validate user exists
-        user = db.query(User).filter(User.id == request.user_id).first()
+        user = db.query(User).filter(User.id == body.user_id).first()
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User {request.user_id} not found"
+                detail=f"User {body.user_id} not found"
             )
 
         # Generate cover letter
         cover_letter = await generate_cover_letter(
-            job_profile_id=request.job_profile_id,
-            user_id=request.user_id,
+            job_profile_id=body.job_profile_id,
+            user_id=body.user_id,
             db=db,
-            company_profile_id=request.company_profile_id,
-            context_notes=request.context_notes,
-            referral_name=request.referral_name,
-            company_name=request.company_name,
+            company_profile_id=body.company_profile_id,
+            context_notes=body.context_notes,
+            referral_name=body.referral_name,
+            company_name=body.company_name,
         )
 
         # Get job profile for critic evaluation
         job_profile = db.query(JobProfile).filter(
-            JobProfile.id == request.job_profile_id
+            JobProfile.id == body.job_profile_id
         ).first()
 
         if not job_profile:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Job profile {request.job_profile_id} not found"
+                detail=f"Job profile {body.job_profile_id} not found"
             )
 
         # Run critic evaluation
@@ -319,8 +319,8 @@ def _sanitize_filename(name: str) -> str:
 )
 @limiter.limit("10/minute")
 async def generate_cover_letter_docx_endpoint(
-    http_request: Request,
-    request: CoverLetterDocxRequest,
+    request: Request,
+    body: CoverLetterDocxRequest,
     recipient_name: Optional[str] = Query(
         default=None,
         description="Recipient name (default: 'Hiring Team')"
@@ -391,26 +391,26 @@ async def generate_cover_letter_docx_endpoint(
     """
     try:
         # Case 1: Pre-generated cover letter provided - skip generation and critic
-        if request.generated_cover_letter:
-            cover_letter = request.generated_cover_letter
-            user_name = request.user_name or "User"
-            user_email = request.user_email or ""
-            user_phone = request.user_phone
-            user_linkedin = request.user_linkedin
+        if body.generated_cover_letter:
+            cover_letter = body.generated_cover_letter
+            user_name = body.user_name or "User"
+            user_email = body.user_email or ""
+            user_phone = body.user_phone
+            user_linkedin = body.user_linkedin
         else:
             # Case 2: Regenerate cover letter from job_profile_id
-            if not request.job_profile_id or not request.user_id:
+            if not body.job_profile_id or not body.user_id:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Either provide generated_cover_letter or both job_profile_id and user_id"
                 )
 
             # Validate user exists and get user details
-            user = db.query(User).filter(User.id == request.user_id).first()
+            user = db.query(User).filter(User.id == body.user_id).first()
             if not user:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"User {request.user_id} not found"
+                    detail=f"User {body.user_id} not found"
                 )
             user_name = user.full_name
             user_email = user.email
@@ -419,24 +419,24 @@ async def generate_cover_letter_docx_endpoint(
 
             # Generate cover letter
             cover_letter = await generate_cover_letter(
-                job_profile_id=request.job_profile_id,
-                user_id=request.user_id,
+                job_profile_id=body.job_profile_id,
+                user_id=body.user_id,
                 db=db,
-                company_profile_id=request.company_profile_id,
-                context_notes=request.context_notes,
-                referral_name=request.referral_name,
-                company_name=request.company_name,
+                company_profile_id=body.company_profile_id,
+                context_notes=body.context_notes,
+                referral_name=body.referral_name,
+                company_name=body.company_name,
             )
 
             # Get job profile for critic evaluation
             job_profile = db.query(JobProfile).filter(
-                JobProfile.id == request.job_profile_id
+                JobProfile.id == body.job_profile_id
             ).first()
 
             if not job_profile:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Job profile {request.job_profile_id} not found"
+                    detail=f"Job profile {body.job_profile_id} not found"
                 )
 
             # Run critic evaluation
