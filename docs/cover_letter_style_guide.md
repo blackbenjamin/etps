@@ -238,12 +238,12 @@ When including a flagship project or achievement:
 
 ### Example
 ```
-"I also build hands-on AI products. Most recently, I developed a production-ready RAG system (projects.benjaminblack.consulting) that enables analysts to query financial documents with grounded, explainable responses—giving me practical insight into LLM behavior, retrieval evaluation, and AI risk considerations."
+"I also build hands-on AI products. Most recently, I developed a production-ready RAG system (benjaminblack.consulting/projects) that enables analysts to query financial documents with grounded, explainable responses—giving me practical insight into LLM behavior, retrieval evaluation, and AI risk considerations."
 ```
 
 **Note:** The example above contains an em-dash that must be replaced. Corrected version:
 ```
-"I also build hands-on AI products. Most recently, I developed a production-ready RAG system (projects.benjaminblack.consulting) that enables analysts to query financial documents with grounded, explainable responses. This gives me practical insight into LLM behavior, retrieval evaluation, and AI risk considerations."
+"I also build hands-on AI products. Most recently, I developed a production-ready RAG system (benjaminblack.consulting/projects) that enables analysts to query financial documents with grounded, explainable responses. This gives me practical insight into LLM behavior, retrieval evaluation, and AI risk considerations."
 ```
 
 ---

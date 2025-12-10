@@ -143,7 +143,7 @@ BBC_CLIENTS = [
 DEFAULT_CONTACT = {
     "email": "ben@benjaminblack.consulting",
     "phone": "617-504-5529",
-    "portfolio_url": "projects.benjaminblack.consulting",
+    "portfolio_url": "benjaminblack.consulting/projects",
     "linkedin_url": "linkedin.com/in/benjaminblack",
     "location": "Boston, MA",
 }

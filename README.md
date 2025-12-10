@@ -164,7 +164,7 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 ## Author
 
 **Benjamin Black**
-- Portfolio: [projects.benjaminblack.consulting](https://projects.benjaminblack.consulting)
+- Portfolio: [benjaminblack.consulting/projects](https://benjaminblack.consulting/projects)
 - LinkedIn: [linkedin.com/in/benjaminblack](https://linkedin.com/in/benjaminblack)
 
 ## License

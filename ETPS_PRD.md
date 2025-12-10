@@ -965,7 +965,7 @@ Target: **Portfolio polish**, with a clearly defined path to SaaS polish as time
 
 - Live demo URL (Railway + Vercel).
 - Sanitized GitHub repo with this PRD, architecture notes, and code.
-- Project page on projects.benjaminblack.consulting.
+- Project page on benjaminblack.consulting/projects.
 - Optional demo video and white-paper / case study.
 
 ### 7.7 Narrative
