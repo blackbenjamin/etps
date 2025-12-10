@@ -64,7 +64,7 @@ def get_or_create_user(db: Session) -> User:
         },
         "ai_portfolio": [
             {
-                "project_name": "Enterprise Talent Positioning System (ETPS)",
+                "project_name": "Enterprise-Grade Talent Positioning System (ETPS)",
                 "project_type": "RAG System",
                 "tech_stack": ["Python", "Claude", "Vector DB", "FastAPI"],
                 "fs_relevance": True,

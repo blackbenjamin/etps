@@ -6,7 +6,7 @@ import Providers from './providers'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'ETPS - Enterprise Talent Positioning System',
+  title: 'ETPS - Enterprise-Grade Talent Positioning System',
   description: 'AI-powered resume and cover letter tailoring system',
 }
 

@@ -105,7 +105,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 py-4">
           <h1 className="text-2xl font-bold">ETPS</h1>
           <p className="text-sm text-muted-foreground">
-            Enterprise Talent Positioning System
+            Enterprise-Grade Talent Positioning System
           </p>
         </div>
       </header>

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**ETPS (Enterprise Talent Positioning System)** is an AI-powered resume and cover letter tailoring system that optimizes job application materials for specific positions.
+**ETPS (Enterprise-Grade Talent Positioning System)** is an AI-powered resume and cover letter tailoring system that optimizes job application materials for specific positions.
 
 **Tech Stack:**
 - Backend: Python 3.13, FastAPI, SQLAlchemy, Pydantic

@@ -1,5 +1,4 @@
 {
-    "$comment": "Build timestamp: 2024-12-10T21:50:00 - force cache bust",
     "version": 2,
     "buildCommand": "npm run build",
     "devCommand": "npm run dev",

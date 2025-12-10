@@ -18,7 +18,7 @@ This is the **master configuration file** for Claude Code and defines all struct
 - Summary + tone rules  
 - LinkedIn optimization  
 
-This file is the **authoritative, single source of truth** for the Enterprise Talent Positioning System (ETPS).
+This file is the **authoritative, single source of truth** for the Enterprise-Grade Talent Positioning System (ETPS).
 
 ---
 
@@ -176,14 +176,14 @@ employment_history: [
     "engagements": [
       {
         "client": null,
-        "project_name": "Enterprise Talent Positioning System (ETPS)",
+        "project_name": "Enterprise-Grade Talent Positioning System (ETPS)",
         "project_type": "product_build",
         "date_range_label": "2025 – Present",
         "domain_tags": ["AI Strategy", "LLM Systems", "ATS", "Career Tools"],
         "tech_tags": ["Claude", "Multi-Agent", "RAG", "Vector DB"],
         "bullets": [
           {
-            "text": "Building a multi-agent Enterprise Talent Positioning System with critic loops, adaptive resume tailoring, cover-letter generation, and docx-preserving formatting.",
+            "text": "Building a multi-agent Enterprise-Grade Talent Positioning System with critic loops, adaptive resume tailoring, cover-letter generation, and docx-preserving formatting.",
             "importance": "high",
             "tags": ["ATS", "AI Systems"],
             "ai_first_choice": true
