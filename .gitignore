@@ -73,8 +73,8 @@ backend/db/migrations/backups/
 tmp/
 temp/
 
-# Claude Code
-.claude/
+# Claude Code local settings (keep commands and skills in repo)
+.claude/settings.local.json
 
 # Harvested data files (user-specific)
 harvested_*.csv

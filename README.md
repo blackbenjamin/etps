@@ -2,164 +2,171 @@
 
 An AI-Orchestrated Resume, Cover Letter, and Networking Intelligence Platform
 
+[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/Tests-711%20Passing-success)](backend/tests/)
 [![Railway Deploy](https://img.shields.io/badge/Railway-Deployed-success)](https://railway.app)
-[![Vercel Deploy](https://img.shields.io/badge/Vercel-Deployed-success)](https://projects.benjaminblack.consulting)
+[![Vercel Deploy](https://img.shields.io/badge/Vercel-Deployed-success)](https://etps.benjaminblack.consulting)
 
-## 🌐 Live Demo
+## About This Project
 
-**Production URL**: [https://projects.benjaminblack.consulting](https://projects.benjaminblack.consulting)
+ETPS is an **open source portfolio project** demonstrating AI-powered document generation and intelligent job application assistance. It showcases:
 
-## Overview
+- **LLM Orchestration** - Multi-agent architecture with Claude and GPT-4o
+- **Semantic Search** - Vector embeddings with Qdrant for skill matching
+- **Full-Stack Development** - FastAPI backend + Next.js frontend
+- **Production Deployment** - Railway, Vercel, PostgreSQL, Qdrant Cloud
+
+> **Note**: This is a portfolio/demonstration project. See [OPEN_SOURCE_STRATEGY.md](docs/OPEN_SOURCE_STRATEGY.md) for the rationale behind open-sourcing this work.
+
+## Live Demo
+
+**Production URL**: [https://etps.benjaminblack.consulting](https://etps.benjaminblack.consulting)
+
+## What It Does
 
 ETPS is a multi-agent, AI-driven system that:
-- Tailors resumes and cover letters to specific roles while preserving professional `.docx` formatting
-- Evaluates role fit and skill gaps against job descriptions using semantic vector search
-- Enriches company profiles from job descriptions
-- Surfaces company and networking intelligence (Phase 2 - Coming Soon)
-- Tracks applications and supports follow-up workflows (Phase 3 - Future)
+
+- **Tailors resumes** to specific roles while preserving professional `.docx` formatting
+- **Generates cover letters** with multiple style options and quality evaluation loops
+- **Analyzes skill gaps** using semantic vector search against job requirements
+- **Enriches company profiles** from job descriptions (industry, culture, AI maturity)
+- **Evaluates document quality** via critic agent with ATS scoring
+
+### Coming Soon
+- Hiring manager inference and warm contact identification (Phase 2)
+- Application tracking and follow-up workflows (Phase 3)
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| Backend | Python (FastAPI), SQLAlchemy, Pydantic |
+| Frontend | Next.js (TypeScript), Tailwind CSS, shadcn/ui |
+| AI Models | Claude Sonnet 4 (primary), GPT-4o (fallback) |
+| Embeddings | OpenAI text-embedding-3-small |
+| Vector Store | Qdrant (local or cloud) |
+| Database | SQLite (dev), PostgreSQL (prod) |
+| Deployment | Railway (backend), Vercel (frontend) |
 
 ## Repository Structure
 
 ```
 etps/
-├── backend/          # FastAPI backend API
-│   ├── services/     # AI agents, vector search, embeddings
-│   ├── routers/      # API endpoints
-│   ├── db/           # Database models and migrations
-│   └── tests/        # 711 passing tests
-├── frontend/         # Next.js frontend application
-├── docs/             # Documentation
-│   ├── DEPLOYMENT_WALKTHROUGH_BEGINNERS.md  # Step-by-step deployment guide
-│   ├── ENV_VARIABLES_REFERENCE.md           # Environment variables reference
-│   ├── DATABASE_MIGRATION_GUIDE.md          # SQLite to PostgreSQL migration
-│   └── IMPLEMENTATION_PLAN.md               # Sprint roadmap
-├── scripts/          # Utility scripts
-└── ETPS_PRD.md       # Product Requirements Document
+├── backend/              # FastAPI backend
+│   ├── services/         # AI agents, vector search, embeddings
+│   ├── routers/          # API endpoints
+│   ├── db/               # Database models
+│   └── tests/            # 711+ tests
+├── frontend/             # Next.js frontend
+├── docs/                 # Documentation
+│   ├── OPEN_SOURCE_STRATEGY.md   # Why this is open source
+│   ├── ARCHITECTURE.md           # System architecture
+│   ├── DATA_MODEL.md             # Database schema
+│   └── IMPLEMENTATION_PLAN.md    # Sprint roadmap
+├── .claude/              # Claude Code skills (AI-assisted development)
+├── CONTRIBUTING.md       # How to contribute
+└── ETPS_PRD.md           # Product Requirements Document
 ```
 
-## Tech Stack
-
-- **Backend:** Python (FastAPI), PostgreSQL, Qdrant Cloud
-- **Frontend:** Next.js (TypeScript), Tailwind CSS, shadcn/ui
-- **AI Models:** Claude Sonnet 4 (primary), GPT-4o (fallback)
-- **Embeddings:** OpenAI text-embedding-3-small
-- **Deployment:** Railway (backend), Vercel (frontend), Qdrant Cloud (vectors)
-
-## 🚀 Deployment
-
-### Production (Live)
-
-The application is deployed and running:
-- **Backend**: Railway (FastAPI + PostgreSQL)
-- **Frontend**: Vercel (Next.js)
-- **Vector Store**: Qdrant Cloud (free tier)
-
-**For deployment instructions**, see:
-- [`docs/DEPLOYMENT_WALKTHROUGH_BEGINNERS.md`](docs/DEPLOYMENT_WALKTHROUGH_BEGINNERS.md) - Complete beginner-friendly guide
-- [`docs/ENV_VARIABLES_REFERENCE.md`](docs/ENV_VARIABLES_REFERENCE.md) - Environment variables reference
-- [`docs/DATABASE_MIGRATION_GUIDE.md`](docs/DATABASE_MIGRATION_GUIDE.md) - Database migration guide
-
-## Getting Started (Local Development)
+## Getting Started
 
 ### Prerequisites
 
 - Python 3.11+
 - Node.js 18+
-- Qdrant (Docker or local install)
 - API Keys: Anthropic, OpenAI
+- Qdrant (Docker or cloud) - optional for full semantic search
 
-### Backend Setup
+### Quick Start
 
 ```bash
+# Clone the repository
+git clone https://github.com/benjaminblack/etps.git
+cd etps
+
+# Backend
 cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-
-# Copy environment template
-cp .env.example .env
-# Edit .env and add your API keys
-
-# Run backend
+cp .env.example .env  # Add your API keys
 uvicorn main:app --reload
-```
 
-Backend will be available at `http://localhost:8000`
-
-### Frontend Setup
-
-```bash
+# Frontend (new terminal)
 cd frontend
 npm install
-
-# Create .env.local
-echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
-echo "NEXT_PUBLIC_USER_NAME=Your Name" >> .env.local
-
-# Run frontend
+cp .env.example .env.local
 npm run dev
 ```
 
-Frontend will be available at `http://localhost:3000`
+- Backend: http://localhost:8000
+- Frontend: http://localhost:3000
+- API Docs: http://localhost:8000/docs
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed setup instructions.
 
 ### Running Tests
 
 ```bash
 cd backend
 pytest -v
-# 711 tests passing ✅
+# 711+ tests passing
 ```
 
 ## Development Status
 
-### ✅ Phase 1A: Core Quality (Complete)
+### Phase 1A: Core Quality
 - [x] Resume tailoring with semantic bullet selection
 - [x] Cover letter generation with multiple styles
 - [x] Critic agent & ATS scoring
 - [x] Skill-gap analysis with capability clustering
 - [x] Qdrant vector search integration
 - [x] Pagination-aware layout engine
-- [x] Frontend MVP with job intake UI
 
-### ✅ Phase 1B: Company Enrichment (Complete)
+### Phase 1B: Company Enrichment
 - [x] Company profile extraction from job descriptions
 - [x] Industry, size, and culture inference
 - [x] AI/data maturity assessment
 
-### ✅ Phase 1C: Deployment (Complete)
+### Phase 1C: Deployment
 - [x] Security hardening (rate limiting, CORS, SSRF prevention)
 - [x] Cloud deployment (Railway + Vercel)
 - [x] PostgreSQL migration
 - [x] Qdrant Cloud integration
 
-### 🔜 Phase 2: Company Intelligence (Planned)
+### Phase 2: Company Intelligence (Planned)
 - [ ] Hiring manager inference
 - [ ] Warm contact identification
-- [ ] Networking suggestions & outreach drafts
+- [ ] Networking suggestions
 
-### 🔮 Phase 3: Application Tracking (Future)
+### Phase 3: Application Tracking (Future)
 - [ ] Application status tracking
-- [ ] Contact management
 - [ ] Follow-up workflows
 - [ ] Multi-user authentication
 
 ## Documentation
 
-- **[Product Requirements](ETPS_PRD.md)** - Full PRD with feature specifications
-- **[Implementation Plan](docs/IMPLEMENTATION_PLAN.md)** - Sprint roadmap and progress
-- **[Deployment Guide](docs/DEPLOYMENT_WALKTHROUGH_BEGINNERS.md)** - Step-by-step deployment
-- **[Database Migration](docs/DATABASE_MIGRATION_GUIDE.md)** - SQLite to PostgreSQL migration
+| Document | Description |
+|----------|-------------|
+| [Product Requirements](ETPS_PRD.md) | Full PRD with feature specifications |
+| [Implementation Plan](docs/IMPLEMENTATION_PLAN.md) | Sprint roadmap and progress |
+| [Architecture](docs/ARCHITECTURE.md) | System design and service map |
+| [Data Model](docs/DATA_MODEL.md) | Database schema reference |
+| [Open Source Strategy](docs/OPEN_SOURCE_STRATEGY.md) | Why this project is open source |
+| [Deployment Guide](docs/DEPLOYMENT_WALKTHROUGH_BEGINNERS.md) | Step-by-step deployment |
 
-## API Documentation
+## Contributing
 
-Once running, visit:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Local development setup
+- Code style guidelines
+- Pull request process
 
 ## Author
 
-Benjamin Black
+**Benjamin Black**
+- Portfolio: [benjaminblack.consulting](https://benjaminblack.consulting)
+- LinkedIn: [linkedin.com/in/benjaminablack](https://linkedin.com/in/benjaminablack)
 
 ## License
 
-Proprietary
+This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
