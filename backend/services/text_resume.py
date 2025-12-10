@@ -99,8 +99,8 @@ def _group_skills_by_category(skills: List[SelectedSkill]) -> dict:
 
 def create_resume_text(
     tailored_resume: TailoredResume,
-    user_name: str,
-    user_email: str,
+    user_name: Optional[str] = None,
+    user_email: Optional[str] = None,
     user_phone: Optional[str] = None,
     user_linkedin: Optional[str] = None,
     user_portfolio: Optional[str] = None,
@@ -147,10 +147,13 @@ def create_resume_text(
     lines = []
 
     # === HEADER ===
-    lines.append(user_name.upper())
+    display_name = (user_name or "").upper()
+    lines.append(display_name)
 
     # Contact line with | separators
-    contact_parts = [user_email]
+    contact_parts = []
+    if user_email:
+        contact_parts.append(user_email)
     if user_phone:
         contact_parts.append(user_phone)
     if user_linkedin:

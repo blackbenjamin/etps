@@ -641,8 +641,8 @@ def _group_skills_by_category(skills: list[SelectedSkill]) -> dict[str, list[str
 
 def create_resume_docx(
     tailored_resume: TailoredResume,
-    user_name: str,
-    user_email: str,
+    user_name: Optional[str] = None,
+    user_email: Optional[str] = None,
     user_phone: Optional[str] = None,
     user_linkedin: Optional[str] = None,
     user_portfolio: Optional[str] = None,
@@ -699,7 +699,8 @@ def create_resume_docx(
     name_para = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
     name_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
     name_para.paragraph_format.space_after = Pt(4)  # Add space under name
-    name_run = name_para.add_run(user_name.upper())
+    display_name = (user_name or "").upper()
+    name_run = name_para.add_run(display_name)
     _set_run_font(name_run, FONT_NAME, FONT_SIZE_NAME, bold=True)
 
     # Contact line
@@ -708,7 +709,9 @@ def create_resume_docx(
     contact_para.paragraph_format.space_after = Pt(12)  # 12pt space after the line
 
     # Build contact parts - bullets between items, but NO bullet before portfolio (last item)
-    contact_parts = [user_email]
+    contact_parts = []
+    if user_email:
+        contact_parts.append(user_email)
     if user_phone:
         contact_parts.append(user_phone)
     if user_linkedin:

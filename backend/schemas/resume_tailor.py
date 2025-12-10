@@ -338,14 +338,13 @@ class ResumeDocxRequest(BaseModel):
         ...,
         description="The tailored resume JSON object to render as DOCX"
     )
-    user_name: str = Field(
-        ...,
-        min_length=2,
-        description="Full name for the resume header (must be real, not placeholder)"
+    user_name: Optional[str] = Field(
+        None,
+        description="Full name for the resume header"
     )
-    user_email: EmailStr = Field(
-        ...,
-        description="Email address for the resume header (must be real, not placeholder)"
+    user_email: Optional[str] = Field(
+        None,
+        description="Email address for the resume header"
     )
     user_phone: Optional[str] = Field(
         None,
@@ -383,27 +382,20 @@ class ResumeDocxRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_personal_info(self) -> "ResumeDocxRequest":
-        """Validate that personal information is real, not placeholder data."""
+        """Validate that personal information is real, not placeholder data (when provided)."""
         errors = []
 
-        # Check for placeholder names
-        name_lower = self.user_name.lower().strip()
-        if name_lower in self.PLACEHOLDER_NAMES:
-            errors.append(f"'{self.user_name}' appears to be a placeholder name. Please provide your real name.")
+        # Check for placeholder names (only if name is provided)
+        if self.user_name:
+            name_lower = self.user_name.lower().strip()
+            if name_lower in self.PLACEHOLDER_NAMES:
+                errors.append(f"'{self.user_name}' appears to be a placeholder name. Please provide your real name.")
 
-        # Check name has at least first and last name (2 parts)
-        name_parts = [p for p in self.user_name.split() if p.strip()]
-        if len(name_parts) < 2:
-            errors.append("Please provide your full name (first and last name).")
-
-        # Check for placeholder email domains
-        email_domain = self.user_email.split("@")[-1].lower()
-        if email_domain in self.PLACEHOLDER_EMAIL_DOMAINS:
-            errors.append(f"Email domain '{email_domain}' appears to be a placeholder. Please provide your real email address.")
-
-        # Require at least one contact method (phone or LinkedIn)
-        if not self.user_phone and not self.user_linkedin:
-            errors.append("Please provide at least one contact method: phone number or LinkedIn URL.")
+        # Check for placeholder email domains (only if email is provided)
+        if self.user_email and "@" in self.user_email:
+            email_domain = self.user_email.split("@")[-1].lower()
+            if email_domain in self.PLACEHOLDER_EMAIL_DOMAINS:
+                errors.append(f"Email domain '{email_domain}' appears to be a placeholder. Please provide your real email address.")
 
         if errors:
             raise ValueError(" | ".join(errors))
