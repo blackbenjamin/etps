@@ -214,8 +214,8 @@ class Bullet(Base):
     engagement: Mapped[Optional["Engagement"]] = relationship("Engagement", back_populates="bullets")
 
     # Index for semantic search and filtering
+    # Note: tags is JSON, can't use btree index (would need GIN for PostgreSQL)
     __table_args__ = (
-        Index("ix_bullets_tags", "tags"),
         Index("ix_bullets_retired", "retired"),
         Index("ix_bullets_engagement", "engagement_id"),
     )
