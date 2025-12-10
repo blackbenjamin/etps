@@ -118,7 +118,7 @@ function ClusterCard({ cluster, onKeySkillToggle, selectedKeySkills, onAddSkill 
   selectedKeySkills?: Set<string>
   onAddSkill?: (skillName: string) => void
 }) {
-  const [isExpanded, setIsExpanded] = useState(cluster.is_expanded ?? false)
+  const [isExpanded, setIsExpanded] = useState(false)
 
   const matchedCount = cluster.component_skills.filter(s => s.matched).length
   const totalCount = cluster.component_skills.length
