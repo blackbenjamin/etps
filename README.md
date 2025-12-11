@@ -3,7 +3,7 @@
 An AI-Orchestrated Resume, Cover Letter, and Networking Intelligence Platform
 
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-711%20Passing-success)](backend/tests/)
+[![Tests](https://img.shields.io/badge/Tests-753%20Passing-success)](backend/tests/)
 [![Railway Deploy](https://img.shields.io/badge/Railway-Deployed-success)](https://railway.app)
 [![Vercel Deploy](https://img.shields.io/badge/Vercel-Deployed-success)](https://etps.benjaminblack.consulting)
 
@@ -15,6 +15,7 @@ ETPS is an **open source portfolio project** demonstrating AI-powered document g
 - **Semantic Search** - Vector embeddings with Qdrant for skill matching
 - **Full-Stack Development** - FastAPI backend + Next.js frontend
 - **Production Deployment** - Railway, Vercel, PostgreSQL, Qdrant Cloud
+- **Modern UI/UX** - Enterprise design system with shadcn/ui components
 
 > **Note**: This is a portfolio/demonstration project. See [OPEN_SOURCE_STRATEGY.md](docs/OPEN_SOURCE_STRATEGY.md) for the rationale behind open-sourcing this work.
 
@@ -41,7 +42,7 @@ ETPS is a multi-agent, AI-driven system that:
 | Component | Technology |
 |-----------|------------|
 | Backend | Python (FastAPI), SQLAlchemy, Pydantic |
-| Frontend | Next.js (TypeScript), Tailwind CSS, shadcn/ui |
+| Frontend | Next.js 14 (TypeScript), Tailwind CSS, shadcn/ui |
 | AI Models | Claude Sonnet 4 (primary), GPT-4o (fallback) |
 | Embeddings | OpenAI text-embedding-3-small |
 | Vector Store | Qdrant (local or cloud) |
@@ -56,13 +57,17 @@ etps/
 │   ├── services/         # AI agents, vector search, embeddings
 │   ├── routers/          # API endpoints
 │   ├── db/               # Database models
-│   └── tests/            # 711+ tests
+│   └── tests/            # 753+ tests
 ├── frontend/             # Next.js frontend
+│   ├── src/app/          # App router pages
+│   ├── src/components/   # React components
+│   ├── src/hooks/        # Custom hooks & queries
+│   └── src/stores/       # Zustand state management
 ├── docs/                 # Documentation
-│   ├── OPEN_SOURCE_STRATEGY.md   # Why this is open source
 │   ├── ARCHITECTURE.md           # System architecture
 │   ├── DATA_MODEL.md             # Database schema
-│   └── IMPLEMENTATION_PLAN.md    # Sprint roadmap
+│   ├── IMPLEMENTATION_PLAN.md    # Sprint roadmap
+│   └── archive/                  # Completed sprint docs
 ├── .claude/              # Claude Code skills (AI-assisted development)
 ├── CONTRIBUTING.md       # How to contribute
 └── ETPS_PRD.md           # Product Requirements Document
@@ -109,12 +114,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed setup instructions.
 ```bash
 cd backend
 pytest -v
-# 711+ tests passing
+# 753+ tests passing
 ```
 
 ## Development Status
 
-### Phase 1A: Core Quality
+### Phase 1: Core Platform (Complete)
+
+#### Phase 1A: Core Quality (Sprints 1-10)
 - [x] Resume tailoring with semantic bullet selection
 - [x] Cover letter generation with multiple styles
 - [x] Critic agent & ATS scoring
@@ -122,16 +129,24 @@ pytest -v
 - [x] Qdrant vector search integration
 - [x] Pagination-aware layout engine
 
-### Phase 1B: Company Enrichment
+#### Phase 1B: Company Enrichment (Sprints 11-12)
 - [x] Company profile extraction from job descriptions
 - [x] Industry, size, and culture inference
 - [x] AI/data maturity assessment
 
-### Phase 1C: Deployment
+#### Phase 1C: Deployment (Sprints 13-14)
 - [x] Security hardening (rate limiting, CORS, SSRF prevention)
 - [x] Cloud deployment (Railway + Vercel)
 - [x] PostgreSQL migration
 - [x] Qdrant Cloud integration
+
+#### Phase 1D: UI/UX Enhancement (Sprints 15-18)
+- [x] Enterprise design system with teal accent theme
+- [x] Hero section and visual hierarchy improvements
+- [x] Information architecture with collapsible sections
+- [x] Toast notifications and loading states
+- [x] Skeleton loaders and micro-animations
+- [x] Accessibility improvements (skip links, focus states)
 
 ### Phase 2: Company Intelligence (Planned)
 - [ ] Hiring manager inference
@@ -151,8 +166,7 @@ pytest -v
 | [Implementation Plan](docs/IMPLEMENTATION_PLAN.md) | Sprint roadmap and progress |
 | [Architecture](docs/ARCHITECTURE.md) | System design and service map |
 | [Data Model](docs/DATA_MODEL.md) | Database schema reference |
-| [Open Source Strategy](docs/OPEN_SOURCE_STRATEGY.md) | Why this project is open source |
-| [Deployment Guide](docs/DEPLOYMENT_WALKTHROUGH_BEGINNERS.md) | Step-by-step deployment |
+| [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) | Production deployment guide |
 
 ## Contributing
 

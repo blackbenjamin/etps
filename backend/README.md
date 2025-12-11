@@ -2,9 +2,9 @@
 
 Backend API for the Enterprise-Grade Talent Positioning System (ETPS).
 
-**Version:** 0.1.0
-**Tests:** 711 passing
-**Phase Status:** Phase 1A-1B Complete, Phase 1C (Deployment) in progress
+**Version:** 1.0.0
+**Tests:** 753 passing
+**Status:** Phase 1 Complete (Sprints 1-18)
 
 ## Overview
 
@@ -21,7 +21,7 @@ FastAPI-based backend providing:
 - **Framework:** FastAPI (Python 3.13)
 - **Database:** SQLite (dev), PostgreSQL (production)
 - **Vector Store:** Qdrant (local or cloud)
-- **AI Models:** Claude Sonnet/Opus (primary), GPT-4o (fallback)
+- **AI Models:** Claude Sonnet 4 (primary), GPT-4o (fallback)
 - **Embeddings:** OpenAI text-embedding-3-small (384-dim)
 
 ## Project Structure
@@ -59,7 +59,7 @@ backend/
 ├── schemas/             # Pydantic request/response schemas
 ├── config/              # Configuration files
 │   └── config.yaml      # Application settings
-├── tests/               # Test suite (711 tests)
+├── tests/               # Test suite (753 tests)
 └── requirements.txt     # Python dependencies
 ```
 
@@ -161,16 +161,6 @@ Base URL: `http://localhost:8000/api/v1`
 |--------|------|-------------|
 | POST | `/enrich` | Enrich company profile with industry/culture/AI data |
 
-**POST /enrich Request:**
-```json
-{
-  "company_name": "Acme Corp",
-  "jd_text": "Job description for context...",
-  "website_url": "https://acme.com",
-  "user_id": 1
-}
-```
-
 ### Capability Endpoints (`/capability`)
 
 | Method | Path | Description |
@@ -210,13 +200,15 @@ Base URL: `http://localhost:8000/api/v1`
 | `OPENAI_API_KEY` | Yes | OpenAI API key for embeddings |
 | `DATABASE_URL` | No | Database connection (default: SQLite) |
 | `QDRANT_URL` | No | Vector store URL (default: localhost:6333) |
+| `ENVIRONMENT` | No | Environment name (development/production) |
+| `ALLOWED_ORIGINS` | No | CORS allowed origins |
 
 ### config.yaml
 
 ```yaml
 app:
   name: "ETPS"
-  version: "0.1.0"
+  version: "1.0.0"
   environment: "development"
 
 models:
@@ -260,18 +252,14 @@ from services.llm import create_llm
 llm = create_llm()  # Auto-selects based on environment
 ```
 
-## Phase Roadmap
+## Security Features
 
-```
-Phase 1A: Core Quality (Sprints 1-10)           COMPLETE
-Phase 1B: Company Enrichment (Sprints 11-12)    COMPLETE
-Phase 1C: Deployment (Sprints 13-14)            TARGET
-  - Sprint 13: Portfolio Security
-  - Sprint 14: Cloud Deployment (Railway + Vercel)
-Phase 2:  Networking (Sprints 15-17)            NOT STARTED
-Phase 3:  Application Tracking (Sprints 18+)    DEFERRED
-```
+- Rate limiting via slowapi (10 req/min for generation, 60/min for reads)
+- CORS restriction to production domain
+- SSRF prevention for URL fetching
+- Request body size limits
+- Sanitized error responses (no stack traces in production)
 
 ## License
 
-Proprietary - Benjamin Black
+MIT License - See [LICENSE](../LICENSE) for details.
