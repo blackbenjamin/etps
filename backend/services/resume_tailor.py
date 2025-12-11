@@ -1077,12 +1077,13 @@ async def tailor_resume(
                     continue
 
                 # Select best bullets for this engagement
+                # Start with generous selection - pagination system will trim if needed
                 selected_eng_bullets = select_bullets_for_role(
                     experience=experience,
                     bullets=eng_bullets,
                     job_profile=job_profile,
                     skill_gap_result=skill_gap_result,
-                    max_bullets=2,  # Tight budget - page 2 has Skills/Education
+                    max_bullets=5,  # Generous initial - pagination condenses dynamically
                 )
 
                 if selected_eng_bullets:
@@ -1233,74 +1234,145 @@ async def tailor_resume(
     )
 
     # ==========================================================================
-    # SPRINT 8C.5: PAGINATION-AWARE BULLET ALLOCATION
+    # SPRINT 8C.5: PAGINATION-AWARE BULLET ALLOCATION (Enhanced for engagements)
     # ==========================================================================
     if enable_pagination_aware and selected_roles:
         pagination_service = PaginationService()
         page_simulator = PageSplitSimulator(pagination_service)
+        config = pagination_service._config
 
         # Estimate summary and skills lines
         summary_lines = pagination_service.estimate_summary_lines(tailored_summary) if tailored_summary else 0
         skills_lines = pagination_service.estimate_skills_lines([s.skill for s in selected_skills])
 
-        # Build roles structure for simulation
+        # Reserve space for education section (typically on page 2)
+        education_lines = config.get('education_lines', 4)
+
+        # Build roles structure for simulation - INCLUDING ENGAGEMENT BULLETS
         role_structures = []
-        for role in selected_roles:
+        for role_idx, role in enumerate(selected_roles):
             bullets_info = []
+
+            # Add direct bullets
             for bullet in role.selected_bullets:
                 line_cost = pagination_service.estimate_bullet_lines(bullet.text)
-                bullets_info.append({'text': bullet.text, 'lines': line_cost})
+                bullets_info.append({
+                    'text': bullet.text,
+                    'lines': line_cost,
+                    'relevance_score': bullet.relevance_score,
+                    'source': 'direct',
+                    'engagement_idx': None
+                })
+
+            # Add engagement bullets (consulting roles)
+            for eng_idx, eng in enumerate(role.selected_engagements):
+                # Add engagement header line (client/project name)
+                engagement_header_lines = 1
+                bullets_info.append({
+                    'text': f'[engagement:{eng.client}]',
+                    'lines': engagement_header_lines,
+                    'relevance_score': 1.0,  # Header always kept
+                    'source': 'engagement_header',
+                    'engagement_idx': eng_idx
+                })
+
+                for bullet in eng.selected_bullets:
+                    line_cost = pagination_service.estimate_bullet_lines(bullet.text)
+                    bullets_info.append({
+                        'text': bullet.text,
+                        'lines': line_cost,
+                        'relevance_score': bullet.relevance_score,
+                        'source': 'engagement',
+                        'engagement_idx': eng_idx
+                    })
 
             role_structures.append({
                 'experience_id': role.experience_id,
                 'job_header_lines': pagination_service.get_job_header_lines(),
-                'bullets': bullets_info
+                'bullets': bullets_info,
+                'role_idx': role_idx
             })
 
-        # Simulate page layout
-        layout = page_simulator.simulate_page_layout(summary_lines, skills_lines, role_structures)
+        # Simulate page layout (accounting for education on page 2)
+        layout = page_simulator.simulate_page_layout(
+            summary_lines,
+            skills_lines + education_lines,  # Skills + education on page 2
+            role_structures
+        )
 
         # If layout overflows, apply condensation strategy
         if not layout.fits_in_budget:
-            # Get condensation suggestions for older roles
-            config = pagination_service._config
             min_bullets = config.get('min_bullets_per_role', 2)
             overflow_lines = layout.total_lines - pagination_service.get_total_budget()
 
             if config.get('condense_older_roles', True) and overflow_lines > 0:
-                condensation_suggestions = page_simulator.suggest_condensation(
-                    role_structures,
-                    target_reduction_lines=overflow_lines,
-                    min_bullets_per_role=min_bullets
-                )
+                # Apply dynamic condensation based on available space
+                lines_to_save = overflow_lines
+                condensed_roles = []
 
-                # Apply condensation by trimming bullets from suggested roles
-                for suggestion in condensation_suggestions:
-                    role_idx = suggestion.get('role_index')
-                    target_bullet_count = suggestion.get('suggested_bullets', 0)
-
-                    # Validate suggestion values
-                    if role_idx is None or not isinstance(role_idx, int):
-                        continue
-                    if target_bullet_count <= 0:
-                        continue
-                    if role_idx < 0 or role_idx >= len(selected_roles):
-                        continue
+                # Process roles from oldest to newest
+                for role_idx in range(len(selected_roles) - 1, -1, -1):
+                    if lines_to_save <= 0:
+                        break
 
                     role = selected_roles[role_idx]
-                    if len(role.selected_bullets) > target_bullet_count:
-                        # Keep highest-scoring bullets
+
+                    # Condense engagement bullets first (page 2 content)
+                    for eng in role.selected_engagements:
+                        if lines_to_save <= 0:
+                            break
+
+                        current_count = len(eng.selected_bullets)
+                        if current_count > min_bullets:
+                            # Sort by relevance, keep best
+                            eng.selected_bullets = sorted(
+                                eng.selected_bullets,
+                                key=lambda b: b.relevance_score,
+                                reverse=True
+                            )
+
+                            # Calculate how many to keep
+                            target = max(min_bullets, current_count - 1)
+                            removed = eng.selected_bullets[target:]
+                            lines_saved = sum(
+                                pagination_service.estimate_bullet_lines(b.text)
+                                for b in removed
+                            )
+
+                            eng.selected_bullets = eng.selected_bullets[:target]
+                            lines_to_save -= lines_saved
+
+                            if target < current_count:
+                                condensed_roles.append(f"eng:{eng.client}:{current_count}->{target}")
+
+                    # Then condense direct bullets
+                    if lines_to_save > 0 and len(role.selected_bullets) > min_bullets:
+                        current_count = len(role.selected_bullets)
                         role.selected_bullets = sorted(
                             role.selected_bullets,
                             key=lambda b: b.relevance_score,
                             reverse=True
-                        )[:target_bullet_count]
+                        )
+
+                        target = max(min_bullets, current_count - 1)
+                        removed = role.selected_bullets[target:]
+                        lines_saved = sum(
+                            pagination_service.estimate_bullet_lines(b.text)
+                            for b in removed
+                        )
+
+                        role.selected_bullets = role.selected_bullets[:target]
+                        lines_to_save -= lines_saved
+
+                        if target < current_count:
+                            condensed_roles.append(f"role:{role.experience_id}:{current_count}->{target}")
 
                 # Log condensation action
-                logger.info(
-                    f"Pagination-aware condensation applied: reduced {len(condensation_suggestions)} "
-                    f"role(s) to fit 2-page budget"
-                )
+                if condensed_roles:
+                    logger.info(
+                        f"Pagination-aware condensation applied: {condensed_roles}, "
+                        f"saved ~{overflow_lines - lines_to_save} lines to fit 2-page budget"
+                    )
 
     # Build comprehensive rationale
     # Calculate total bullets across direct bullets and engagement bullets

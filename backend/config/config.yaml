@@ -165,6 +165,7 @@ pagination:
   # Summary and skills section budgets
   max_summary_lines: 4         # Target max lines for professional summary
   max_skills_lines: 3          # Target max lines for skills section
+  education_lines: 4           # Fixed line budget for education section (page 2)
 
   # Page split rules
   min_bullets_after_job_header: 2  # If fewer would fit, move job to next page
