@@ -426,32 +426,36 @@ def _build_three_category_prompt(
 SKILLS TO CATEGORIZE:
 {skills_list}
 
-TASK: Organize these skills into EXACTLY 3 categories with smart, role-specific names.
+TASK: Organize these skills into 2-3 COHERENT categories. Quality over quantity.
 
-REQUIREMENTS:
-1. Create EXACTLY 3 category names that are:
-   - Specific to the "{job_title}" role (not generic names like "Technical Skills")
-   - Professional and concise (15-35 characters ideal, e.g., "Payments & FinTech", "AI & Strategy")
-   - Descriptive of the skills grouped within them
+CRITICAL RULES:
+1. **Category coherence is paramount** - Only group skills that genuinely belong together
+   - BAD: "Risk & Compliance: PCI DSS, Marketing, International" (Marketing doesn't fit)
+   - GOOD: "Compliance & Security: PCI DSS, Risk Management, Fraud Prevention"
 
-2. Assign each skill to the most appropriate category
-   - Each skill must appear in exactly ONE category
-   - Use ONLY skills from the provided list - do NOT add or invent any skills
+2. Category names should be:
+   - Specific to the "{job_title}" role
+   - Professional and concise (15-35 characters)
+   - Accurately describe ALL skills in that category
 
-3. Order categories by relevance to "{job_title}":
-   - relevance_rank=1: Most critical domain-specific skills for this role
-   - relevance_rank=2: Supporting technical skills
-   - relevance_rank=3: General/transferable professional skills
+3. If a skill doesn't fit any category well, either:
+   - Create a category like "Business Skills" or "Additional Expertise" for misc items
+   - OR leave it in a broader relevant category where it loosely fits
 
-EXAMPLES:
-- For "Senior Payments Engineer": "Payments & FinTech", "Cloud & Infrastructure", "Business & Tools"
-- For "Data Scientist": "AI & Machine Learning", "Data Engineering", "Programming & Tools"
-- For "Solution Consultant": "Industry Expertise", "Technical Skills", "Business Development"
+4. Use ONLY skills from the provided list - do NOT add or invent any skills
+
+5. Order categories by relevance (relevance_rank 1 = most critical for the role)
+
+GOOD EXAMPLES:
+- "AI & Machine Learning": AI, Machine Learning, NLP, LLM (all genuinely AI-related)
+- "Consulting & Strategy": Consulting, Business Development, Problem Solving, Digital Transformation
+- "Payments & FinTech": PCI DSS, Fraud Detection, ACH, Card Processing
+- "Business Skills": Marketing, International, Segment, Communication (misc business skills)
 
 Return ONLY a JSON object:
 {{
   "categories": [
-    {{"category_name": "Category Name Here", "skills": ["skill1", "skill2"], "relevance_rank": 1}},
+    {{"category_name": "Category Name", "skills": ["skill1", "skill2"], "relevance_rank": 1}},
     {{"category_name": "Second Category", "skills": ["skill3", "skill4"], "relevance_rank": 2}},
     {{"category_name": "Third Category", "skills": ["skill5"], "relevance_rank": 3}}
   ]
