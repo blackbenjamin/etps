@@ -148,7 +148,7 @@ company_enrichment:
 pagination:
   # Page capacity in estimated lines
   page1_line_budget: 52        # Page 1 has less space (header, contact info)
-  page2_line_budget: 55        # Page 2 budget (controls prioritization, not hard limits)
+  page2_line_budget: 51        # Page 2 budget - reduced to prevent overflow
 
   # Character count per line for bullet text estimation
   chars_per_line_estimate: 75  # Based on typical resume font/margin settings
