@@ -1082,7 +1082,7 @@ async def tailor_resume(
                     bullets=eng_bullets,
                     job_profile=job_profile,
                     skill_gap_result=skill_gap_result,
-                    max_bullets=3,  # Fewer bullets per engagement
+                    max_bullets=2,  # Tight budget - page 2 has Skills/Education
                 )
 
                 if selected_eng_bullets:
