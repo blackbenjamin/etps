@@ -121,7 +121,12 @@ export function JobIntakeForm({ onJobParsed }: JobIntakeFormProps) {
 
   // Allow parsing if JD text is 50+ chars OR if a valid URL is provided
   // Accept URLs with or without protocol (http://, https://, or just domain)
-  const hasValidUrl = sourceUrl.trim().length > 0 && /^(https?:\/\/)?[\w.-]+\.\w{2,}(\/.*)?$/.test(sourceUrl.trim())
+  // Security: limit URL length to prevent ReDoS attacks
+  const MAX_URL_LENGTH = 2048
+  const trimmedUrl = sourceUrl.trim()
+  const hasValidUrl = trimmedUrl.length > 0 &&
+    trimmedUrl.length <= MAX_URL_LENGTH &&
+    /^(https?:\/\/)?[\w.-]+\.\w{2,}(\/.*)?$/.test(trimmedUrl)
   const hasValidText = jdText.trim().length >= 50
   const canParse = hasValidText || hasValidUrl
 
