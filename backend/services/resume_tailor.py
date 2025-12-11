@@ -1293,11 +1293,15 @@ async def tailor_resume(
                 'role_idx': role_idx
             })
 
-        # Simulate page layout (accounting for education on page 2)
+        # Simulate page layout
+        # Note: In our resume structure, Skills and Education are at the BOTTOM of page 2
+        # So we pass them as page2_footer_lines (not skills_lines which is for page 1)
+        page2_footer = skills_lines + education_lines
         layout = page_simulator.simulate_page_layout(
             summary_lines,
-            skills_lines + education_lines,  # Skills + education on page 2
-            role_structures
+            0,  # No skills on page 1 - they're at bottom of page 2
+            role_structures,
+            page2_footer_lines=page2_footer  # Reserve space for skills + education at bottom of page 2
         )
 
         # If layout overflows, apply condensation strategy

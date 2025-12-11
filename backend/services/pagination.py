@@ -392,26 +392,35 @@ class PageSplitSimulator:
         self,
         summary_lines: int,
         skills_lines: int,
-        roles: List[Dict[str, Any]]  # [{experience_id, job_header_lines, bullets: [{text, lines}]}]
+        roles: List[Dict[str, Any]],  # [{experience_id, job_header_lines, bullets: [{text, lines}]}]
+        page2_footer_lines: int = 0   # Lines reserved at bottom of page 2 (skills, education)
     ) -> ResumeLayout:
         """
         Simulate filling Page 1 and Page 2 with resume sections.
 
-        Order: Summary -> Skills -> Experience (each role with its bullets)
+        Order: Summary -> Skills (if on page 1) -> Experience (each role with its bullets)
+
+        Note: If skills/education are at the bottom of page 2 (not page 1),
+        pass skills_lines=0 and use page2_footer_lines to reserve that space.
 
         Returns ResumeLayout with page allocations and any violations.
 
         Args:
             summary_lines: Lines consumed by professional summary
-            skills_lines: Lines consumed by skills section
+            skills_lines: Lines consumed by skills section ON PAGE 1
             roles: List of role dicts with experience_id, job_header_lines,
                    and bullets list [{text, lines}]
+            page2_footer_lines: Lines reserved at bottom of page 2 (skills, education)
 
         Returns:
             ResumeLayout with page1, page2 layouts and violations
         """
         page1_budget = self.pg.get_page1_budget()
         page2_budget = self.pg.get_page2_budget()
+
+        # Reserve space on page 2 for footer sections (skills, education)
+        # This effectively reduces available space for experience on page 2
+        effective_page2_budget = page2_budget - page2_footer_lines
 
         violations = []
         page1_roles = []
@@ -495,9 +504,10 @@ class PageSplitSimulator:
                 f"Page 1 overflow: {lines_used_page1} lines used, {page1_budget} available"
             )
 
-        if lines_used_page2 > page2_budget:
+        if lines_used_page2 > effective_page2_budget:
             violations.append(
-                f"Page 2 overflow: {lines_used_page2} lines used, {page2_budget} available"
+                f"Page 2 overflow: {lines_used_page2} lines used, "
+                f"{effective_page2_budget} available (reserved {page2_footer_lines} for footer)"
             )
 
         # Build page layouts
@@ -510,13 +520,13 @@ class PageSplitSimulator:
 
         page2 = PageLayout(
             lines_used=lines_used_page2,
-            lines_available=page2_budget,
+            lines_available=effective_page2_budget,  # Use effective budget
             roles=page2_roles,
             violations=[v for v in violations if 'Page 2' in v]
         )
 
         total_lines = lines_used_page1 + lines_used_page2
-        total_budget = page1_budget + page2_budget
+        total_budget = page1_budget + effective_page2_budget  # Use effective budget
         fits_in_budget = total_lines <= total_budget and len(violations) == 0
 
         return ResumeLayout(
