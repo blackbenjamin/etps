@@ -1,16 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { JobIntakeForm } from '@/components/job-intake'
 import { GenerateButtons, ResultsPanel } from '@/components/generation'
 import { ATSScoreCard } from '@/components/analysis'
 import { SkillSelectionPanel } from '@/components/skills'
 import { CapabilityClusterPanel } from '@/components/capability/CapabilityClusterPanel'
+import { HeroSection } from '@/components/hero'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Pencil, Check } from 'lucide-react'
+import { Pencil, Check, Briefcase, Building2, MapPin, Award } from 'lucide-react'
 import { useJobStore } from '@/stores/job-store'
 import { useGenerationStore } from '@/stores/generation-store'
 import { useSkillGapAnalysis, useCapabilityClusterAnalysis } from '@/hooks/queries'
@@ -26,6 +27,14 @@ function getJobId(job: JobProfile | null): number | null {
 export default function Home() {
   const { currentJob, setCurrentJob, setSkillGapAnalysis } = useJobStore()
   const { resume, coverLetter } = useGenerationStore()
+
+  // Ref for scrolling to intake form
+  const intakeFormRef = useRef<HTMLDivElement>(null)
+
+  // Handler for hero CTA clicks
+  const handleGetStarted = () => {
+    intakeFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   // Editable fields state
   const [editingCompany, setEditingCompany] = useState(false)
@@ -127,50 +136,66 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Hero Section - Show when no job loaded */}
+      {!currentJob && (
+        <HeroSection onGetStarted={handleGetStarted} />
+      )}
+
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Column: Input & Generation - Sticky on large screens */}
           <div className="space-y-6 lg:sticky lg:top-[85px] lg:self-start lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto">
-            <JobIntakeForm />
+            <div ref={intakeFormRef}>
+              <JobIntakeForm />
+            </div>
 
             {currentJob && (
               <>
-                {/* Job Details Card */}
-                <Card>
-                  <CardHeader>
+                {/* Job Details Card - Redesigned */}
+                <Card className="overflow-hidden border-l-4 border-l-teal-500">
+                  <CardHeader className="pb-3 bg-gradient-to-r from-muted/50 to-transparent">
                     <CardTitle className="flex items-center justify-between">
-                      <span>Job Details</span>
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-teal-100 dark:bg-teal-900/30">
+                          <Briefcase className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                        </div>
+                        <span>Job Details</span>
+                      </div>
                       {currentJob.seniority && (
-                        <Badge variant="outline">{currentJob.seniority}</Badge>
+                        <Badge className="bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-900/30 dark:text-teal-300">
+                          {currentJob.seniority}
+                        </Badge>
                       )}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-muted-foreground">Title</p>
+                  <CardContent className="pt-4 space-y-4 text-sm">
+                    {/* Title Field */}
+                    <div className="flex items-start gap-3">
+                      <Award className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Position</p>
                         {editingJobTitle ? (
                           <div className="flex items-center gap-1">
                             <Input
                               value={jobTitleInput}
                               onChange={(e) => setJobTitleInput(e.target.value)}
                               placeholder="Enter job title"
-                              className="h-7 text-sm"
+                              className="h-8 text-sm"
                               onKeyDown={(e) => e.key === 'Enter' && handleSaveJobTitle()}
                               autoFocus
                             />
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleSaveJobTitle}>
-                              <Check className="h-4 w-4" />
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-teal-100 dark:hover:bg-teal-900/30" onClick={handleSaveJobTitle}>
+                              <Check className="h-4 w-4 text-teal-600" />
                             </Button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1">
-                            <p className="font-medium">{currentJob.job_title || 'Unknown Position'}</p>
+                          <div className="flex items-center gap-1 group">
+                            <p className="font-medium truncate">{currentJob.job_title || 'Unknown Position'}</p>
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-teal-600"
                               onClick={() => {
                                 setJobTitleInput(currentJob.job_title || '')
                                 setEditingJobTitle(true)
@@ -181,29 +206,34 @@ export default function Home() {
                           </div>
                         )}
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">Company</p>
+                    </div>
+
+                    {/* Company Field */}
+                    <div className="flex items-start gap-3">
+                      <Building2 className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Company</p>
                         {editingCompany ? (
                           <div className="flex items-center gap-1">
                             <Input
                               value={companyNameInput}
                               onChange={(e) => setCompanyNameInput(e.target.value)}
                               placeholder="Enter company name"
-                              className="h-7 text-sm"
+                              className="h-8 text-sm"
                               onKeyDown={(e) => e.key === 'Enter' && handleSaveCompanyName()}
                               autoFocus
                             />
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleSaveCompanyName}>
-                              <Check className="h-4 w-4" />
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-teal-100 dark:hover:bg-teal-900/30" onClick={handleSaveCompanyName}>
+                              <Check className="h-4 w-4 text-teal-600" />
                             </Button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1">
-                            <p className="font-medium">{currentJob.company_name || 'Not specified'}</p>
+                          <div className="flex items-center gap-1 group">
+                            <p className="font-medium truncate">{currentJob.company_name || 'Not specified'}</p>
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-teal-600"
                               onClick={() => {
                                 setCompanyNameInput(currentJob.company_name || '')
                                 setEditingCompany(true)
@@ -214,29 +244,34 @@ export default function Home() {
                           </div>
                         )}
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">Location</p>
+                    </div>
+
+                    {/* Location Field */}
+                    <div className="flex items-start gap-3">
+                      <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Location</p>
                         {editingLocation ? (
                           <div className="flex items-center gap-1">
                             <Input
                               value={locationInput}
                               onChange={(e) => setLocationInput(e.target.value)}
                               placeholder="Enter location"
-                              className="h-7 text-sm"
+                              className="h-8 text-sm"
                               onKeyDown={(e) => e.key === 'Enter' && handleSaveLocation()}
                               autoFocus
                             />
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleSaveLocation}>
-                              <Check className="h-4 w-4" />
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-teal-100 dark:hover:bg-teal-900/30" onClick={handleSaveLocation}>
+                              <Check className="h-4 w-4 text-teal-600" />
                             </Button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1">
-                            <p className="font-medium">{currentJob.location || 'Not specified'}</p>
+                          <div className="flex items-center gap-1 group">
+                            <p className="font-medium truncate">{currentJob.location || 'Not specified'}</p>
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-teal-600"
                               onClick={() => {
                                 setLocationInput(currentJob.location || '')
                                 setEditingLocation(true)
@@ -247,24 +282,30 @@ export default function Home() {
                           </div>
                         )}
                       </div>
-                      {currentJob.extracted_skills && currentJob.extracted_skills.length > 0 && (
-                        <div className="col-span-2">
-                          <p className="text-muted-foreground mb-1">Key Skills</p>
-                          <div className="flex flex-wrap gap-1">
-                            {currentJob.extracted_skills.slice(0, 8).map((skill, idx) => (
-                              <Badge key={idx} variant="secondary" className="text-xs">
-                                {skill}
-                              </Badge>
-                            ))}
-                            {currentJob.extracted_skills.length > 8 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{currentJob.extracted_skills.length - 8} more
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      )}
                     </div>
+
+                    {/* Key Skills */}
+                    {currentJob.extracted_skills && currentJob.extracted_skills.length > 0 && (
+                      <div className="pt-2 border-t">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Key Skills</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {currentJob.extracted_skills.slice(0, 8).map((skill, idx) => (
+                            <Badge
+                              key={idx}
+                              variant="secondary"
+                              className="text-xs bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+                            >
+                              {skill}
+                            </Badge>
+                          ))}
+                          {currentJob.extracted_skills.length > 8 && (
+                            <Badge variant="outline" className="text-xs text-muted-foreground">
+                              +{currentJob.extracted_skills.length - 8} more
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 

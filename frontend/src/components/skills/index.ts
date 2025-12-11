@@ -1,3 +1,5 @@
 export { SkillRow } from './SkillRow'
 export { SkillSelectionPanel } from './SkillSelectionPanel'
+export { SkillGroup } from './SkillGroup'
 export type { SkillRowData } from './SkillRow'
+export type { SkillGroupType } from './SkillGroup'

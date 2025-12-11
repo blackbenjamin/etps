@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -16,12 +16,15 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { AlertCircle, Loader2, Save, CheckCircle2, RefreshCw } from 'lucide-react'
+import { AlertCircle, Loader2, Save, CheckCircle2, RefreshCw, Target, ChevronDown, ChevronUp } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { SkillRow, type SkillRowData } from './SkillRow'
+import { SkillGroup, type SkillGroupType } from './SkillGroup'
 import { SkillEvidenceModal } from '@/components/capability/SkillEvidenceModal'
+import { SkillSelectionPanelSkeleton } from '@/components/skeletons'
 import { updateSkillSelection, api } from '@/lib/api'
 import type { SkillGapResponse, ExperienceWithDetails, EvidenceMapping, AddUserSkillRequest } from '@/types'
 
@@ -32,12 +35,24 @@ interface SkillSelectionPanelProps {
   onSaved?: () => void
 }
 
+// Categorize skill by match percentage
+function getSkillGroup(match_pct: number): SkillGroupType {
+  if (match_pct >= 70) return 'matched'
+  if (match_pct >= 40) return 'partial'
+  return 'missing'
+}
+
 export function SkillSelectionPanel({ jobProfileId, analysis, isLoading, onSaved }: SkillSelectionPanelProps) {
   const [skills, setSkills] = useState<SkillRowData[]>([])
   const [keySkills, setKeySkills] = useState<Set<string>>(new Set())
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
+
+  // Track expanded groups
+  const [expandedGroups, setExpandedGroups] = useState<Set<SkillGroupType>>(
+    () => new Set<SkillGroupType>(['matched', 'partial']) // Matched and partial expanded by default
+  )
 
   // State for "I have this" modal
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null)
@@ -120,6 +135,25 @@ export function SkillSelectionPanel({ jobProfileId, analysis, isLoading, onSaved
         .finally(() => setIsLoadingExperiences(false))
     }
   }, [isModalOpen])
+
+  // Group skills by match type
+  const groupedSkills = useMemo(() => {
+    const matched: SkillRowData[] = []
+    const partial: SkillRowData[] = []
+    const missing: SkillRowData[] = []
+
+    for (const skill of skills.filter(s => s.included)) {
+      const group = getSkillGroup(skill.match_pct)
+      if (group === 'matched') matched.push(skill)
+      else if (group === 'partial') partial.push(skill)
+      else missing.push(skill)
+    }
+
+    return { matched, partial, missing }
+  }, [skills])
+
+  const totalIncluded = skills.filter(s => s.included).length
+  const removedSkills = skills.filter(s => !s.included)
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -261,17 +295,26 @@ export function SkillSelectionPanel({ jobProfileId, analysis, isLoading, onSaved
     }
   }
 
+  // Toggle group expansion
+  const toggleGroup = (group: SkillGroupType) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(group)) {
+        next.delete(group)
+      } else {
+        next.add(group)
+      }
+      return next
+    })
+  }
+
+  // Expand/collapse all
+  const expandAll = () => setExpandedGroups(new Set<SkillGroupType>(['matched', 'partial', 'missing']))
+  const collapseAll = () => setExpandedGroups(new Set<SkillGroupType>())
+  const allExpanded = expandedGroups.size === 3
+
   if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            Loading Skills...
-          </CardTitle>
-        </CardHeader>
-      </Card>
-    )
+    return <SkillSelectionPanelSkeleton />
   }
 
   if (!analysis || skills.length === 0) {
@@ -280,46 +323,89 @@ export function SkillSelectionPanel({ jobProfileId, analysis, isLoading, onSaved
 
   const keySkillCount = keySkills.size
   const needsMoreKeySkills = keySkillCount < 3
-  const includedSkills = skills.filter((s) => s.included)
-  const removedSkills = skills.filter((s) => !s.included)
 
   return (
     <>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Skills for This Application</CardTitle>
-            <CardDescription>
-              Drag to reorder by priority. Check 3-4 key skills for cover letter focus.
-            </CardDescription>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-teal-100 dark:bg-teal-900/30">
+              <Target className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+            </div>
+            <div>
+              <CardTitle>Skills for This Application</CardTitle>
+              <CardDescription>
+                Drag to reorder by priority. Check 3-4 key skills for cover letter focus.
+              </CardDescription>
+            </div>
           </div>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : saveSuccess ? (
-              <>
-                <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
-                Saved
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Save
-              </>
-            )}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={allExpanded ? collapseAll : expandAll}
+              className="text-xs"
+            >
+              {allExpanded ? (
+                <>
+                  <ChevronUp className="h-3 w-3 mr-1" />
+                  Collapse All
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-3 w-3 mr-1" />
+                  Expand All
+                </>
+              )}
+            </Button>
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : saveSuccess ? (
+                <>
+                  <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
+                  Saved
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Summary badges */}
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline" className="border-success/30 text-success">
+            <CheckCircle2 className="h-3 w-3 mr-1" />
+            {groupedSkills.matched.length} Matched
+          </Badge>
+          <Badge variant="outline" className="border-warning/30 text-warning">
+            <AlertCircle className="h-3 w-3 mr-1" />
+            {groupedSkills.partial.length} Partial
+          </Badge>
+          <Badge variant="outline" className="border-destructive/30 text-destructive">
+            {groupedSkills.missing.length} Missing
+          </Badge>
+          {keySkillCount > 0 && (
+            <Badge variant="secondary">
+              {keySkillCount}/4 Key Skills
+            </Badge>
+          )}
+        </div>
+
         {/* Warning about key skills */}
         {needsMoreKeySkills && (
-          <Alert variant="default">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
+          <Alert variant="default" className="bg-teal-50/50 border-teal-200 dark:bg-teal-950/20 dark:border-teal-800">
+            <AlertCircle className="h-4 w-4 text-teal-600" />
+            <AlertDescription className="text-teal-800 dark:text-teal-200">
               {keySkillCount}/4 key skills selected. Select 3-4 skills to emphasize in your cover letter.
             </AlertDescription>
           </Alert>
@@ -327,9 +413,9 @@ export function SkillSelectionPanel({ jobProfileId, analysis, isLoading, onSaved
 
         {/* Save success */}
         {saveSuccess && (
-          <Alert className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-800 dark:text-green-200">
+          <Alert className="bg-success/10 border-success/20">
+            <CheckCircle2 className="h-4 w-4 text-success" />
+            <AlertDescription className="text-success">
               Skill selections saved! Generate your resume or cover letter to use these preferences.
             </AlertDescription>
           </Alert>
@@ -343,28 +429,97 @@ export function SkillSelectionPanel({ jobProfileId, analysis, isLoading, onSaved
           </Alert>
         )}
 
-        {/* Draggable skill list */}
+        {/* Grouped skill lists */}
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <SortableContext
-            items={includedSkills.map((s) => s.skill)}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="space-y-2">
-              {includedSkills.map((skill) => (
-                <SkillRow
-                  key={skill.skill}
-                  data={skill}
-                  onToggleKey={handleToggleKey}
-                  onRemove={handleRemove}
-                  onAddSkill={handleAddSkill}
-                />
-              ))}
-            </div>
-          </SortableContext>
+          <div className="space-y-3">
+            {/* Matched Skills Group */}
+            {groupedSkills.matched.length > 0 && (
+              <SkillGroup
+                type="matched"
+                count={groupedSkills.matched.length}
+                total={totalIncluded}
+                isExpanded={expandedGroups.has('matched')}
+                onToggle={() => toggleGroup('matched')}
+              >
+                <SortableContext
+                  items={groupedSkills.matched.map((s) => s.skill)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {groupedSkills.matched.map((skill) => (
+                      <SkillRow
+                        key={skill.skill}
+                        data={skill}
+                        onToggleKey={handleToggleKey}
+                        onRemove={handleRemove}
+                        onAddSkill={handleAddSkill}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </SkillGroup>
+            )}
+
+            {/* Partial Matches Group */}
+            {groupedSkills.partial.length > 0 && (
+              <SkillGroup
+                type="partial"
+                count={groupedSkills.partial.length}
+                total={totalIncluded}
+                isExpanded={expandedGroups.has('partial')}
+                onToggle={() => toggleGroup('partial')}
+              >
+                <SortableContext
+                  items={groupedSkills.partial.map((s) => s.skill)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {groupedSkills.partial.map((skill) => (
+                      <SkillRow
+                        key={skill.skill}
+                        data={skill}
+                        onToggleKey={handleToggleKey}
+                        onRemove={handleRemove}
+                        onAddSkill={handleAddSkill}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </SkillGroup>
+            )}
+
+            {/* Missing Skills Group */}
+            {groupedSkills.missing.length > 0 && (
+              <SkillGroup
+                type="missing"
+                count={groupedSkills.missing.length}
+                total={totalIncluded}
+                isExpanded={expandedGroups.has('missing')}
+                onToggle={() => toggleGroup('missing')}
+              >
+                <SortableContext
+                  items={groupedSkills.missing.map((s) => s.skill)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {groupedSkills.missing.map((skill) => (
+                      <SkillRow
+                        key={skill.skill}
+                        data={skill}
+                        onToggleKey={handleToggleKey}
+                        onRemove={handleRemove}
+                        onAddSkill={handleAddSkill}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </SkillGroup>
+            )}
+          </div>
         </DndContext>
 
         {/* Removed skills (collapsed) */}

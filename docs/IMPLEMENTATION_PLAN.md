@@ -6,13 +6,13 @@
 
 ## Current Status
 
-**Completed:** Phase 1A + Phase 1B + Phase 1C (Sprints 1-14)
+**Completed:** Phase 1A + Phase 1B + Phase 1C + Phase 1D (Sprints 1-18) - FULL PHASE 1 COMPLETE!
 
 **Live URLs:**
 - Frontend: https://etps.benjaminblack.consulting
 - Backend: https://etps-production.up.railway.app
 
-**Next Up:** Phase 2 - Company Intelligence & Networking (Sprints 15-17)
+**Next Up:** Phase 2 - Company Intelligence & Networking (Sprints 19-21)
 
 **Tests:** 700 passing
 
@@ -27,16 +27,20 @@
 | Sprints 1-10 | Phase 1A | Done | Core Quality, Schema, LLM, Vector Search, Frontend MVP |
 | Sprints 11-12 | Phase 1B | Done | Company Profile Enrichment |
 | Sprint 13: Portfolio Security | Phase 1C | Done | Rate limiting, CORS, SSRF prevention, security headers |
-| **Sprint 14: Cloud Deployment** | **Phase 1C** | **Done** | **Railway + Vercel deployment** |
-| Sprints 15-17: Company Intelligence | Phase 2 | Not Started | Hiring Manager Inference, Warm Contacts, Outreach |
-| Sprints 18+: Application Tracking | Phase 3 | Deferred | Tracking, Reminders, Full Auth |
+| Sprint 14: Cloud Deployment | Phase 1C | Done | Railway + Vercel deployment |
+| Sprint 15: Design System | Phase 1D | Done | Enterprise theme, design tokens, CircularProgress |
+| Sprint 16: Hero & Visual Hierarchy | Phase 1D | Done | Hero state, ATS dashboard, page layout |
+| Sprint 17: Info Architecture | Phase 1D | Done | Collapsibles, skill grouping, ResultsPreview |
+| Sprint 18: Polish & Animations | Phase 1D | Done | Toast notifications, skeletons, animations, a11y |
+| Sprints 19-21: Company Intelligence | Phase 2 | Not Started | Hiring Manager Inference, Warm Contacts, Outreach |
+| Sprints 22+: Application Tracking | Phase 3 | Deferred | Tracking, Reminders, Full Auth |
 
 ---
 
 ## Phase Overview (Aligned with PRD Section 7.2)
 
 ```
-Phase 1: Core (Sprints 1-14)                            COMPLETE
+Phase 1: Core (Sprints 1-18)                            COMPLETE
   Phase 1A: Core Quality (Sprints 1-10)                 COMPLETE
     - Resume Tailoring & Cover Letter Generation
     - Critic Agent & ATS Scoring
@@ -57,12 +61,19 @@ Phase 1: Core (Sprints 1-14)                            COMPLETE
     - Cloud Deployment - Railway + Vercel (Sprint 14)
     - Live at: https://etps.benjaminblack.consulting
 
-Phase 2: Company Intelligence & Networking (Sprints 15-17)  NOT STARTED
+  Phase 1D: UI/UX Enhancement (Sprints 15-18)           COMPLETE
+    - Design System & Enterprise Theme (Sprint 15)      COMPLETE
+    - Hero Section & Visual Hierarchy (Sprint 16)       COMPLETE
+    - Information Architecture & Data Viz (Sprint 17)   COMPLETE
+    - Polish, Animations & Final Touches (Sprint 18)    COMPLETE
+    - See: docs/UI_UX_IMPROVEMENT_PLAN.md
+
+Phase 2: Company Intelligence & Networking (Sprints 19-21)  NOT STARTED
   - Hiring Manager Inference (PRD 5.3)
   - Warm Contact Identification (PRD 5.4)
   - Networking Suggestions & Outreach Drafts (PRD 5.5-5.6)
 
-Phase 3: Application Tracking & Workflows (Sprints 18+)     DEFERRED
+Phase 3: Application Tracking & Workflows (Sprints 22+)     DEFERRED
   - Application Status Tracking (PRD 5.8)
   - Contact Management & Tasks
   - Calendar/Email Integration
@@ -226,9 +237,110 @@ NEXT_PUBLIC_USER_NAME=Benjamin Black
 
 ---
 
+## Phase 1D: UI/UX Portfolio Enhancement (Sprints 15-18)
+
+**Goal:** Transform ETPS from a functional application into a visually impressive portfolio piece with modern enterprise aesthetics.
+
+**Design Philosophy:** Modern Enterprise - sophisticated blue-grays with teal accents, professional without being stuffy.
+
+**Detailed Plan:** See `docs/UI_UX_IMPROVEMENT_PLAN.md`
+
+### Sprint 15: Foundation & Design System
+
+**Goal:** Establish design foundation and core visual improvements
+
+**Status:** COMPLETE (December 2025)
+
+**Completed Tasks:**
+- Created design tokens (enterprise color palette with teal accents)
+- Updated global styles and Tailwind config
+- Enhanced header with logo and branding
+- Created reusable components (CircularProgress, ProgressBar)
+- Added Inter font from Google Fonts
+- Implemented enterprise theme with semantic colors (success/warning/danger)
+
+**Key Files Created/Modified:**
+- `frontend/src/styles/design-tokens.css`
+- `frontend/src/components/ui/circular-progress.tsx`
+- `frontend/src/components/ui/progress-bar.tsx`
+- `frontend/tailwind.config.ts`
+- `frontend/src/app/globals.css`
+
+**Estimated Effort:** 26.5 hours
+
+### Sprint 16: Hero Section & Visual Hierarchy
+
+**Goal:** Create engaging landing experience and improve information hierarchy
+
+**Status:** COMPLETE (December 2025)
+
+**Completed Tasks:**
+- Created hero/landing state with value proposition
+- Redesigned Job Details card with better spacing
+- Implemented ATS Score dashboard with CircularProgress
+- Improved page layout and spacing with gradient backgrounds
+- Added subtle background patterns and teal accent borders
+- Enhanced company profile display
+
+**Key Files Created/Modified:**
+- `frontend/src/app/page.tsx`
+- `frontend/src/components/job-intake/JobIntakeForm.tsx`
+- `frontend/src/components/job-intake/JobDetailsCard.tsx`
+- `frontend/src/components/analysis/AnalysisResults.tsx`
+
+**Estimated Effort:** 37 hours
+
+### Sprint 17: Information Architecture & Data Visualization
+
+**Goal:** Reduce information density and improve data presentation
+
+**Status:** COMPLETE (December 2025)
+
+**Completed Tasks:**
+- Refactored Capability Cluster Panel with Collapsible sections
+- Grouped skills by match type (Matched/Partial/Missing) with SkillGroup component
+- Redesigned Context Notes with collapsible UI, tooltips, and quick-insert buttons
+- Added CircularProgress and ProgressBar components for visual scores
+- Created ResultsPreview card with metrics summary
+- Added Expand All/Collapse All toggles throughout
+- Enhanced Results Panel with collapsible roles and improved styling
+
+**Key Files Created/Modified:**
+- `frontend/src/components/skills/SkillGroup.tsx` (new)
+- `frontend/src/components/skills/SkillSelectionPanel.tsx`
+- `frontend/src/components/results/ResultsPreview.tsx` (new)
+- `frontend/src/components/results/index.ts` (new)
+- `frontend/src/components/generation/ResultsPanel.tsx`
+- `frontend/src/components/job-intake/ContextNotesField.tsx`
+- `frontend/src/components/capability/CapabilityClusterPanel.tsx`
+- `frontend/src/components/ui/collapsible.tsx` (shadcn)
+- `frontend/src/components/ui/tooltip.tsx` (shadcn)
+
+**Estimated Effort:** 44 hours
+
+### Sprint 18: Polish, Animations & Final Touches
+
+**Goal:** Add micro-interactions, loading states, and final polish
+
+**Status:** Not Started
+
+**Tasks:**
+- Add smooth transitions to all interactive elements
+- Implement skeleton loaders and loading states
+- Create toast notification system
+- Design helpful empty states
+- Accessibility and performance audits
+- Update documentation and screenshots
+
+**Estimated Effort:** 61 hours
+
+**Total Phase 1D Effort:** 168.5 hours (~4 weeks)
+
+---
+
 ## Phase 2 Sprints: Company Intelligence & Networking (PRD Section 5)
 
-### Sprint 15: Hiring Manager Inference (PRD 5.3)
+### Sprint 19: Hiring Manager Inference (PRD 5.3)
 
 **Goal:** Use JD and company data to infer likely hiring managers.
 
@@ -238,7 +350,7 @@ NEXT_PUBLIC_USER_NAME=Benjamin Black
 - Score and rank hiring manager candidates with confidence levels
 - Output ranked list with justifications
 
-### Sprint 16: Warm Contact Identification (PRD 5.4)
+### Sprint 20: Warm Contact Identification (PRD 5.4)
 
 **Goal:** Identify potential warm contacts for networking.
 
@@ -248,7 +360,7 @@ NEXT_PUBLIC_USER_NAME=Benjamin Black
 - Find contacts based on shared industries (FS, consulting, defense)
 - Generate relationship strength, relevance, and role compatibility scores
 
-### Sprint 17: Networking Output Generation (PRD 5.5-5.6)
+### Sprint 21: Networking Output Generation (PRD 5.5-5.6)
 
 **Goal:** Generate networking outputs and outreach messages.
 
@@ -262,7 +374,7 @@ NEXT_PUBLIC_USER_NAME=Benjamin Black
 
 ## Phase 3 Sprints: Application Tracking & Workflows (PRD 5.8)
 
-### Sprint 18: Application Status Tracking
+### Sprint 22: Application Status Tracking
 
 **Goal:** Track application lifecycle and history.
 
@@ -271,7 +383,7 @@ NEXT_PUBLIC_USER_NAME=Benjamin Black
 - Store timeline and outcomes
 - Link resume/cover letter versions used
 
-### Sprint 19: Contact Management & Tasks
+### Sprint 23: Contact Management & Tasks
 
 **Goal:** Manage networking contacts and follow-up tasks.
 
@@ -279,7 +391,7 @@ NEXT_PUBLIC_USER_NAME=Benjamin Black
 - Track tasks and reminders per contact
 - Follow-up workflow automation
 
-### Sprint 20+: Full Production Hardening
+### Sprint 24+: Full Production Hardening
 
 JWT authentication, ownership validation, CSRF protection, audit logging - required only for multi-user deployment.
 
@@ -321,8 +433,9 @@ bandit -r . -ll --exclude ./test*  # Security scan
 ### Sprint Dependencies
 ```
 Phase 1C: Sprint 13 (Security) -> Sprint 14 (Deployment)
-Phase 2:  Sprint 15 (HM Inference) -> Sprint 16 (Warm Contacts) -> Sprint 17 (Outreach)
-Phase 3:  Sprint 18 (Tracking) -> Sprint 19 (Contact Mgmt) -> Sprint 20+ (Full Auth)
+Phase 1D: Sprint 15 (Design Foundation) -> Sprint 16 (Hero) -> Sprint 17 (Info Arch) -> Sprint 18 (Polish)
+Phase 2:  Sprint 19 (HM Inference) -> Sprint 20 (Warm Contacts) -> Sprint 21 (Outreach)
+Phase 3:  Sprint 22 (Tracking) -> Sprint 23 (Contact Mgmt) -> Sprint 24+ (Full Auth)
 ```
 
 ---
@@ -356,5 +469,5 @@ Phase 3:  Sprint 18 (Tracking) -> Sprint 19 (Contact Mgmt) -> Sprint 20+ (Full A
 
 ---
 
-*Last Updated: December 2025*
+*Last Updated: December 11, 2025*
 *For completed sprint details: `docs/archive/COMPLETED_SPRINTS.md`*

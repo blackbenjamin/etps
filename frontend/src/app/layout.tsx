@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import Providers from './providers'
+import { Toaster } from '@/components/ui/sonner'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -25,7 +26,13 @@ export default function RootLayout({
     <html lang="en" className={inter.variable}>
       <body className={`${inter.className} antialiased`}>
         <Providers>
-          {children}
+          <a href="#main-content" className="skip-link">
+            Skip to main content
+          </a>
+          <main id="main-content" tabIndex={-1}>
+            {children}
+          </main>
+          <Toaster richColors position="top-right" />
         </Providers>
       </body>
     </html>

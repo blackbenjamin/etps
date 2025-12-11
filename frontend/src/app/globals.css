@@ -285,6 +285,134 @@
   .animate-pulse-subtle {
     animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
+
+  /* Scale in animation */
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-scale-in {
+    animation: scaleIn var(--transition-base) var(--ease-out);
+  }
+
+  /* Stagger fade-in for lists */
+  @keyframes staggerFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-stagger-in {
+    animation: staggerFadeIn var(--transition-base) var(--ease-out) backwards;
+  }
+
+  .animate-stagger-in:nth-child(1) { animation-delay: 0ms; }
+  .animate-stagger-in:nth-child(2) { animation-delay: 50ms; }
+  .animate-stagger-in:nth-child(3) { animation-delay: 100ms; }
+  .animate-stagger-in:nth-child(4) { animation-delay: 150ms; }
+  .animate-stagger-in:nth-child(5) { animation-delay: 200ms; }
+  .animate-stagger-in:nth-child(6) { animation-delay: 250ms; }
+
+  /* Collapse/expand animations */
+  @keyframes collapseDown {
+    from {
+      height: var(--radix-collapsible-content-height);
+      opacity: 1;
+    }
+    to {
+      height: 0;
+      opacity: 0;
+    }
+  }
+
+  @keyframes expandUp {
+    from {
+      height: 0;
+      opacity: 0;
+    }
+    to {
+      height: var(--radix-collapsible-content-height);
+      opacity: 1;
+    }
+  }
+
+  .animate-collapse-down {
+    animation: collapseDown 200ms var(--ease-out);
+  }
+
+  .animate-expand-up {
+    animation: expandUp 200ms var(--ease-out);
+  }
+
+  /* Success checkmark animation */
+  @keyframes checkmark {
+    0% {
+      stroke-dashoffset: 100;
+    }
+    100% {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .animate-checkmark {
+    stroke-dasharray: 100;
+    animation: checkmark 0.5s var(--ease-out) forwards;
+  }
+
+  /* Shimmer effect for skeleton loaders */
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .animate-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .animate-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.4),
+      transparent
+    );
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Bounce animation for attention */
+  @keyframes bounce-gentle {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+
+  .animate-bounce-gentle {
+    animation: bounce-gentle 1s ease-in-out infinite;
+  }
 }
 
 @layer utilities {
@@ -344,5 +472,58 @@
   .focus-ring-enterprise {
     @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
     --tw-ring-color: hsl(var(--accent-teal));
+  }
+
+  /* ===========================================
+   * ACCESSIBILITY UTILITIES
+   * =========================================== */
+
+  /* Visually hidden but accessible to screen readers */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  /* Not visually hidden but accessible (for focus) */
+  .not-sr-only {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
+  /* Skip link - hidden until focused */
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50;
+    @apply focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md;
+    @apply focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring;
+  }
+
+  /* Enhanced focus indicator for keyboard navigation */
+  .focus-visible-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+
+  /* High contrast mode adjustments */
+  @media (prefers-contrast: high) {
+    .border {
+      border-width: 2px;
+    }
+
+    .focus-visible:focus {
+      outline: 3px solid currentColor;
+      outline-offset: 2px;
+    }
   }
 }

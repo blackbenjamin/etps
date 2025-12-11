@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Loader2, AlertCircle } from 'lucide-react'
+import { Loader2, AlertCircle, CheckCircle2, Briefcase } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -70,6 +71,10 @@ export function JobIntakeForm({ onJobParsed }: JobIntakeFormProps) {
     // Allow parsing if we have JD text OR a valid URL
     if (!jdText.trim() && !sourceUrl.trim()) return
 
+    const toastId = toast.loading('Parsing job description...', {
+      description: 'Extracting requirements and skills',
+    })
+
     try {
       const result = await parseJob.mutateAsync({
         jd_text: jdText || undefined,
@@ -93,10 +98,24 @@ export function JobIntakeForm({ onJobParsed }: JobIntakeFormProps) {
       // Reset any previous generation results
       resetGeneration()
 
+      toast.success('Job description parsed successfully!', {
+        id: toastId,
+        description: `${result.job_title}${result.company_name ? ` at ${result.company_name}` : ''} • ${result.extracted_skills?.length || 0} skills identified`,
+        icon: <CheckCircle2 className="h-4 w-4" />,
+      })
+
       onJobParsed?.(result)
     } catch (error) {
       console.error('Job parsing failed:', error)
-      // Error displayed via mutation state below
+      // Show toast for non-extraction errors; extraction failures show inline Alert
+      if (!(error instanceof ExtractionFailedError)) {
+        toast.error('Job parsing failed', {
+          id: toastId,
+          description: getErrorMessage(error),
+        })
+      } else {
+        toast.dismiss(toastId)
+      }
     }
   }
 
