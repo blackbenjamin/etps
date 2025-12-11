@@ -16,7 +16,7 @@ from db.database import get_db
 from db.models import JobProfile, User, Bullet
 from schemas.resume_tailor import TailorResumeRequest, TailoredResume, ResumeDocxRequest
 from services.resume_tailor import tailor_resume
-from services.docx_resume import create_resume_docx
+from services.docx_resume import create_resume_docx, create_resume_docx_async
 from services.text_resume import create_resume_text
 from services.llm import create_llm
 from middleware import limiter
@@ -125,7 +125,8 @@ async def generate_resume_docx(
     format: Literal["docx", "text", "json"] = Query(
         default="docx",
         description="Output format: docx (Word document), text (plain text), json (TailoredResume JSON)"
-    )
+    ),
+    db: Session = Depends(get_db)
 ):
     """
     Generate a resume from a TailoredResume JSON in the specified format.
@@ -228,15 +229,32 @@ async def generate_resume_docx(
             )
 
         else:  # format == "docx" (default)
-            # Generate DOCX
-            docx_bytes = create_resume_docx(
+            # Create LLM for skills categorization
+            llm = create_llm()
+
+            # Get target job title from request, job profile, or use fallback
+            job_title = body.job_title
+            if not job_title:
+                # Try to get from job profile in database
+                job_profile = db.query(JobProfile).filter(
+                    JobProfile.id == body.tailored_resume.job_profile_id
+                ).first()
+                if job_profile:
+                    job_title = job_profile.job_title
+            if not job_title:
+                job_title = "Professional"
+
+            # Generate DOCX with LLM-powered skills categorization
+            docx_bytes = await create_resume_docx_async(
                 tailored_resume=body.tailored_resume,
                 user_name=body.user_name,
                 user_email=body.user_email,
                 user_phone=body.user_phone,
                 user_linkedin=body.user_linkedin,
                 user_portfolio=body.user_portfolio,
-                education=education_dicts
+                education=education_dicts,
+                llm=llm,
+                job_title=job_title
             )
 
             filename = f"{safe_name}_Resume.docx"

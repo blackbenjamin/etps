@@ -366,6 +366,10 @@ class ResumeDocxRequest(BaseModel):
         default_factory=list,
         description="List of education entries to include"
     )
+    job_title: Optional[str] = Field(
+        None,
+        description="Target job title for skills categorization (extracted from job profile if not provided)"
+    )
 
     # Placeholder names to reject
     PLACEHOLDER_NAMES: ClassVar[set] = {

@@ -16,6 +16,8 @@ from schemas.skills_formatter import (
     SkillCategory,
     SkillsFormatterResponse,
     SKILL_CATEGORIES,
+    AdaptiveSkillCategory,
+    ThreeCategoryFormatterResponse,
 )
 from services.llm.base import BaseLLM
 
@@ -406,3 +408,340 @@ def format_skills_sync(
     """
     categories = _fallback_categorization(selected_skills)
     return {cat.category_name: cat.skills for cat in categories}
+
+
+# ============================================================================
+# Role-Adaptive 3-Category Formatting (Approach 3)
+# ============================================================================
+
+def _build_three_category_prompt(
+    skills: List[str],
+    job_title: str
+) -> str:
+    """Build the prompt for 3-category adaptive formatting."""
+    skills_list = ", ".join(skills)
+
+    return f"""Format skills for a resume targeting the "{job_title}" position.
+
+SKILLS TO CATEGORIZE:
+{skills_list}
+
+TASK: Organize these skills into EXACTLY 3 categories with smart, role-specific names.
+
+REQUIREMENTS:
+1. Create EXACTLY 3 category names that are:
+   - Specific to the "{job_title}" role (not generic names like "Technical Skills")
+   - Professional and concise (15-35 characters ideal, e.g., "Payments & FinTech", "AI & Strategy")
+   - Descriptive of the skills grouped within them
+
+2. Assign each skill to the most appropriate category
+   - Each skill must appear in exactly ONE category
+   - Use ONLY skills from the provided list - do NOT add or invent any skills
+
+3. Order categories by relevance to "{job_title}":
+   - relevance_rank=1: Most critical domain-specific skills for this role
+   - relevance_rank=2: Supporting technical skills
+   - relevance_rank=3: General/transferable professional skills
+
+EXAMPLES:
+- For "Senior Payments Engineer": "Payments & FinTech", "Cloud & Infrastructure", "Business & Tools"
+- For "Data Scientist": "AI & Machine Learning", "Data Engineering", "Programming & Tools"
+- For "Solution Consultant": "Industry Expertise", "Technical Skills", "Business Development"
+
+Return ONLY a JSON object:
+{{
+  "categories": [
+    {{"category_name": "Category Name Here", "skills": ["skill1", "skill2"], "relevance_rank": 1}},
+    {{"category_name": "Second Category", "skills": ["skill3", "skill4"], "relevance_rank": 2}},
+    {{"category_name": "Third Category", "skills": ["skill5"], "relevance_rank": 3}}
+  ]
+}}"""
+
+
+def _fallback_three_categories(
+    selected_skills: List[SelectedSkill],
+    job_title: str
+) -> ThreeCategoryFormatterResponse:
+    """
+    Fallback to simple 3-category grouping when LLM fails.
+
+    Groups skills into:
+    1. Domain/Role-Specific (based on job title keywords)
+    2. Core Technical Skills
+    3. General Professional Skills
+    """
+    job_lower = job_title.lower()
+
+    # Determine domain category name based on job title
+    if any(kw in job_lower for kw in ["payment", "fintech", "financial", "banking"]):
+        domain_name = "Payments & FinTech"
+        domain_keywords = ["payment", "fintech", "ach", "card", "pci", "nacha", "fraud", "billing"]
+    elif any(kw in job_lower for kw in ["data", "scientist", "analytics", "ml", "ai"]):
+        domain_name = "AI & Data Science"
+        domain_keywords = ["ai", "ml", "machine learning", "data", "analytics", "nlp", "llm"]
+    elif any(kw in job_lower for kw in ["consult", "solution", "architect"]):
+        domain_name = "Industry Expertise"
+        domain_keywords = ["consulting", "solution", "architecture", "strategy", "digital"]
+    elif any(kw in job_lower for kw in ["engineer", "developer", "software"]):
+        domain_name = "Software Engineering"
+        domain_keywords = ["python", "java", "api", "cloud", "aws", "azure", "docker"]
+    else:
+        domain_name = "Core Expertise"
+        domain_keywords = []
+
+    # Technical skills keywords
+    tech_keywords = [
+        "python", "sql", "java", "cloud", "aws", "azure", "gcp", "docker",
+        "kubernetes", "api", "data", "tableau", "power bi", "etl"
+    ]
+
+    # Categorize skills
+    domain_skills = []
+    tech_skills = []
+    general_skills = []
+
+    for skill in selected_skills:
+        skill_lower = skill.skill.lower()
+        if any(kw in skill_lower for kw in domain_keywords):
+            domain_skills.append(skill.skill)
+        elif any(kw in skill_lower for kw in tech_keywords):
+            tech_skills.append(skill.skill)
+        else:
+            general_skills.append(skill.skill)
+
+    # Ensure all categories have at least some skills by redistributing
+    all_skills = [s.skill for s in selected_skills]
+    if not domain_skills and all_skills:
+        # Take first third of skills
+        split = len(all_skills) // 3
+        domain_skills = all_skills[:split] if split > 0 else all_skills[:1]
+        remaining = all_skills[split:] if split > 0 else all_skills[1:]
+        tech_skills = remaining[:len(remaining)//2]
+        general_skills = remaining[len(remaining)//2:]
+
+    # Handle edge cases
+    if not tech_skills:
+        tech_skills = ["Technical Skills"][:0]  # Empty list
+    if not general_skills:
+        general_skills = []
+
+    categories = [
+        AdaptiveSkillCategory(
+            category_name=domain_name,
+            skills=domain_skills if domain_skills else ["—"],
+            relevance_rank=1
+        ),
+        AdaptiveSkillCategory(
+            category_name="Technical Skills",
+            skills=tech_skills if tech_skills else domain_skills[-1:] if domain_skills else ["—"],
+            relevance_rank=2
+        ),
+        AdaptiveSkillCategory(
+            category_name="Business & Tools",
+            skills=general_skills if general_skills else ["—"],
+            relevance_rank=3
+        ),
+    ]
+
+    # Remove placeholder categories with only "—"
+    final_categories = []
+    remaining_skills = []
+    for cat in categories:
+        if cat.skills == ["—"]:
+            remaining_skills.extend([])
+        else:
+            final_categories.append(cat)
+
+    # Ensure exactly 3 categories by redistributing if needed
+    if len(final_categories) < 3:
+        # Simple redistribution - split the largest category
+        while len(final_categories) < 3:
+            largest = max(final_categories, key=lambda c: len(c.skills))
+            if len(largest.skills) > 1:
+                split_point = len(largest.skills) // 2
+                new_skills = largest.skills[split_point:]
+                largest.skills = largest.skills[:split_point]
+                new_rank = max(c.relevance_rank for c in final_categories) + 1
+                if new_rank > 3:
+                    new_rank = 3
+                final_categories.append(AdaptiveSkillCategory(
+                    category_name=f"Additional Skills",
+                    skills=new_skills,
+                    relevance_rank=new_rank
+                ))
+            else:
+                # Can't split further, add empty category
+                final_categories.append(AdaptiveSkillCategory(
+                    category_name="Other Skills",
+                    skills=["—"],
+                    relevance_rank=3
+                ))
+
+    # Ensure ranks are 1, 2, 3
+    for i, cat in enumerate(final_categories[:3]):
+        cat.relevance_rank = i + 1
+
+    return ThreeCategoryFormatterResponse(
+        categories=final_categories[:3],
+        job_title=job_title,
+        validation_passed=True,
+        validation_errors=[],
+        fallback_used=True
+    )
+
+
+def _parse_three_category_response(
+    response: dict,
+    allowed_skills: Set[str]
+) -> tuple[List[AdaptiveSkillCategory], List[str]]:
+    """
+    Parse and validate LLM response for 3-category formatting.
+
+    Returns:
+        Tuple of (validated categories, rejected skills)
+    """
+    if not response:
+        return [], []
+
+    categories_data = response.get("categories", [])
+    if not isinstance(categories_data, list):
+        return [], []
+
+    validated_categories = []
+    rejected_skills = []
+
+    for cat_data in categories_data:
+        if not isinstance(cat_data, dict):
+            continue
+
+        category_name = cat_data.get("category_name", "")
+        skills = cat_data.get("skills", [])
+        relevance_rank = cat_data.get("relevance_rank", 1)
+
+        if not category_name or not isinstance(skills, list):
+            continue
+
+        # Validate skills against allowed list
+        valid_skills = []
+        for skill in skills:
+            if isinstance(skill, str) and skill.strip():
+                normalized = _normalize_skill_for_comparison(skill)
+                if normalized in allowed_skills:
+                    valid_skills.append(skill)
+                else:
+                    rejected_skills.append(skill)
+                    logger.warning(f"Rejected skill not in allowed list: '{skill}'")
+
+        if valid_skills:
+            # Ensure relevance_rank is valid
+            rank = relevance_rank if isinstance(relevance_rank, int) and 1 <= relevance_rank <= 3 else 1
+
+            validated_categories.append(AdaptiveSkillCategory(
+                category_name=category_name[:40],  # Truncate if too long
+                skills=valid_skills,
+                relevance_rank=rank
+            ))
+
+    return validated_categories, rejected_skills
+
+
+async def format_skills_three_categories(
+    selected_skills: List[SelectedSkill],
+    llm: BaseLLM,
+    job_title: str,
+    job_profile: Optional[JobProfile] = None
+) -> ThreeCategoryFormatterResponse:
+    """
+    Format skills into exactly 3 role-adaptive categories using LLM.
+
+    This is the primary function for Approach 3 (Hybrid) formatting.
+    Generates smart category names based on the job title/type.
+
+    Args:
+        selected_skills: Skills selected for the resume
+        llm: LLM instance for categorization
+        job_title: Job title for context (e.g., "Senior Data Scientist")
+        job_profile: Optional job profile for validation
+
+    Returns:
+        ThreeCategoryFormatterResponse with exactly 3 categories ordered by relevance
+    """
+    if not selected_skills:
+        return ThreeCategoryFormatterResponse(
+            categories=[
+                AdaptiveSkillCategory(category_name="Skills", skills=[], relevance_rank=1),
+                AdaptiveSkillCategory(category_name="Technical", skills=[], relevance_rank=2),
+                AdaptiveSkillCategory(category_name="Tools", skills=[], relevance_rank=3),
+            ],
+            job_title=job_title,
+            validation_passed=True,
+            validation_errors=[],
+            fallback_used=True
+        )
+
+    # Build allowed skills set for validation
+    allowed_skills = _build_allowed_skills_set(selected_skills, job_profile)
+
+    # Extract skill names for the prompt
+    skill_names = [s.skill for s in selected_skills]
+
+    # Build the prompt
+    prompt = _build_three_category_prompt(skill_names, job_title)
+
+    try:
+        # Call LLM
+        logger.info(f"Formatting {len(skill_names)} skills for job: {job_title}")
+        response = await llm.generate_json(
+            prompt=prompt,
+            system_prompt=(
+                "You are a professional resume skills formatter. Create exactly 3 skill "
+                "categories with smart, role-specific names. Only use skills from the "
+                "provided list - never add or invent new skills. Return valid JSON only."
+            )
+        )
+
+        # Parse and validate response
+        validated_categories, rejected_skills = _parse_three_category_response(
+            response, allowed_skills
+        )
+
+        # Check if we got valid 3 categories
+        if len(validated_categories) != 3:
+            logger.warning(
+                f"LLM returned {len(validated_categories)} categories instead of 3, using fallback"
+            )
+            return _fallback_three_categories(selected_skills, job_title)
+
+        # Ensure unique relevance ranks 1, 2, 3
+        ranks = sorted([cat.relevance_rank for cat in validated_categories])
+        if ranks != [1, 2, 3]:
+            # Fix ranks by assigning based on order
+            for i, cat in enumerate(validated_categories):
+                cat.relevance_rank = i + 1
+
+        # Sort by relevance
+        validated_categories.sort(key=lambda c: c.relevance_rank)
+
+        validation_passed = len(rejected_skills) == 0
+
+        if not validation_passed:
+            logger.warning(
+                f"LLM returned {len(rejected_skills)} invalid skills: {rejected_skills}"
+            )
+
+        logger.info(
+            f"Skills formatted into 3 categories: "
+            f"{[c.category_name for c in validated_categories]}"
+        )
+
+        return ThreeCategoryFormatterResponse(
+            categories=validated_categories,
+            job_title=job_title,
+            validation_passed=validation_passed,
+            validation_errors=rejected_skills,
+            fallback_used=False
+        )
+
+    except Exception as e:
+        logger.error(f"LLM 3-category formatting failed: {e}", exc_info=True)
+        return _fallback_three_categories(selected_skills, job_title)

@@ -59,6 +59,7 @@ FONT_SIZE_JOB_TITLE = Pt(10)
 FONT_SIZE_BULLET = Pt(10.5)
 FONT_SIZE_BULLET_CHAR = Pt(5.5)  # Smaller bullet character
 FONT_SIZE_SKILL_CATEGORY = Pt(10.5)
+FONT_SIZE_BODY = Pt(10.5)  # Body text (summary, etc.)
 
 # Indentation constants
 INDENT_SUMMARY = Inches(0.125)
@@ -664,12 +665,62 @@ def _add_bbc_experience_entry(doc: Document, role: SelectedRole):
     _add_consulting_experience_entry(doc, role, continued=False)
 
 
+async def _group_skills_by_category_async(
+    skills: list[SelectedSkill],
+    llm,
+    job_title: str,
+    job_profile=None
+) -> dict[str, list[str]]:
+    """
+    Group skills by category using LLM-powered adaptive naming.
+
+    Uses the 3-category formatter for smart, role-adaptive category names.
+    Falls back to keyword-based categorization if LLM fails.
+
+    Args:
+        skills: List of selected skills
+        llm: LLM instance for formatting (optional)
+        job_title: Job title for context
+        job_profile: Optional job profile for validation
+
+    Returns:
+        Dict mapping category names to skill lists, ordered by relevance
+    """
+    if not skills:
+        return {}
+
+    # Try LLM-powered 3-category formatting if LLM is available
+    if llm:
+        try:
+            from services.skills_formatter import format_skills_three_categories
+            response = await format_skills_three_categories(
+                selected_skills=skills,
+                llm=llm,
+                job_title=job_title,
+                job_profile=job_profile
+            )
+
+            # Convert to dict, preserving relevance order
+            return {
+                cat.category_name: cat.skills
+                for cat in sorted(response.categories, key=lambda c: c.relevance_rank)
+            }
+        except Exception as e:
+            logger.warning(f"LLM skills formatting failed, using fallback: {e}")
+
+    # Fallback to sync keyword-based categorization
+    from services.skills_formatter import format_skills_sync
+    return format_skills_sync(skills, job_profile)
+
+
 def _group_skills_by_category(skills: list[SelectedSkill]) -> dict[str, list[str]]:
     """
-    Group skills by category for display.
+    Group skills by category for display (sync fallback).
 
     Uses the skills_formatter service for consistent categorization.
     Falls back to simple keyword matching if formatter unavailable.
+
+    DEPRECATED: Use _group_skills_by_category_async for LLM-powered formatting.
     """
     if not skills:
         return {}
@@ -677,6 +728,148 @@ def _group_skills_by_category(skills: list[SelectedSkill]) -> dict[str, list[str
     # Use the sync fallback from skills_formatter
     from services.skills_formatter import format_skills_sync
     return format_skills_sync(skills)
+
+
+async def create_resume_docx_async(
+    tailored_resume: TailoredResume,
+    user_name: Optional[str] = None,
+    user_email: Optional[str] = None,
+    user_phone: Optional[str] = None,
+    user_linkedin: Optional[str] = None,
+    user_portfolio: Optional[str] = None,
+    education: Optional[list[dict]] = None,
+    llm=None,
+    job_title: str = "Professional",
+    job_profile=None
+) -> bytes:
+    """
+    Generate a DOCX resume from a TailoredResume object (async version).
+
+    Creates a new document from scratch with formatting matching the
+    Benjamin Black resume template. Uses LLM-powered skills categorization.
+
+    Args:
+        tailored_resume: The TailoredResume JSON object with selected content
+        user_name: Full name for the header
+        user_email: Email address for the header
+        user_phone: Phone number for the header (optional)
+        user_linkedin: LinkedIn URL or handle for the header (optional)
+        user_portfolio: Portfolio URL for the header (optional)
+        education: List of education entries
+        llm: LLM instance for skills formatting (optional)
+        job_title: Job title for skills category naming
+        job_profile: Optional job profile for skills validation
+
+    Returns:
+        bytes: The generated DOCX file as bytes
+    """
+    doc = Document()
+
+    # Set up page margins
+    section = doc.sections[0]
+    section.page_width = Inches(8.5)
+    section.page_height = Inches(11)
+    section.top_margin = Inches(0.9)
+    section.bottom_margin = Inches(0.56)
+    section.left_margin = Inches(0.5)
+    section.right_margin = Inches(0.5)
+
+    # === HEADER SECTION (in document header) ===
+    header = section.header
+
+    # Name
+    name_para = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
+    name_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    name_para.paragraph_format.space_after = Pt(4)
+    display_name = (user_name or "").upper()
+    name_run = name_para.add_run(display_name)
+    _set_run_font(name_run, FONT_NAME, FONT_SIZE_NAME, bold=True)
+
+    # Contact line
+    contact_para = header.add_paragraph()
+    contact_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    contact_para.paragraph_format.space_after = Pt(12)
+
+    # Build contact parts
+    contact_parts = []
+    if user_email:
+        contact_parts.append(user_email)
+    if user_phone:
+        contact_parts.append(user_phone)
+    if user_linkedin:
+        contact_parts.append(user_linkedin)
+
+    for i, part in enumerate(contact_parts):
+        contact_run = contact_para.add_run(part)
+        _set_run_font(contact_run, FONT_NAME, FONT_SIZE_CONTACT)
+        if i < len(contact_parts) - 1 or user_portfolio:
+            sep_run = contact_para.add_run(" • ")
+            _set_run_font(sep_run, FONT_NAME, FONT_SIZE_CONTACT)
+
+    if user_portfolio:
+        portfolio_run = contact_para.add_run(user_portfolio)
+        _set_run_font(portfolio_run, FONT_NAME, FONT_SIZE_CONTACT)
+
+    # === PROFESSIONAL SUMMARY ===
+    if tailored_resume.summary:
+        _add_section_header(doc, "Summary")
+        summary_para = doc.add_paragraph()
+        summary_para.paragraph_format.space_after = Pt(6)
+        summary_run = summary_para.add_run(tailored_resume.summary)
+        _set_run_font(summary_run, FONT_NAME, FONT_SIZE_BODY)
+
+    # === PROFESSIONAL EXPERIENCE ===
+    if tailored_resume.selected_roles:
+        _add_section_header(doc, "Professional Experience")
+
+        for role in tailored_resume.selected_roles:
+            if _is_consulting_role(role):
+                _add_consulting_experience_entry(doc, role, continued=False)
+            else:
+                _add_experience_entry(doc, role)
+
+    # === TECHNICAL SKILLS (with LLM-powered categorization) ===
+    if tailored_resume.selected_skills:
+        _add_section_header(doc, "Technical Skills")
+
+        # Use async LLM-powered formatting
+        grouped_skills = await _group_skills_by_category_async(
+            tailored_resume.selected_skills,
+            llm=llm,
+            job_title=job_title,
+            job_profile=job_profile
+        )
+
+        for category, skill_list in grouped_skills.items():
+            skills_para = doc.add_paragraph()
+            skills_para.paragraph_format.left_indent = Inches(0)
+            skills_para.paragraph_format.space_after = Pt(2)
+
+            cat_run = skills_para.add_run(f"{category}: ")
+            _set_run_font(cat_run, FONT_NAME, FONT_SIZE_SKILL_CATEGORY, bold=True)
+
+            skills_text = ", ".join(skill_list)
+            skills_run = skills_para.add_run(skills_text)
+            _set_run_font(skills_run, FONT_NAME, FONT_SIZE_SKILL_CATEGORY)
+
+    # === EDUCATION ===
+    if education:
+        _add_section_header(doc, "Education")
+        for edu_entry in education:
+            _add_education_entry(doc, edu_entry)
+
+    # Save to bytes
+    buffer = io.BytesIO()
+    try:
+        doc.save(buffer)
+        buffer.seek(0)
+        docx_bytes = buffer.read()
+    except Exception as e:
+        logger.error(f"Failed to serialize DOCX document: {str(e)}", exc_info=True)
+        raise ValueError(f"Failed to generate DOCX document: {str(e)}")
+
+    logger.info(f"Generated DOCX resume with {len(tailored_resume.selected_roles)} roles (async, job: {job_title})")
+    return docx_bytes
 
 
 def create_resume_docx(

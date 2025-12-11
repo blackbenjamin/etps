@@ -2,10 +2,11 @@
 Skills Formatter Schemas
 
 Pydantic models for LLM-based skills categorization with validation guardrails.
+Supports both generic categorization and role-adaptive 3-category formatting.
 """
 
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class SkillCategory(BaseModel):
@@ -61,3 +62,82 @@ SKILL_CATEGORIES = [
     "Visualization & BI",  # Tableau, Power BI, dashboards
     "Other Technical Skills",  # Catch-all for uncategorized
 ]
+
+
+# ============================================================================
+# Role-Adaptive 3-Category Formatting (Approach 3)
+# ============================================================================
+
+class AdaptiveSkillCategory(BaseModel):
+    """
+    A skill category with adaptive, job-specific naming.
+
+    Used for the 3-category formatting that adapts category names
+    to the specific job type (e.g., "Payments & FinTech" for a payments role).
+    """
+    category_name: str = Field(
+        ...,
+        description="Job-adaptive category name (e.g., 'Payments & FinTech', 'AI & Strategy')",
+        min_length=3,
+        max_length=40
+    )
+    skills: List[str] = Field(
+        default_factory=list,
+        description="Skills in this category, ordered by relevance"
+    )
+    relevance_rank: int = Field(
+        ...,
+        description="Rank order (1=most relevant to job, 3=least relevant)",
+        ge=1,
+        le=3
+    )
+
+    @field_validator('relevance_rank')
+    @classmethod
+    def validate_relevance_rank(cls, v: int) -> int:
+        """Ensure relevance_rank is 1, 2, or 3."""
+        if v not in (1, 2, 3):
+            raise ValueError(f"relevance_rank must be 1, 2, or 3, got {v}")
+        return v
+
+
+class ThreeCategoryFormatterResponse(BaseModel):
+    """
+    LLM response for exactly 3 role-adaptive skill categories.
+
+    This is the primary response format for the hybrid Approach 3,
+    which generates smart category names based on job type.
+    """
+    categories: List[AdaptiveSkillCategory] = Field(
+        ...,
+        description="Exactly 3 skill categories ordered by job relevance"
+    )
+    job_title: str = Field(
+        ...,
+        description="The job title used for category naming"
+    )
+    validation_passed: bool = Field(
+        ...,
+        description="Whether all returned skills passed validation"
+    )
+    validation_errors: List[str] = Field(
+        default_factory=list,
+        description="Skills that were rejected (not in allowed list)"
+    )
+    fallback_used: bool = Field(
+        default=False,
+        description="Whether fallback categorization was used"
+    )
+
+    @field_validator('categories')
+    @classmethod
+    def validate_three_categories(cls, v: List[AdaptiveSkillCategory]) -> List[AdaptiveSkillCategory]:
+        """Ensure exactly 3 categories with unique relevance ranks."""
+        if len(v) != 3:
+            raise ValueError(f"Must have exactly 3 categories, got {len(v)}")
+
+        ranks = sorted([cat.relevance_rank for cat in v])
+        if ranks != [1, 2, 3]:
+            raise ValueError(f"Categories must have relevance ranks 1, 2, 3, got {ranks}")
+
+        return sorted(v, key=lambda c: c.relevance_rank)

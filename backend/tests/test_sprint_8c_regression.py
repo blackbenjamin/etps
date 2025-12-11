@@ -583,8 +583,8 @@ class TestTailorResumePaginationAware:
         sig = inspect.signature(tailor_resume)
         pagination_param = sig.parameters['enable_pagination_aware']
 
-        # Should have a default value (False)
-        assert pagination_param.default is False
+        # Should have a default value (True - pagination is now enabled by default)
+        assert pagination_param.default is True
 
     def test_pagination_service_dataclasses(self):
         """Test pagination dataclasses are properly defined."""

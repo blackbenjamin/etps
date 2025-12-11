@@ -14,7 +14,7 @@
 
 **Next Up:** Phase 2 - Company Intelligence & Networking (Sprints 19-21)
 
-**Tests:** 783 passing
+**Tests:** 730 passing
 
 > For detailed task lists and implementation notes from completed sprints, see `docs/archive/COMPLETED_SPRINTS.md`
 
@@ -51,6 +51,7 @@ Phase 1: Core (Sprints 1-18)                            COMPLETE
     - Pagination-Aware Layout (enhanced: dynamic engagement bullet condensation)
     - Frontend MVP (Next.js + Job Intake UI)
     - Capability-Aware Skill Extraction
+    - LLM-Powered 3-Category Skills Formatting (role-adaptive category names)
 
   Phase 1B: Company Enrichment (Sprints 11-12)          COMPLETE
     - Company Profile Enrichment from JD

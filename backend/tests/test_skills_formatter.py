@@ -198,11 +198,15 @@ class TestFallbackCategorization:
         ]
         categories = _fallback_categorization(skills)
 
-        # These skills should be in Other
+        # Communication should be in Other
         other = next((c for c in categories if "Other" in c.category_name), None)
         assert other is not None
         assert "Communication" in other.skills
-        assert "Problem Solving" in other.skills
+
+        # Problem Solving is now matched by "Business & Consulting" category
+        business = next((c for c in categories if "Business" in c.category_name), None)
+        assert business is not None
+        assert "Problem Solving" in business.skills
 
     def test_handles_empty_skills(self):
         categories = _fallback_categorization([])

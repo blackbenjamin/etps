@@ -83,6 +83,13 @@ embeddings:
   vector_dimensions: 384      # text-embedding-3-small dimension
   index_retired_bullets: false
 
+# Skills formatting configuration
+skills_formatting:
+  mode: "three_category"      # three_category (LLM-powered) | static (keyword-based fallback)
+  max_categories: 3           # Number of skill categories (for three_category mode)
+  max_skills_per_category: 8  # Maximum skills per category
+  category_name_max_length: 40  # Maximum length for category names
+
 # Feature flags
 features:
   multi_user: false
