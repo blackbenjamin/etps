@@ -918,7 +918,7 @@ async def tailor_resume(
     enable_bullet_rewriting: bool = False,
     rewrite_strategy: Optional[str] = "both",
     enable_learning: bool = True,
-    enable_pagination_aware: bool = False  # NEW: Sprint 8C.5
+    enable_pagination_aware: bool = True  # Sprint 8C.5 - enabled by default
 ) -> TailoredResume:
     """
     Main orchestrator: Generate complete tailored resume for specific job.
