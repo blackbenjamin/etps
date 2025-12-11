@@ -1304,10 +1304,27 @@ async def tailor_resume(
             page2_footer_lines=page2_footer  # Reserve space for skills + education at bottom of page 2
         )
 
+        # Log layout status for debugging
+        logger.info(
+            f"Page layout simulation: fits_in_budget={layout.fits_in_budget}, "
+            f"total_lines={layout.total_lines}, violations={layout.violations}"
+        )
+
         # If layout overflows, apply condensation strategy
         if not layout.fits_in_budget:
             min_bullets = config.get('min_bullets_per_role', 2)
-            overflow_lines = layout.total_lines - pagination_service.get_total_budget()
+            # Calculate effective budget (accounting for page2 footer reservation)
+            effective_total_budget = pagination_service.get_page1_budget() + (
+                pagination_service.get_page2_budget() - page2_footer
+            )
+            overflow_lines = layout.total_lines - effective_total_budget
+
+            logger.info(
+                f"Pagination overflow detected: total_lines={layout.total_lines}, "
+                f"effective_budget={effective_total_budget} (p1={pagination_service.get_page1_budget()}, "
+                f"p2={pagination_service.get_page2_budget()}, footer={page2_footer}), "
+                f"overflow={overflow_lines}"
+            )
 
             if config.get('condense_older_roles', True) and overflow_lines > 0:
                 # Apply dynamic condensation based on available space
