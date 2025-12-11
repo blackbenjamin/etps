@@ -1,6 +1,6 @@
 # ETPS Data Model Reference
 
-**Version:** 1.4.3
+**Version:** 1.4.4
 **Last Updated:** December 2025
 **Source:** `backend/db/models.py`
 **Phase Status:** Phase 1A-1C Complete (Deployed to Railway + Vercel)
@@ -141,10 +141,15 @@ Client engagement within a consulting role.
 | domain_tags | JSON | Nullable | Domain categories |
 | tech_tags | JSON | Nullable | Technologies used |
 | order | Integer | Default: 0 | Display order within experience |
+| page_preference | Integer | Nullable | Preferred resume page (1 or 2); null = auto |
 
 **Relationships:**
 - `experience` → Experience (many-to-one)
 - `bullets` → Bullet[] (one-to-many, cascade delete)
+
+**Business Rules:**
+- When `page_preference = 2`, DOCX generation inserts a page break before this engagement
+- First engagement with `page_preference = 2` triggers continuation header ("Company (continued)")
 
 ---
 
@@ -449,6 +454,7 @@ The following entities have 384-dimensional embeddings for semantic search:
 | 1.4.1 | Dec 2025 | Added selected_skills, key_skills to JobProfile (Sprint 10E) |
 | 1.4.2 | Dec 2025 | Added capability_clusters, capability_cluster_cache_key, capability_analysis_timestamp to JobProfile (Sprint 11) |
 | 1.4.3 | Dec 2025 | PostgreSQL compatibility: removed ix_bullets_tags index (B-tree can't index JSON); added psycopg2-binary driver (Sprint 14) |
+| 1.4.4 | Dec 2025 | Added page_preference to Engagement for resume page break control |
 
 ---
 

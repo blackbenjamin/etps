@@ -121,6 +121,10 @@ class SelectedEngagement(BaseModel):
         None,
         description="Display label for date range (e.g., '2/2023-11/2023')"
     )
+    page_preference: Optional[int] = Field(
+        None,
+        description="Preferred page number for resume layout (1 or 2); None = auto"
+    )
     selected_bullets: List[SelectedBullet] = Field(
         default_factory=list,
         description="Selected bullets for this engagement"

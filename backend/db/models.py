@@ -159,6 +159,11 @@ class Engagement(Base):
     domain_tags: Mapped[Optional[List[str]]] = mapped_column(JSON)  # e.g., ["AI Strategy", "Data Governance"]
     tech_tags: Mapped[Optional[List[str]]] = mapped_column(JSON)  # e.g., ["Python", "Azure"]
     order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # for sorting within experience
+    page_preference: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="Preferred page number (1 or 2) for resume layout; None = auto"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, onupdate=func.now())
 

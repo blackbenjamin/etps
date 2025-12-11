@@ -216,6 +216,16 @@ def _set_keep_with_next(paragraph):
     pPr.append(keepNext)
 
 
+def _add_page_break(doc: Document):
+    """Add a page break to the document."""
+    from docx.enum.text import WD_BREAK
+    para = doc.add_paragraph()
+    para.paragraph_format.space_before = Pt(0)
+    para.paragraph_format.space_after = Pt(0)
+    run = para.add_run()
+    run.add_break(WD_BREAK.PAGE)
+
+
 def _set_run_font(run, font_name: str, font_size, bold: bool = False,
                   italic: bool = False, underline: bool = False, small_caps: bool = False):
     """Apply font formatting to a run."""
@@ -499,12 +509,54 @@ def _add_engagement_entry(doc: Document, engagement: SelectedEngagement, keep_to
             _set_keep_with_next(bullet_para)
 
 
+def _add_continuation_header(doc: Document, role: SelectedRole):
+    """
+    Add a continuation header for a consulting role on page 2.
+
+    Renders: Company Name (continued) | Location    Date Range
+    Without job title (already shown on page 1).
+
+    Args:
+        doc: The document to add to
+        role: The SelectedRole (consulting type)
+    """
+    company_para = doc.add_paragraph()
+    company_para.paragraph_format.space_before = SPACE_BEFORE_COMPANY
+    company_para.paragraph_format.space_after = SPACE_AFTER_COMPANY
+    company_para.paragraph_format.line_spacing = 1.17
+
+    # Add right-aligned tab stop for date
+    _add_right_tab_stop(company_para)
+
+    # Company name with "(continued)" suffix
+    company_text = f"{role.employer_name} (continued)"
+    _add_company_name_with_parenthetical(company_para, company_text)
+
+    # Location if present
+    if role.location:
+        loc_run = company_para.add_run(f" | {role.location}")
+        _set_run_font(loc_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL)
+
+    # Date range
+    date_range = _format_date_range(role.start_date, role.end_date)
+    company_para.add_run("\t")
+    date_run = company_para.add_run(date_range)
+    _set_run_font(date_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL)
+
+    # Keep header with first engagement
+    _set_keep_with_next(company_para)
+    _set_keep_together(company_para)
+
+
 def _add_consulting_experience_entry(doc: Document, role: SelectedRole, continued: bool = False):
     """
     Add a consulting role entry with engagements.
 
     v1.3.0: Uses selected_engagements if available, otherwise falls back to
     legacy BBC_CLIENTS matching for backward compatibility.
+
+    v1.4.0: Supports page_preference on engagements for automatic page breaks
+    with continuation headers.
 
     Args:
         doc: The document to add to
@@ -563,9 +615,18 @@ def _add_consulting_experience_entry(doc: Document, role: SelectedRole, continue
 
     # Check if we have v1.3.0 engagements
     if role.selected_engagements:
-        # Use the new engagement structure
-        # Each engagement with its bullets stays together (won't break across pages)
+        # Track if we've inserted the page break for page 2 engagements
+        page_break_inserted = False
+
         for engagement in role.selected_engagements:
+            # Check if this engagement should start on page 2
+            if engagement.page_preference == 2 and not page_break_inserted:
+                # Insert page break before first page 2 engagement
+                _add_page_break(doc)
+                # Add continuation header for page 2
+                _add_continuation_header(doc, role)
+                page_break_inserted = True
+
             _add_engagement_entry(doc, engagement, keep_together=True)
     elif role.selected_bullets:
         # No engagements but has direct bullets - render like a normal role

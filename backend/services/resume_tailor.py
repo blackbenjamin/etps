@@ -1090,6 +1090,7 @@ async def tailor_resume(
                         engagement_id=eng.id,
                         client=eng.client,
                         project_name=eng.project_name,
+                        page_preference=eng.page_preference,
                         # Note: date_range_label omitted for cleaner engagement display
                         selected_bullets=selected_eng_bullets
                     ))
