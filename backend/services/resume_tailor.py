@@ -1066,7 +1066,7 @@ async def tailor_resume(
             eng_list = select_engagements_for_experience(
                 experience=experience,
                 job_profile=job_profile,
-                max_engagements=3
+                max_engagements=4  # Allows for 2-page layout with page_preference
             )
 
             for eng in eng_list:
