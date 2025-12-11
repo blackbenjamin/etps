@@ -668,50 +668,15 @@ def _group_skills_by_category(skills: list[SelectedSkill]) -> dict[str, list[str
     """
     Group skills by category for display.
 
-    Uses common category prefixes to organize skills logically.
+    Uses the skills_formatter service for consistent categorization.
+    Falls back to simple keyword matching if formatter unavailable.
     """
     if not skills:
         return {}
 
-    # Define category mappings based on common skill patterns
-    category_patterns = {
-        "AI/ML": ["ai", "ml", "machine learning", "deep learning", "nlp", "llm",
-                  "rag", "vector", "embedding", "prompt", "neural", "transformer"],
-        "Programming": ["python", "sql", "r ", "java", "scala", "spark", "pandas",
-                       "numpy", "scikit", "tensorflow", "pytorch", "code", "script"],
-        "Data": ["data", "etl", "pipeline", "warehouse", "lake", "hadoop", "kafka",
-                "snowflake", "databricks", "dbt", "airflow", "analytics"],
-        "Cloud & Infrastructure": ["aws", "azure", "gcp", "cloud", "docker",
-                                   "kubernetes", "terraform", "devops", "ci/cd"],
-        "Governance & Strategy": ["governance", "strategy", "compliance", "policy",
-                                  "framework", "architecture", "leadership", "management"],
-        "Visualization & BI": ["tableau", "power bi", "looker", "dashboard",
-                              "visualization", "reporting", "qlik"],
-    }
-
-    categorized: dict[str, list[str]] = {}
-    uncategorized: list[str] = []
-
-    for skill in skills:
-        skill_lower = skill.skill.lower()
-        matched = False
-
-        for category, patterns in category_patterns.items():
-            if any(pattern in skill_lower for pattern in patterns):
-                if category not in categorized:
-                    categorized[category] = []
-                categorized[category].append(skill.skill)
-                matched = True
-                break
-
-        if not matched:
-            uncategorized.append(skill.skill)
-
-    # Add uncategorized skills to "Other" if any
-    if uncategorized:
-        categorized["Other"] = uncategorized
-
-    return categorized
+    # Use the sync fallback from skills_formatter
+    from services.skills_formatter import format_skills_sync
+    return format_skills_sync(skills)
 
 
 def create_resume_docx(

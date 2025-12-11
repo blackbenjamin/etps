@@ -194,6 +194,24 @@ BANNED_PHRASES: Dict[str, str] = {
 # Note: Only match true em-dash (U+2014), not double hyphens which are valid in compound words
 EM_DASH_PATTERN = r'—'
 
+# Pre-compiled regex patterns for performance (avoid re-compiling in loops)
+_EM_DASH_COMPILED = re.compile(EM_DASH_PATTERN)
+
+# Pre-compiled phrase boundary pattern template
+# Used for banned phrases and keyword matching
+def _compile_phrase_pattern(phrase: str) -> re.Pattern:
+    """Compile a phrase pattern with word boundaries (case-insensitive)."""
+    return re.compile(
+        r'(?<![a-zA-Z])' + re.escape(phrase) + r'(?![a-zA-Z])',
+        re.IGNORECASE
+    )
+
+# Pre-compile banned phrase patterns at module load time
+_BANNED_PHRASE_PATTERNS: dict[str, re.Pattern] = {
+    phrase: _compile_phrase_pattern(phrase)
+    for phrase in BANNED_PHRASES.keys()
+}
+
 # Structure templates from style guide Section 3
 STRUCTURE_TEMPLATES = {
     "standard": {
@@ -266,9 +284,8 @@ def check_em_dashes(text: str) -> List[BannedPhraseViolation]:
         List of BannedPhraseViolation for each em-dash found
     """
     violations = []
-    pattern = re.compile(EM_DASH_PATTERN)
 
-    for match in pattern.finditer(text):
+    for match in _EM_DASH_COMPILED.finditer(text):
         # Find which line this match is on
         char_pos = match.start()
         line_count = text[:char_pos].count('\n')
@@ -326,18 +343,14 @@ def check_banned_phrases(
             return "closing"
         return "body"
 
-    # Check each banned phrase
+    # Check each banned phrase using pre-compiled patterns
     for phrase, severity in BANNED_PHRASES.items():
         # Special case: "dear hiring manager" is only major if company is known
         if phrase == "dear hiring manager" and not company_name:
             severity = "minor"  # Downgrade if company unknown
 
-        # Use lookahead/lookbehind for phrase boundaries to handle punctuation
-        # \b doesn't work well at phrase boundaries with punctuation like periods
-        pattern = re.compile(
-            r'(?<![a-zA-Z])' + re.escape(phrase) + r'(?![a-zA-Z])',
-            re.IGNORECASE
-        )
+        # Use pre-compiled pattern for performance
+        pattern = _BANNED_PHRASE_PATTERNS[phrase]
 
         for match in pattern.finditer(text_lower):
             # Find which line this match is on
@@ -482,19 +495,16 @@ def analyze_ats_keyword_coverage(
     covered_keywords: List[str] = []
     missing_keywords: List[str] = []
 
+    # Import here to avoid circular import
+    from services.skill_gap import SKILL_SYNONYMS
+
     for keyword in keywords:
-        # Check direct match using phrase boundaries
-        pattern = re.compile(
-            r'(?<![a-zA-Z])' + re.escape(keyword.lower()) + r'(?![a-zA-Z])',
-            re.IGNORECASE
-        )
+        # Check direct match using phrase boundaries (compile once per keyword)
+        pattern = _compile_phrase_pattern(keyword.lower())
         if pattern.search(cover_letter_lower):
             covered_keywords.append(keyword)
         else:
             # Check if any synonym of the keyword appears in the cover letter
-            # Build list of all synonyms/variants for this keyword
-            from services.skill_gap import SKILL_SYNONYMS
-
             found_synonym = False
             normalized_keyword = normalize_skill(keyword)
 
@@ -505,10 +515,7 @@ def analyze_ats_keyword_coverage(
                     # Check if any synonym appears in cover letter
                     all_variants = [canonical] + synonyms
                     for variant in all_variants:
-                        variant_pattern = re.compile(
-                            r'(?<![a-zA-Z])' + re.escape(variant.lower()) + r'(?![a-zA-Z])',
-                            re.IGNORECASE
-                        )
+                        variant_pattern = _compile_phrase_pattern(variant.lower())
                         if variant_pattern.search(cover_letter_lower):
                             covered_keywords.append(keyword)
                             found_synonym = True
@@ -1116,10 +1123,7 @@ def analyze_requirement_coverage(
         req_lower = requirement.lower()
 
         # First try exact phrase match with word boundaries
-        phrase_pattern = re.compile(
-            r'(?<![a-zA-Z])' + re.escape(req_lower) + r'(?![a-zA-Z])',
-            re.IGNORECASE
-        )
+        phrase_pattern = _compile_phrase_pattern(req_lower)
         covered = bool(phrase_pattern.search(text_lower))
 
         # If no exact match, check for significant word overlap with word boundaries
@@ -1128,10 +1132,7 @@ def analyze_requirement_coverage(
             if req_words:
                 matching_count = 0
                 for word in req_words:
-                    word_pattern = re.compile(
-                        r'(?<![a-zA-Z])' + re.escape(word) + r'(?![a-zA-Z])',
-                        re.IGNORECASE
-                    )
+                    word_pattern = _compile_phrase_pattern(word)
                     if word_pattern.search(text_lower):
                         matching_count += 1
                 # Require at least 60% of significant words to match

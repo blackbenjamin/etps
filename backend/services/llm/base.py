@@ -126,3 +126,23 @@ class BaseLLM(ABC):
             Revised cover letter text
         """
         pass
+
+    @abstractmethod
+    async def generate_json(
+        self,
+        prompt: str,
+        system_prompt: str = None,
+        max_tokens: int = 2048
+    ) -> Dict:
+        """
+        Generate a JSON response from a prompt.
+
+        Args:
+            prompt: The input prompt requesting JSON output
+            system_prompt: Optional system prompt for context
+            max_tokens: Maximum tokens to generate
+
+        Returns:
+            Parsed JSON dict from the response
+        """
+        pass

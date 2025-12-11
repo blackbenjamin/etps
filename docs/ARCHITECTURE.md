@@ -262,6 +262,12 @@
 - Evidence mapping from JD text
 - Cluster caching for performance
 
+### skills_formatter.py
+- LLM-powered skills categorization
+- Hallucination prevention via whitelist validation
+- Fallback to keyword-based categorization
+- Returns skills grouped by category (AI/ML, Programming, Cloud, etc.)
+
 ### vector_store.py
 - Qdrant integration
 - Bullet/job indexing
@@ -381,7 +387,7 @@ QDRANT_URL=http://localhost:6333  # Vector store
 
 ## Testing Strategy
 
-### Unit Tests (700 total - December 2025)
+### Unit Tests (783 total - December 2025)
 - Service-level tests
 - Mock LLM for deterministic results
 - Mock vector store for speed
@@ -398,6 +404,7 @@ QDRANT_URL=http://localhost:6333  # Vector store
 - `test_skill_selection.py` - Interactive skill selection
 - `test_job_parser_extraction.py` - JD parsing quality
 - `test_company_enrichment.py` - Company profile enrichment
+- `test_skills_formatter.py` - Skills categorization and validation
 
 ---
 

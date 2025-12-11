@@ -14,7 +14,7 @@
 
 **Next Up:** Phase 2 - Company Intelligence & Networking (Sprints 19-21)
 
-**Tests:** 700 passing
+**Tests:** 783 passing
 
 > For detailed task lists and implementation notes from completed sprints, see `docs/archive/COMPLETED_SPRINTS.md`
 
@@ -417,9 +417,9 @@ bandit -r . -ll --exclude ./test*  # Security scan
 
 ## Test Coverage
 
-- **Total Tests:** 700 passing
-- **Coverage:** All Sprint 1-14 functionality tested
-- **Key Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_pagination_allocation.py, test_job_parser_extraction.py, test_skill_selection.py, test_capability_clusters.py, test_company_enrichment.py, test_security.py
+- **Total Tests:** 783 passing
+- **Coverage:** All Sprint 1-18 functionality tested
+- **Key Test Files:** test_bullet_rewriter.py, test_truthfulness_check.py, test_summary_rewrite.py, test_text_output.py, test_vector_store.py, test_approved_outputs.py, test_pagination_allocation.py, test_job_parser_extraction.py, test_skill_selection.py, test_capability_clusters.py, test_company_enrichment.py, test_security.py, test_skills_formatter.py
 
 ---
 

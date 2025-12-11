@@ -340,3 +340,61 @@ Return ONLY the revised cover letter body (no greeting or signature)."""
 
         logger.info(f"Revised cover letter with Claude: {len(revised.split())} words")
         return revised
+
+    async def generate_json(
+        self,
+        prompt: str,
+        system_prompt: str = None,
+        max_tokens: int = 2048
+    ) -> Dict:
+        """
+        Generate a JSON response from a prompt using Claude.
+
+        Args:
+            prompt: The input prompt requesting JSON output
+            system_prompt: Optional system prompt for context
+            max_tokens: Maximum tokens to generate
+
+        Returns:
+            Parsed JSON dict from the response
+        """
+        import json
+
+        messages = [{"role": "user", "content": prompt}]
+
+        try:
+            if system_prompt:
+                message = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    system=system_prompt,
+                    messages=messages
+                )
+            else:
+                message = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    messages=messages
+                )
+
+            response_text = message.content[0].text.strip()
+
+            # Try to extract JSON from the response
+            # Handle case where response might have markdown code blocks
+            if "```json" in response_text:
+                json_start = response_text.find("```json") + 7
+                json_end = response_text.find("```", json_start)
+                response_text = response_text[json_start:json_end].strip()
+            elif "```" in response_text:
+                json_start = response_text.find("```") + 3
+                json_end = response_text.find("```", json_start)
+                response_text = response_text[json_start:json_end].strip()
+
+            return json.loads(response_text)
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON response: {e}")
+            return {}
+        except Exception as e:
+            logger.error(f"Error generating JSON with Claude: {e}")
+            return {}

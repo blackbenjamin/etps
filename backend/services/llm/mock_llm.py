@@ -598,3 +598,93 @@ class MockLLM(BaseLLM):
             'domain_skills': domain_skills[:5],
             'confidence': 0.75
         }
+
+    async def generate_json(
+        self,
+        prompt: str,
+        system_prompt: str = None,
+        max_tokens: int = 2048
+    ) -> Dict:
+        """
+        Mock JSON generation - returns a sensible response for skills categorization.
+
+        For real LLM, this would parse the prompt and generate actual JSON.
+        MockLLM returns a basic categorization structure.
+        """
+        # For skills formatting prompts, return a mock categorization
+        if "categorize" in prompt.lower() and "skills" in prompt.lower():
+            # Extract skills from prompt (they appear after "SKILLS TO CATEGORIZE:")
+            skills_match = prompt.find("SKILLS TO CATEGORIZE:")
+            if skills_match != -1:
+                skills_section = prompt[skills_match:prompt.find("\n\nAVAILABLE")]
+                # Simple extraction of comma-separated skills
+                skills_line = skills_section.split("\n")[1] if "\n" in skills_section else ""
+                skills = [s.strip() for s in skills_line.split(",") if s.strip()]
+
+                # Use fallback categorization logic to build response
+                return {"categories": self._mock_categorize_skills(skills)}
+
+        # Default: return empty categories
+        return {"categories": []}
+
+    def _mock_categorize_skills(self, skills: List[str]) -> List[Dict]:
+        """Mock skill categorization using keyword matching."""
+        category_patterns = {
+            "AI/ML": ["ai", "ml", "machine learning", "deep learning", "nlp", "llm",
+                      "rag", "vector", "embedding", "prompt", "neural", "transformer",
+                      "generative", "gpt", "claude", "artificial intelligence"],
+            "Programming Languages & Frameworks": [
+                "python", "sql", "r ", "java", "scala", "spark", "pandas",
+                "numpy", "scikit", "tensorflow", "pytorch", "javascript", "typescript"
+            ],
+            "Data Engineering & Analytics": [
+                "data", "etl", "pipeline", "warehouse", "lake", "hadoop", "kafka",
+                "snowflake", "databricks", "dbt", "airflow", "analytics"
+            ],
+            "Cloud & Infrastructure": [
+                "aws", "azure", "gcp", "cloud", "docker",
+                "kubernetes", "terraform", "devops", "ci/cd"
+            ],
+            "Governance & Strategy": [
+                "governance", "strategy", "compliance", "policy",
+                "framework", "architecture", "leadership", "management"
+            ],
+            "Visualization & BI": [
+                "tableau", "power bi", "looker", "dashboard",
+                "visualization", "reporting", "qlik"
+            ],
+        }
+
+        categorized: Dict[str, List[str]] = {}
+        uncategorized: List[str] = []
+
+        for skill in skills:
+            skill_lower = skill.lower()
+            matched = False
+
+            for category, patterns in category_patterns.items():
+                if any(pattern in skill_lower for pattern in patterns):
+                    if category not in categorized:
+                        categorized[category] = []
+                    categorized[category].append(skill)
+                    matched = True
+                    break
+
+            if not matched:
+                uncategorized.append(skill)
+
+        # Build response
+        result = []
+        for category_name, skill_list in categorized.items():
+            result.append({
+                "category_name": category_name,
+                "skills": skill_list
+            })
+
+        if uncategorized:
+            result.append({
+                "category_name": "Other Technical Skills",
+                "skills": uncategorized
+            })
+
+        return result
