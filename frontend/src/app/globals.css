@@ -2,122 +2,347 @@
 @tailwind components;
 @tailwind utilities;
 
-/* TODO: Add ETPS-specific global styles */
+/* Import design tokens */
+@import '../styles/design-tokens.css';
 
-
+/**
+ * ETPS Design System - Global Styles
+ * Sprint 15 - Modern Enterprise Theme
+ */
 
 @layer base {
   :root {
+    /* Background & Foreground - Enterprise neutrals */
+    --background: 210 40% 98%;           /* neutral-50 */
+    --foreground: 222 47% 11%;           /* neutral-900 */
 
-    --background: 0 0% 100%;
-
-    --foreground: 0 0% 3.9%;
-
+    /* Card - Clean white with subtle contrast */
     --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
 
-    --card-foreground: 0 0% 3.9%;
-
+    /* Popover - Same as card for consistency */
     --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
 
-    --popover-foreground: 0 0% 3.9%;
+    /* Primary - Enterprise teal accent */
+    --primary: 186 94% 34%;              /* accent-teal */
+    --primary-foreground: 0 0% 100%;
 
-    --primary: 0 0% 9%;
+    /* Secondary - Subtle slate */
+    --secondary: 214 32% 91%;            /* neutral-100 */
+    --secondary-foreground: 215 25% 27%; /* neutral-700 */
 
-    --primary-foreground: 0 0% 98%;
+    /* Muted - For less prominent elements */
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;     /* neutral-500 */
 
-    --secondary: 0 0% 96.1%;
+    /* Accent - Same as primary for interactive elements */
+    --accent: 187 85% 95%;               /* Light teal */
+    --accent-foreground: 186 94% 34%;    /* accent-teal */
 
-    --secondary-foreground: 0 0% 9%;
+    /* Destructive - Danger red */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --muted: 0 0% 96.1%;
+    /* Border & Input */
+    --border: 214 32% 91%;               /* neutral-100 */
+    --input: 214 32% 91%;
+    --ring: 186 94% 34%;                 /* accent-teal for focus */
 
-    --muted-foreground: 0 0% 45.1%;
+    /* Chart colors - Enterprise palette */
+    --chart-1: 186 94% 34%;              /* Teal */
+    --chart-2: 160 84% 39%;              /* Emerald */
+    --chart-3: 215 25% 27%;              /* Navy */
+    --chart-4: 38 92% 50%;               /* Amber */
+    --chart-5: 0 84% 60%;                /* Red */
 
-    --accent: 0 0% 96.1%;
-
-    --accent-foreground: 0 0% 9%;
-
-    --destructive: 0 84.2% 60.2%;
-
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 0 0% 89.8%;
-
-    --input: 0 0% 89.8%;
-
-    --ring: 0 0% 3.9%;
-
-    --chart-1: 12 76% 61%;
-
-    --chart-2: 173 58% 39%;
-
-    --chart-3: 197 37% 24%;
-
-    --chart-4: 43 74% 66%;
-
-    --chart-5: 27 87% 67%;
-
-    --radius: 0.5rem
+    /* Radius */
+    --radius: 0.5rem;
   }
+
   .dark {
+    --background: 222 47% 11%;           /* neutral-900 */
+    --foreground: 210 40% 98%;           /* neutral-50 */
 
-    --background: 0 0% 3.9%;
+    --card: 217 33% 17%;                 /* neutral-800 */
+    --card-foreground: 210 40% 98%;
 
-    --foreground: 0 0% 98%;
+    --popover: 217 33% 17%;
+    --popover-foreground: 210 40% 98%;
 
-    --card: 0 0% 3.9%;
+    --primary: 188 94% 42%;              /* accent-teal-hover */
+    --primary-foreground: 222 47% 11%;
 
-    --card-foreground: 0 0% 98%;
+    --secondary: 215 25% 27%;            /* neutral-700 */
+    --secondary-foreground: 210 40% 98%;
 
-    --popover: 0 0% 3.9%;
+    --muted: 215 25% 27%;
+    --muted-foreground: 215 20% 65%;
 
-    --popover-foreground: 0 0% 98%;
+    --accent: 186 94% 20%;
+    --accent-foreground: 187 85% 53%;
 
-    --primary: 0 0% 98%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
 
-    --primary-foreground: 0 0% 9%;
+    --border: 215 25% 27%;
+    --input: 215 25% 27%;
+    --ring: 188 94% 42%;
 
-    --secondary: 0 0% 14.9%;
-
-    --secondary-foreground: 0 0% 98%;
-
-    --muted: 0 0% 14.9%;
-
-    --muted-foreground: 0 0% 63.9%;
-
-    --accent: 0 0% 14.9%;
-
-    --accent-foreground: 0 0% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 0 0% 14.9%;
-
-    --input: 0 0% 14.9%;
-
-    --ring: 0 0% 83.1%;
-
-    --chart-1: 220 70% 50%;
-
-    --chart-2: 160 60% 45%;
-
-    --chart-3: 30 80% 55%;
-
-    --chart-4: 280 65% 60%;
-
-    --chart-5: 340 75% 55%
+    --chart-1: 188 94% 42%;
+    --chart-2: 158 64% 52%;
+    --chart-3: 215 14% 60%;
+    --chart-4: 43 96% 56%;
+    --chart-5: 0 84% 60%;
   }
 }
-
-
 
 @layer base {
   * {
     @apply border-border;
   }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+
+  /* Respect reduced motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* ===========================================
+   * SEMANTIC COLOR UTILITIES
+   * =========================================== */
+
+  /* Success states - matched skills, high scores */
+  .text-success {
+    color: hsl(var(--success));
+  }
+  .bg-success {
+    background-color: hsl(var(--success));
+  }
+  .bg-success-light {
+    background-color: hsl(var(--success-bg));
+  }
+  .border-success {
+    border-color: hsl(var(--success-border));
+  }
+
+  /* Warning states - partial matches, medium scores */
+  .text-warning {
+    color: hsl(var(--warning));
+  }
+  .bg-warning {
+    background-color: hsl(var(--warning));
+  }
+  .bg-warning-light {
+    background-color: hsl(var(--warning-bg));
+  }
+  .border-warning {
+    border-color: hsl(var(--warning-border));
+  }
+
+  /* Danger states - missing skills, low scores */
+  .text-danger {
+    color: hsl(var(--danger));
+  }
+  .bg-danger {
+    background-color: hsl(var(--danger));
+  }
+  .bg-danger-light {
+    background-color: hsl(var(--danger-bg));
+  }
+  .border-danger {
+    border-color: hsl(var(--danger-border));
+  }
+
+  /* Info states */
+  .text-info {
+    color: hsl(var(--info));
+  }
+  .bg-info {
+    background-color: hsl(var(--info));
+  }
+  .bg-info-light {
+    background-color: hsl(var(--info-bg));
+  }
+  .border-info {
+    border-color: hsl(var(--info-border));
+  }
+
+  /* ===========================================
+   * CARD ENHANCEMENTS
+   * =========================================== */
+
+  .card-hover {
+    @apply transition-all duration-200 ease-out;
+  }
+
+  .card-hover:hover {
+    @apply shadow-lg;
+    transform: translateY(-2px);
+  }
+
+  .card-interactive {
+    @apply cursor-pointer transition-all duration-200 ease-out;
+  }
+
+  .card-interactive:hover {
+    @apply shadow-md border-primary/20;
+  }
+
+  /* ===========================================
+   * BUTTON ENHANCEMENTS
+   * =========================================== */
+
+  .btn-glow {
+    @apply transition-shadow duration-200;
+  }
+
+  .btn-glow:hover {
+    box-shadow: var(--shadow-teal);
+  }
+
+  .btn-glow-success:hover {
+    box-shadow: var(--shadow-success);
+  }
+
+  /* ===========================================
+   * TRANSITIONS & ANIMATIONS
+   * =========================================== */
+
+  .transition-base {
+    transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+    transition-timing-function: var(--ease-default);
+    transition-duration: var(--transition-base);
+  }
+
+  .transition-fast {
+    transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+    transition-timing-function: var(--ease-default);
+    transition-duration: var(--transition-fast);
+  }
+
+  /* Fade in animation */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fadeIn var(--transition-base) var(--ease-out);
+  }
+
+  /* Slide in animation */
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .animate-slide-in {
+    animation: slideIn var(--transition-base) var(--ease-out);
+  }
+
+  /* Pulse animation for loading states */
+  @keyframes pulse-subtle {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  .animate-pulse-subtle {
+    animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+@layer utilities {
+  /* ===========================================
+   * ENTERPRISE SPECIFIC UTILITIES
+   * =========================================== */
+
+  /* Text colors using design tokens */
+  .text-enterprise-navy {
+    color: hsl(var(--enterprise-navy));
+  }
+
+  .text-enterprise-slate {
+    color: hsl(var(--enterprise-slate));
+  }
+
+  .text-accent-teal {
+    color: hsl(var(--accent-teal));
+  }
+
+  /* Background colors using design tokens */
+  .bg-enterprise-navy {
+    background-color: hsl(var(--enterprise-navy));
+  }
+
+  .bg-enterprise-slate {
+    background-color: hsl(var(--enterprise-slate));
+  }
+
+  .bg-accent-teal {
+    background-color: hsl(var(--accent-teal));
+  }
+
+  /* Gradient backgrounds */
+  .bg-gradient-enterprise {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--enterprise-navy)) 0%,
+      hsl(var(--enterprise-slate)) 100%
+    );
+  }
+
+  .bg-gradient-teal {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--accent-teal)) 0%,
+      hsl(var(--accent-teal-hover)) 100%
+    );
+  }
+
+  /* Subtle background for sections */
+  .bg-subtle {
+    background-color: hsl(var(--neutral-50));
+  }
+
+  /* Focus ring using enterprise accent */
+  .focus-ring-enterprise {
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+    --tw-ring-color: hsl(var(--accent-teal));
   }
 }

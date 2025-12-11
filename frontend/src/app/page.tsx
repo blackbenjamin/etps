@@ -100,13 +100,30 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background">
-      {/* Header - Sticky */}
-      <header className="border-b bg-card sticky top-0 z-50 shadow-sm">
+      {/* Header - Sticky with enterprise gradient */}
+      <header className="border-b bg-gradient-to-r from-enterprise-navy to-enterprise-navy-light sticky top-0 z-50 shadow-md">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold">ETPS</h1>
-          <p className="text-sm text-muted-foreground">
-            Enterprise-Grade Talent Positioning System
-          </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {/* Logo mark */}
+              <div className="w-10 h-10 rounded-lg bg-teal-600 flex items-center justify-center shadow-lg">
+                <span className="text-white font-bold text-lg">E</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white tracking-tight">ETPS</h1>
+                <p className="text-xs text-white/70">
+                  Enterprise-Grade Talent Positioning System
+                </p>
+              </div>
+            </div>
+            {/* Portfolio badge */}
+            <Badge
+              variant="outline"
+              className="hidden sm:flex text-white/80 border-white/30 hover:bg-white/10 transition-colors"
+            >
+              Portfolio Project by Benjamin Black
+            </Badge>
+          </div>
         </div>
       </header>
 
