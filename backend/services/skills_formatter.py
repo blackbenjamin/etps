@@ -25,6 +25,58 @@ from services.llm.base import BaseLLM
 logger = logging.getLogger(__name__)
 
 
+# Skills that are too vague or incomplete to include on a resume
+VAGUE_SKILLS_BLOCKLIST = {
+    "international",  # Should be "International Business", "International Relations", etc.
+    "segment",        # Should be "Segment.io" or "Customer Segmentation"
+    "other",
+    "various",
+    "multiple",
+    "general",
+    "basic",
+    "advanced",
+    "senior",
+    "junior",
+    "lead",
+    "manager",
+    "director",
+    "experience",
+    "skills",
+    "knowledge",
+    "understanding",
+    "ability",
+    "proficiency",
+    "expertise",
+}
+
+
+def _is_valid_skill(skill: str) -> bool:
+    """
+    Check if a skill is valid for inclusion on a resume.
+
+    Filters out:
+    - Single-word vague terms
+    - Very short skills (likely incomplete)
+    - Skills in the blocklist
+    """
+    normalized = skill.lower().strip()
+
+    # Reject if in blocklist
+    if normalized in VAGUE_SKILLS_BLOCKLIST:
+        return False
+
+    # Allow multi-word skills even if short
+    if " " in normalized:
+        return True
+
+    # Single-word skills should be at least 3 chars and not be vague
+    # But allow acronyms like "AI", "ML", "AWS", "SQL"
+    if len(normalized) <= 2:
+        return True  # Acronyms are OK
+
+    return True
+
+
 def _normalize_skill_for_comparison(skill: str) -> str:
     """Normalize a skill string for comparison (lowercase, stripped)."""
     return skill.lower().strip()
@@ -115,6 +167,9 @@ def _fallback_categorization(
     Returns:
         List of categorized skills using keyword matching
     """
+    # Filter out vague/incomplete skills first
+    valid_skills = [s for s in selected_skills if _is_valid_skill(s.skill)]
+
     # Define category patterns - expanded to cover more domains
     category_patterns = {
         "AI/ML": ["ai", "ml", "machine learning", "deep learning", "nlp", "llm",
@@ -156,7 +211,7 @@ def _fallback_categorization(
     categorized: dict[str, list[str]] = {}
     uncategorized: list[str] = []
 
-    for skill in selected_skills:
+    for skill in valid_skills:
         skill_lower = skill.skill.lower()
         matched = False
 
@@ -221,8 +276,14 @@ async def format_skills_with_llm(
     # Build allowed skills set
     allowed_skills = _build_allowed_skills_set(selected_skills, job_profile)
 
+    # Filter out vague/incomplete skills
+    valid_skills = [s for s in selected_skills if _is_valid_skill(s.skill)]
+    filtered_out = [s.skill for s in selected_skills if not _is_valid_skill(s.skill)]
+    if filtered_out:
+        logger.info(f"Filtered out {len(filtered_out)} vague skills: {filtered_out}")
+
     # Extract skill names for the prompt
-    skill_names = [s.skill for s in selected_skills]
+    skill_names = [s.skill for s in valid_skills]
 
     # Build the prompt
     prompt = _build_categorization_prompt(
@@ -474,6 +535,9 @@ def _fallback_three_categories(
     2. Core Technical Skills
     3. General Professional Skills
     """
+    # Filter out vague/incomplete skills first
+    valid_skills = [s for s in selected_skills if _is_valid_skill(s.skill)]
+
     job_lower = job_title.lower()
 
     # Determine domain category name based on job title
@@ -504,7 +568,7 @@ def _fallback_three_categories(
     tech_skills = []
     general_skills = []
 
-    for skill in selected_skills:
+    for skill in valid_skills:
         skill_lower = skill.skill.lower()
         if any(kw in skill_lower for kw in domain_keywords):
             domain_skills.append(skill.skill)
@@ -514,7 +578,7 @@ def _fallback_three_categories(
             general_skills.append(skill.skill)
 
     # Ensure all categories have at least some skills by redistributing
-    all_skills = [s.skill for s in selected_skills]
+    all_skills = [s.skill for s in valid_skills]
     if not domain_skills and all_skills:
         # Take first third of skills
         split = len(all_skills) // 3
@@ -686,8 +750,28 @@ async def format_skills_three_categories(
     # Build allowed skills set for validation
     allowed_skills = _build_allowed_skills_set(selected_skills, job_profile)
 
-    # Extract skill names for the prompt
-    skill_names = [s.skill for s in selected_skills]
+    # Extract skill names for the prompt, filtering out vague/incomplete skills
+    skill_names = [s.skill for s in selected_skills if _is_valid_skill(s.skill)]
+
+    # Log any filtered skills
+    filtered_skills = [s.skill for s in selected_skills if not _is_valid_skill(s.skill)]
+    if filtered_skills:
+        logger.info(f"Filtered out {len(filtered_skills)} vague skills: {filtered_skills}")
+
+    # If all skills were filtered, return empty response
+    if not skill_names:
+        logger.warning("All skills were filtered out as vague/incomplete")
+        return ThreeCategoryFormatterResponse(
+            categories=[
+                AdaptiveSkillCategory(category_name="Skills", skills=[], relevance_rank=1),
+                AdaptiveSkillCategory(category_name="Technical", skills=[], relevance_rank=2),
+                AdaptiveSkillCategory(category_name="Tools", skills=[], relevance_rank=3),
+            ],
+            job_title=job_title,
+            validation_passed=True,
+            validation_errors=filtered_skills,
+            fallback_used=True
+        )
 
     # Build the prompt
     prompt = _build_three_category_prompt(skill_names, job_title)

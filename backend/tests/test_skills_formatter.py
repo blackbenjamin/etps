@@ -17,6 +17,7 @@ from services.skills_formatter import (
     _validate_llm_response,
     _fallback_categorization,
     _parse_llm_response,
+    _is_valid_skill,
 )
 
 
@@ -379,3 +380,90 @@ class TestSkillsFormatterSchema:
         assert "AI/ML" in SKILL_CATEGORIES
         assert "Programming Languages & Frameworks" in SKILL_CATEGORIES
         assert "Cloud & Infrastructure" in SKILL_CATEGORIES
+
+
+# Test vague skills filtering
+class TestVagueSkillsFiltering:
+    """Tests for filtering out vague/incomplete skills from resumes."""
+
+    def test_filters_single_word_vague_skills(self):
+        """Vague single-word skills like 'International' and 'Segment' should be filtered."""
+        assert not _is_valid_skill("International")
+        assert not _is_valid_skill("international")
+        assert not _is_valid_skill("Segment")
+        assert not _is_valid_skill("segment")
+
+    def test_filters_blocklisted_terms(self):
+        """Common vague terms should be filtered."""
+        assert not _is_valid_skill("experience")
+        assert not _is_valid_skill("skills")
+        assert not _is_valid_skill("knowledge")
+        assert not _is_valid_skill("expertise")
+        assert not _is_valid_skill("proficiency")
+        assert not _is_valid_skill("other")
+        assert not _is_valid_skill("various")
+
+    def test_allows_valid_technical_skills(self):
+        """Valid technical skills should pass through."""
+        assert _is_valid_skill("Python")
+        assert _is_valid_skill("Machine Learning")
+        assert _is_valid_skill("AWS")
+        assert _is_valid_skill("PCI DSS")
+        assert _is_valid_skill("Data Governance")
+
+    def test_allows_multi_word_skills_with_vague_terms(self):
+        """Multi-word skills should be allowed even if they contain vague words."""
+        assert _is_valid_skill("International Business")
+        assert _is_valid_skill("Customer Segmentation")
+        assert _is_valid_skill("Advanced Analytics")
+        assert _is_valid_skill("Leadership Skills")
+
+    def test_allows_short_acronyms(self):
+        """Short acronyms like AI, ML should be allowed."""
+        assert _is_valid_skill("AI")
+        assert _is_valid_skill("ML")
+        assert _is_valid_skill("BI")
+
+    def test_fallback_categorization_filters_vague_skills(self):
+        """Fallback categorization should filter out vague skills."""
+        skills_with_vague = [
+            SelectedSkill(
+                skill="Python",
+                priority_score=0.9,
+                match_type="direct_match",
+                source="user_master_resume"
+            ),
+            SelectedSkill(
+                skill="International",  # Vague - should be filtered
+                priority_score=0.5,
+                match_type="adjacent_skill",
+                source="job_requirements"
+            ),
+            SelectedSkill(
+                skill="Segment",  # Vague - should be filtered
+                priority_score=0.4,
+                match_type="adjacent_skill",
+                source="job_requirements"
+            ),
+            SelectedSkill(
+                skill="AWS",
+                priority_score=0.8,
+                match_type="direct_match",
+                source="user_master_resume"
+            ),
+        ]
+
+        categories = _fallback_categorization(skills_with_vague)
+
+        # Collect all skills from all categories
+        all_skills = []
+        for cat in categories:
+            all_skills.extend(cat.skills)
+
+        # Python and AWS should be present
+        assert "Python" in all_skills
+        assert "AWS" in all_skills
+
+        # Vague skills should be filtered out
+        assert "International" not in all_skills
+        assert "Segment" not in all_skills
