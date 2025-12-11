@@ -113,30 +113,41 @@ def _fallback_categorization(
     Returns:
         List of categorized skills using keyword matching
     """
-    # Define category patterns (same as original docx_resume.py)
+    # Define category patterns - expanded to cover more domains
     category_patterns = {
         "AI/ML": ["ai", "ml", "machine learning", "deep learning", "nlp", "llm",
                   "rag", "vector", "embedding", "prompt", "neural", "transformer",
-                  "generative", "gpt", "claude", "artificial intelligence"],
+                  "generative", "gpt", "claude", "artificial intelligence", "copilot"],
         "Programming Languages & Frameworks": [
             "python", "sql", "r ", "java", "scala", "spark", "pandas",
-            "numpy", "scikit", "tensorflow", "pytorch", "javascript", "typescript"
+            "numpy", "scikit", "tensorflow", "pytorch", "javascript", "typescript",
+            "api", "integration"
         ],
         "Data Engineering & Analytics": [
             "data", "etl", "pipeline", "warehouse", "lake", "hadoop", "kafka",
-            "snowflake", "databricks", "dbt", "airflow", "analytics"
+            "snowflake", "databricks", "dbt", "airflow", "analytics", "segment"
         ],
         "Cloud & Infrastructure": [
             "aws", "azure", "gcp", "cloud", "docker",
             "kubernetes", "terraform", "devops", "ci/cd"
         ],
+        "Payments & FinTech": [
+            "payment", "fintech", "ach", "card", "pci", "nacha", "fraud",
+            "billing", "wallet", "transaction", "merchant"
+        ],
         "Governance & Strategy": [
-            "governance", "strategy", "compliance", "policy",
-            "framework", "architecture", "leadership", "management"
+            "governance", "strategy", "compliance", "policy", "risk",
+            "framework", "architecture", "leadership", "management",
+            "digital transformation", "transformation"
+        ],
+        "Business & Consulting": [
+            "consulting", "business development", "use case", "marketing",
+            "problem solving", "critical thinking", "workshop", "presentation",
+            "stakeholder", "executive"
         ],
         "Visualization & BI": [
             "tableau", "power bi", "looker", "dashboard",
-            "visualization", "reporting", "qlik"
+            "visualization", "reporting", "qlik", "miro", "visio"
         ],
     }
 
