@@ -811,11 +811,11 @@ async def create_resume_docx_async(
         _set_run_font(portfolio_run, FONT_NAME, FONT_SIZE_CONTACT)
 
     # === PROFESSIONAL SUMMARY ===
-    if tailored_resume.summary:
+    if tailored_resume.tailored_summary:
         _add_section_header(doc, "Summary")
         summary_para = doc.add_paragraph()
         summary_para.paragraph_format.space_after = Pt(6)
-        summary_run = summary_para.add_run(tailored_resume.summary)
+        summary_run = summary_para.add_run(tailored_resume.tailored_summary)
         _set_run_font(summary_run, FONT_NAME, FONT_SIZE_BODY)
 
     # === PROFESSIONAL EXPERIENCE ===
