@@ -48,7 +48,7 @@ Phase 1: Core (Sprints 1-18)                            COMPLETE
     - Schema Migration (v1.3.0 with engagements)
     - Bullet Rewriting & Summary Rewrite Engine
     - Qdrant Vector Search & Learning System
-    - Pagination-Aware Layout
+    - Pagination-Aware Layout (enhanced: dynamic engagement bullet condensation)
     - Frontend MVP (Next.js + Job Intake UI)
     - Capability-Aware Skill Extraction
 

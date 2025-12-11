@@ -209,7 +209,7 @@
 ### resume_tailor.py (Orchestrator)
 - Main entry point for resume generation
 - Coordinates all other services
-- Handles pagination-aware allocation
+- Handles pagination-aware allocation with dynamic engagement bullet condensation
 - Returns `TailoredResume` schema
 
 ### skill_gap.py
@@ -244,6 +244,7 @@
 - Page split simulation
 - Orphan header detection
 - Bullet compression
+- Dynamic engagement bullet allocation (condenses on overflow)
 
 ### cover_letter.py
 - Cover letter generation with critic loop
@@ -342,10 +343,12 @@ critic:
   ats_score_threshold: 75
 
 pagination:
-  page1_line_budget: 50
+  page1_line_budget: 52
   page2_line_budget: 55
   chars_per_line_estimate: 75
+  education_lines: 4         # Page 2 space for education
   compression_enabled: true
+  condense_older_roles: true # Dynamic engagement bullet condensation
 ```
 
 ### Environment Variables
