@@ -227,7 +227,8 @@ def _add_page_break(doc: Document):
 
 
 def _set_run_font(run, font_name: str, font_size, bold: bool = False,
-                  italic: bool = False, underline: bool = False, small_caps: bool = False):
+                  italic: bool = False, underline: bool = False, small_caps: bool = False,
+                  color: RGBColor = None):
     """Apply font formatting to a run."""
     run.font.name = font_name
     run._element.rPr.rFonts.set(qn('w:eastAsia'), font_name)
@@ -236,6 +237,12 @@ def _set_run_font(run, font_name: str, font_size, bold: bool = False,
     run.font.italic = italic
     run.font.underline = underline
     run.font.small_caps = small_caps
+    if color:
+        run.font.color.rgb = color
+
+
+# Gray color for secondary text (pipe, location, date range)
+COLOR_GRAY = RGBColor(128, 128, 128)  # Medium gray
 
 
 def _add_bullet_point(doc: Document, text: str, indent_left: float = INDENT_BULLET_LEFT,
@@ -249,6 +256,7 @@ def _add_bullet_point(doc: Document, text: str, indent_left: float = INDENT_BULL
     para.paragraph_format.left_indent = indent_left
     para.paragraph_format.first_line_indent = indent_hanging
     para.paragraph_format.space_after = SPACE_AFTER_BULLET
+    para.paragraph_format.line_spacing = 1.08  # Tighter line spacing for bullets
 
     # Add tab stop for bullet-to-text spacing (at the left_indent position)
     tab_stops = para.paragraph_format.tab_stops
@@ -430,9 +438,9 @@ def _add_bbc_client_entry(doc: Document, client_name: str, date_range: str,
     name_run = client_para.add_run(client_name)
     _set_run_font(name_run, FONT_NAME, FONT_SIZE_BULLET, bold=True)
 
-    # Date in parentheses (not bold)
+    # Date in parentheses (not bold, gray)
     date_run = client_para.add_run(f" ({date_range})")
-    _set_run_font(date_run, FONT_NAME, Pt(9.5))
+    _set_run_font(date_run, FONT_NAME, Pt(9.5), color=COLOR_GRAY)
 
     # Keep client header with first bullet (header should never orphan)
     if bullets:
@@ -532,16 +540,16 @@ def _add_continuation_header(doc: Document, role: SelectedRole):
     company_text = f"{role.employer_name} (continued)"
     _add_company_name_with_parenthetical(company_para, company_text)
 
-    # Location if present
+    # Location if present (gray)
     if role.location:
         loc_run = company_para.add_run(f" | {role.location}")
-        _set_run_font(loc_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL)
+        _set_run_font(loc_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL, color=COLOR_GRAY)
 
-    # Date range
+    # Date range (gray)
     date_range = _format_date_range(role.start_date, role.end_date)
     company_para.add_run("\t")
     date_run = company_para.add_run(date_range)
-    _set_run_font(date_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL)
+    _set_run_font(date_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL, color=COLOR_GRAY)
 
     # Keep header with first engagement
     _set_keep_with_next(company_para)
@@ -578,16 +586,16 @@ def _add_consulting_experience_entry(doc: Document, role: SelectedRole, continue
         company_text = f"{company_text} (continued)"
     _add_company_name_with_parenthetical(company_para, company_text)
 
-    # Location if present (separate from parenthetical in company name)
+    # Location if present (gray, separate from parenthetical in company name)
     if role.location:
         loc_run = company_para.add_run(f" | {role.location}")
-        _set_run_font(loc_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL)
+        _set_run_font(loc_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL, color=COLOR_GRAY)
 
-    # Date range (using single tab to right-aligned tab stop)
+    # Date range (gray, using single tab to right-aligned tab stop)
     date_range = _format_date_range(role.start_date, role.end_date)
     company_para.add_run("\t")  # Single tab to right-aligned stop
     date_run = company_para.add_run(date_range)
-    _set_run_font(date_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL)
+    _set_run_font(date_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL, color=COLOR_GRAY)
 
     # Apply keep together to header
     _set_keep_with_next(company_para)
@@ -893,16 +901,16 @@ def _add_experience_entry(doc: Document, role: SelectedRole):
     # Company name with parenthetical in italics (e.g., "KeyLogic (assigned to Kessel Run)")
     _add_company_name_with_parenthetical(company_para, role.employer_name)
 
-    # Location if present (separate from parenthetical in company name)
+    # Location if present (gray, separate from parenthetical in company name)
     if role.location:
         loc_run = company_para.add_run(f" | {role.location}")
-        _set_run_font(loc_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL)
+        _set_run_font(loc_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL, color=COLOR_GRAY)
 
-    # Date range (using single tab to right-aligned tab stop)
+    # Date range (gray, using single tab to right-aligned tab stop)
     date_range = _format_date_range(role.start_date, role.end_date)
     company_para.add_run("\t")  # Single tab to right-aligned stop
     date_run = company_para.add_run(date_range)
-    _set_run_font(date_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL)
+    _set_run_font(date_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL, color=COLOR_GRAY)
 
     # Job title (bold, italic) - aligned with company name
     title_para = doc.add_paragraph()
@@ -929,11 +937,11 @@ def _add_education_entry(doc: Document, edu: dict):
     inst_run = inst_para.add_run(edu.get("institution", ""))
     _set_run_font(inst_run, FONT_NAME, FONT_SIZE_COMPANY, bold=True, underline=True)
 
-    # Location if present
+    # Location if present (gray)
     location = edu.get("location")
     if location:
         loc_run = inst_para.add_run(f" ({location})")
-        _set_run_font(loc_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL)
+        _set_run_font(loc_run, FONT_NAME, FONT_SIZE_COMPANY_DETAIL, color=COLOR_GRAY)
 
     # Degree (bold, italic) - no indentation, aligns with institution name
     degree = edu.get("degree")
