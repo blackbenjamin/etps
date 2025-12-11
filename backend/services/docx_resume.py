@@ -37,8 +37,11 @@ except ImportError:
         {"name": "Fidelity Investments", "start": "8/2016", "end": "11/2016"},
     ]
 
-# Approximate lines per page for multi-page detection (conservative estimate)
-LINES_PER_PAGE = 45
+# Approximate lines per page for multi-page detection
+# Page 1: 52 lines (less space due to header/contact info)
+# Page 2: 59 lines (slightly more usable space)
+LINES_PER_PAGE_1 = 52
+LINES_PER_PAGE_2 = 59
 LINES_PER_BULLET = 2  # Average lines per bullet including spacing
 
 
