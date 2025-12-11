@@ -620,7 +620,10 @@ def _add_consulting_experience_entry(doc: Document, role: SelectedRole, continue
 
         for engagement in role.selected_engagements:
             # Check if this engagement should start on page 2
-            if engagement.page_preference == 2 and not page_break_inserted:
+            # Handle both int and string values (DB may store as either)
+            page_pref = engagement.page_preference
+            should_break = (page_pref == 2 or page_pref == "2") and not page_break_inserted
+            if should_break:
                 # Insert page break before first page 2 engagement
                 _add_page_break(doc)
                 # Add continuation header for page 2
