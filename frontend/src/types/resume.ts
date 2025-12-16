@@ -47,6 +47,15 @@ export interface TailoringRationale {
   strengths_highlighted: string[]
 }
 
+export interface ATSBreakdown {
+  keyword_score: number
+  format_score: number
+  skills_score: number
+  total_keywords: number
+  keywords_matched: number
+  keywords_missing: string[]
+}
+
 export interface TailoredResume {
   job_profile_id: number
   user_id: number
@@ -57,6 +66,7 @@ export interface TailoredResume {
   rationale: TailoringRationale
   skill_gap_summary?: Record<string, unknown>
   ats_score_estimate?: number
+  ats_breakdown?: ATSBreakdown
   match_score: number
   generated_at: string
   constraints_validated: boolean

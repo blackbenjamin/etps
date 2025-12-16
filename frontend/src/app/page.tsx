@@ -342,6 +342,7 @@ export default function Home() {
             {(resume?.ats_score_estimate ?? resume?.ats_score) && (
               <ATSScoreCard
                 score={(resume.ats_score_estimate ?? resume.ats_score)!}
+                breakdown={resume.ats_breakdown}
                 explanation={resume.tailoring_rationale ?? resume.rationale?.summary_approach}
                 suggestions={resume.critic_result?.improvement_suggestions}
               />

@@ -1511,6 +1511,14 @@ async def tailor_resume(
     # Compute ATS score
     ats_result = compute_ats_score(job_profile, content_for_ats, "resume")
     ats_score = round(ats_result.overall_score, 1)
+    ats_breakdown = {
+        "keyword_score": round(ats_result.keyword_score, 1),
+        "format_score": round(ats_result.format_score, 1),
+        "skills_score": round(ats_result.skills_score, 1),
+        "total_keywords": ats_result.total_keywords,
+        "keywords_matched": ats_result.keywords_matched,
+        "keywords_missing": ats_result.keywords_missing,
+    }
 
     # Build final response
     return TailoredResume(
@@ -1523,6 +1531,7 @@ async def tailor_resume(
         rationale=rationale,
         skill_gap_summary=skill_gap_summary,
         ats_score_estimate=ats_score,
+        ats_breakdown=ats_breakdown,
         match_score=round(match_score, 1),
         generated_at=datetime.utcnow().isoformat(),
         constraints_validated=constraints_validated,

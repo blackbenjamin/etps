@@ -288,6 +288,10 @@ class TailoredResume(BaseModel):
         le=100.0,
         description="Estimated ATS compatibility score (0-100)"
     )
+    ats_breakdown: Optional[Dict] = Field(
+        None,
+        description="Detailed ATS score breakdown with keyword_score, format_score, skills_score, and missing keywords"
+    )
     match_score: float = Field(
         ...,
         ge=0.0,
