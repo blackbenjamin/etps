@@ -454,7 +454,7 @@ def select_bullets_for_role(
         selected.append(SelectedBullet(
             bullet_id=bullet.id,
             text=bullet.text,
-            relevance_score=round(score, 2),
+            relevance_score=min(round(score, 2), 1.0),  # Clamp to [0, 1]
             was_rewritten=False,  # No rewriting in initial implementation
             original_text=None,
             tags=bullet.tags or [],
@@ -473,7 +473,7 @@ def select_bullets_for_role(
             selected.append(SelectedBullet(
                 bullet_id=bullet.id,
                 text=bullet.text,
-                relevance_score=round(score, 2),
+                relevance_score=min(round(score, 2), 1.0),  # Clamp to [0, 1]
                 was_rewritten=False,
                 original_text=None,
                 tags=bullet.tags or [],
