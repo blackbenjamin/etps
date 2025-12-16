@@ -147,7 +147,7 @@ def create_experiences_and_engagements(db: Session, user: User):
         Bullet(
             user_id=user.id,
             experience_id=bbc_2025.id,
-            text="Developed enterprise-wide AI governance frameworks for a FinTech client, reducing compliance risk by 20% and accelerating production readiness for agentic and generative applications.",
+            text="Developed a tailored AI governance strategy and framework for a FinTech risk executive, grounded in regulatory best practices and the firm's operating environment.",
             tags=["AI Governance", "Compliance", "FinTech"],
             importance="high",
             ai_first_choice=True,
