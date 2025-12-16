@@ -60,6 +60,7 @@ from services.output_retrieval import (
     format_examples_for_prompt,
 )
 from services.pagination import PaginationService, PageSplitSimulator
+from services.critic import compute_ats_score
 
 
 logger = logging.getLogger(__name__)
@@ -1487,6 +1488,30 @@ async def tailor_resume(
         'critical_gaps': [g.skill for g in skill_gap_result.skill_gaps if g.importance == 'critical'][:3],
     }
 
+    # Build content dict for ATS scoring
+    content_for_ats = {
+        "tailored_summary": tailored_summary,
+        "selected_roles": [
+            {
+                "selected_bullets": [
+                    {"text": b.text} for b in role.selected_bullets
+                ] + [
+                    {"text": b.text}
+                    for eng in role.selected_engagements
+                    for b in eng.selected_bullets
+                ]
+            }
+            for role in selected_roles
+        ],
+        "selected_skills": [
+            {"skill_name": s.skill} for s in selected_skills
+        ],
+    }
+
+    # Compute ATS score
+    ats_result = compute_ats_score(job_profile, content_for_ats, "resume")
+    ats_score = round(ats_result.overall_score, 1)
+
     # Build final response
     return TailoredResume(
         job_profile_id=job_profile_id,
@@ -1497,7 +1522,7 @@ async def tailor_resume(
         selected_skills=selected_skills,
         rationale=rationale,
         skill_gap_summary=skill_gap_summary,
-        ats_score_estimate=None,  # TODO: Implement ATS scoring
+        ats_score_estimate=ats_score,
         match_score=round(match_score, 1),
         generated_at=datetime.utcnow().isoformat(),
         constraints_validated=constraints_validated,
