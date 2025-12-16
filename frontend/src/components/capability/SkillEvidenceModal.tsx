@@ -262,9 +262,9 @@ export function SkillEvidenceModal({
                               />
                               <div>
                                 <div className="text-sm font-medium">
-                                  {engagement.project_name || 'Unnamed Project'}
-                                  {engagement.client && (
-                                    <span className="text-muted-foreground"> • {engagement.client}</span>
+                                  {engagement.client || engagement.project_name || 'Unnamed Project'}
+                                  {engagement.client && engagement.project_name && (
+                                    <span className="text-muted-foreground"> • {engagement.project_name}</span>
                                   )}
                                 </div>
                                 {engagement.date_range_label && (
